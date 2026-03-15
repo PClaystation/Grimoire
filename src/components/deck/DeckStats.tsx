@@ -71,12 +71,16 @@ export function DeckStats({ stats }: DeckStatsProps) {
         <div className="min-w-0 rounded-[1.3rem] border border-white/10 bg-ink-800/55 p-4">
           <p className="text-xs font-semibold uppercase tracking-[0.18em] text-ink-400">Mainboard</p>
           <p className="mt-2 text-2xl font-semibold text-ink-50">{stats.mainboard.totalCards}</p>
-          <p className="mt-1 text-sm text-ink-400">{stats.cardsToSixty} cards to 60</p>
+          <p className="mt-1 text-sm text-ink-400">
+            {stats.cardsToTarget} cards to {stats.mainboardTarget}
+          </p>
         </div>
         <div className="min-w-0 rounded-[1.3rem] border border-white/10 bg-ink-800/55 p-4">
           <p className="text-xs font-semibold uppercase tracking-[0.18em] text-ink-400">Sideboard</p>
           <p className="mt-2 text-2xl font-semibold text-ink-50">{stats.sideboard.totalCards}</p>
-          <p className="mt-1 text-sm text-ink-400">{stats.sideboardSlotsLeft} slots left</p>
+          <p className="mt-1 text-sm text-ink-400">
+            {stats.sideboardMax === 0 ? 'Not used in this format' : `${stats.sideboardSlotsLeft} slots left`}
+          </p>
         </div>
         <div className="min-w-0 rounded-[1.3rem] border border-white/10 bg-ink-800/55 p-4">
           <p className="text-xs font-semibold uppercase tracking-[0.18em] text-ink-400">Main Avg. MV</p>

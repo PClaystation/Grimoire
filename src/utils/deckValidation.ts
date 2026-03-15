@@ -1,5 +1,6 @@
-import type { DeckCardEntry, DeckValidationIssue } from '@/types/deck'
-import { countDeckEntries } from '@/utils/format'
+import { DECK_FORMAT_CONFIG } from '@/constants/mtg'
+import type { DeckCardEntry, DeckFormat, DeckValidationIssue } from '@/types/deck'
+import { countDeckEntries, formatUsdPrice } from '@/utils/format'
 
 function isBasicLand(entry: DeckCardEntry): boolean {
   return entry.card.typeLine.includes('Basic Land')
@@ -12,10 +13,14 @@ function hasUnlimitedCopies(entry: DeckCardEntry): boolean {
 export function getDeckValidationIssues(
   mainboard: DeckCardEntry[],
   sideboard: DeckCardEntry[],
+  format: DeckFormat,
+  budgetTargetUsd: number | null,
+  totalEstimatedValueUsd: number,
 ): DeckValidationIssue[] {
   const issues: DeckValidationIssue[] = []
   const mainboardCount = countDeckEntries(mainboard)
   const sideboardCount = countDeckEntries(sideboard)
+  const formatConfig = DECK_FORMAT_CONFIG[format]
 
   if (mainboardCount === 0 && sideboardCount === 0) {
     return [
@@ -28,21 +33,36 @@ export function getDeckValidationIssues(
     ]
   }
 
-  if (mainboardCount < 60) {
+  if (mainboardCount < formatConfig.minMainboard) {
     issues.push({
       id: 'mainboard-size',
       severity: 'error',
-      title: 'Mainboard below 60 cards',
-      description: `Your mainboard has ${mainboardCount} cards. Most constructed decks need at least 60.`,
+      title: `Mainboard below ${formatConfig.minMainboard} cards`,
+      description: `${formatConfig.label} decks need at least ${formatConfig.minMainboard} mainboard cards. You currently have ${mainboardCount}.`,
     })
   }
 
-  if (sideboardCount > 15) {
+  if (format === 'commander' && mainboardCount > formatConfig.recommendedMainboard) {
+    issues.push({
+      id: 'commander-size',
+      severity: 'warning',
+      title: 'Commander deck above 100 cards',
+      description: `Commander decks are typically exactly 100 cards including the commander slot. You currently have ${mainboardCount} cards in the mainboard area.`,
+    })
+  }
+
+  if (sideboardCount > formatConfig.sideboardMax) {
     issues.push({
       id: 'sideboard-limit',
       severity: 'error',
-      title: 'Sideboard above 15 cards',
-      description: `Your sideboard has ${sideboardCount} cards. Standard sideboards typically cap at 15.`,
+      title:
+        formatConfig.sideboardMax === 0
+          ? 'This format does not use a sideboard'
+          : `Sideboard above ${formatConfig.sideboardMax} cards`,
+      description:
+        formatConfig.sideboardMax === 0
+          ? `${formatConfig.label} decks do not usually use a sideboard. Move those ${sideboardCount} cards into the mainboard or notes.`
+          : `Your sideboard has ${sideboardCount} cards. ${formatConfig.label} sideboards typically cap at ${formatConfig.sideboardMax}.`,
     })
   }
 
@@ -67,7 +87,7 @@ export function getDeckValidationIssues(
   }, new Map())
 
   const copyLimitViolations = [...combinedByOracle.values()].filter(
-    (entry) => !entry.exempt && entry.quantity > 4,
+    (entry) => !entry.exempt && entry.quantity > formatConfig.copyLimit,
   )
 
   if (copyLimitViolations.length > 0) {
@@ -82,26 +102,41 @@ export function getDeckValidationIssues(
     })
   }
 
-  const nonStandardCards = [...mainboard, ...sideboard]
-    .filter((entry) => entry.card.legalities.standard !== 'legal')
+  const nonFormatCards = [...mainboard, ...sideboard]
+    .filter((entry) => entry.card.legalities[formatConfig.legalityKey] !== 'legal')
     .map((entry) => entry.card.name)
 
-  if (nonStandardCards.length > 0) {
-    const uniqueNames = [...new Set(nonStandardCards)]
+  if (nonFormatCards.length > 0) {
+    const uniqueNames = [...new Set(nonFormatCards)]
     issues.push({
-      id: 'standard-legality',
+      id: 'format-legality',
       severity: 'warning',
-      title: 'Contains non-Standard cards',
+      title: `Contains non-${formatConfig.label} cards`,
       description: uniqueNames.slice(0, 4).join(', '),
     })
   }
 
-  if (mainboardCount >= 60 && sideboardCount <= 15 && issues.length === 0) {
+  if (budgetTargetUsd !== null && totalEstimatedValueUsd > budgetTargetUsd) {
+    issues.push({
+      id: 'budget',
+      severity: 'warning',
+      title: 'Deck exceeds the budget target',
+      description: `Estimated value ${formatUsdPrice(totalEstimatedValueUsd)} against a target of ${formatUsdPrice(
+        budgetTargetUsd,
+      )}.`,
+    })
+  }
+
+  if (
+    mainboardCount >= formatConfig.minMainboard &&
+    sideboardCount <= formatConfig.sideboardMax &&
+    issues.length === 0
+  ) {
     issues.push({
       id: 'healthy',
       severity: 'info',
       title: 'Deck structure looks valid',
-      description: 'Mainboard size, sideboard size, and copy counts are currently in a healthy range.',
+      description: `${formatConfig.label} size, sideboard, legality, and copy limits are currently in a healthy range.`,
     })
   }
 

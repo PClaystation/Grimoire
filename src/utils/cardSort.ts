@@ -27,6 +27,17 @@ export function sortCards(cards: MagicCard[], sortBy: CardSortOption): MagicCard
 
         return left.name.localeCompare(right.name)
       })
+    case 'PRICE_LOW':
+      return sortedCards.sort((left, right) => {
+        const leftPrice = getCardMarketPriceUsd(left) ?? Number.POSITIVE_INFINITY
+        const rightPrice = getCardMarketPriceUsd(right) ?? Number.POSITIVE_INFINITY
+
+        if (leftPrice !== rightPrice) {
+          return leftPrice - rightPrice
+        }
+
+        return left.name.localeCompare(right.name)
+      })
     case 'NEWEST':
       return sortedCards.sort((left, right) => {
         if (left.releasedAt !== right.releasedAt) {

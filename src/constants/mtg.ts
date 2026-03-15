@@ -1,19 +1,113 @@
 import type {
   CardColorFilter,
+  CardRarityFilter,
   CardSearchFilters,
   CardSortOption,
   CardTypeFilter,
   ManaValueFilterOption,
 } from '@/types/filters'
-import type { DeckTypeStatKey } from '@/types/deck'
+import type { DeckFormat, DeckTypeStatKey } from '@/types/deck'
 
 export const DEFAULT_FILTERS: CardSearchFilters = {
   query: '',
-  standardOnly: true,
+  format: 'standard',
+  legalityOnly: true,
   color: 'ANY',
   type: 'ANY',
   manaValue: 'ANY',
+  rarity: 'ANY',
   setCode: 'ANY',
+}
+
+export const DECK_FORMAT_OPTIONS: Array<{
+  value: DeckFormat
+  label: string
+  description: string
+}> = [
+  { value: 'standard', label: 'Standard', description: 'Current rotating premier format' },
+  { value: 'pioneer', label: 'Pioneer', description: 'Return to Ravnica forward' },
+  { value: 'modern', label: 'Modern', description: 'Eighth Edition forward' },
+  { value: 'legacy', label: 'Legacy', description: 'High-power eternal format' },
+  { value: 'vintage', label: 'Vintage', description: 'Restricted list eternal format' },
+  { value: 'pauper', label: 'Pauper', description: 'Commons-only card pool' },
+  { value: 'commander', label: 'Commander', description: 'Singleton 100-card decks' },
+]
+
+export const DECK_FORMAT_CONFIG: Record<
+  DeckFormat,
+  {
+    label: string
+    legalityKey: DeckFormat
+    minMainboard: number
+    recommendedMainboard: number
+    sideboardMax: number
+    copyLimit: number
+    requiresSingleton: boolean
+  }
+> = {
+  standard: {
+    label: 'Standard',
+    legalityKey: 'standard',
+    minMainboard: 60,
+    recommendedMainboard: 60,
+    sideboardMax: 15,
+    copyLimit: 4,
+    requiresSingleton: false,
+  },
+  pioneer: {
+    label: 'Pioneer',
+    legalityKey: 'pioneer',
+    minMainboard: 60,
+    recommendedMainboard: 60,
+    sideboardMax: 15,
+    copyLimit: 4,
+    requiresSingleton: false,
+  },
+  modern: {
+    label: 'Modern',
+    legalityKey: 'modern',
+    minMainboard: 60,
+    recommendedMainboard: 60,
+    sideboardMax: 15,
+    copyLimit: 4,
+    requiresSingleton: false,
+  },
+  legacy: {
+    label: 'Legacy',
+    legalityKey: 'legacy',
+    minMainboard: 60,
+    recommendedMainboard: 60,
+    sideboardMax: 15,
+    copyLimit: 4,
+    requiresSingleton: false,
+  },
+  vintage: {
+    label: 'Vintage',
+    legalityKey: 'vintage',
+    minMainboard: 60,
+    recommendedMainboard: 60,
+    sideboardMax: 15,
+    copyLimit: 4,
+    requiresSingleton: false,
+  },
+  pauper: {
+    label: 'Pauper',
+    legalityKey: 'pauper',
+    minMainboard: 60,
+    recommendedMainboard: 60,
+    sideboardMax: 15,
+    copyLimit: 4,
+    requiresSingleton: false,
+  },
+  commander: {
+    label: 'Commander',
+    legalityKey: 'commander',
+    minMainboard: 100,
+    recommendedMainboard: 100,
+    sideboardMax: 0,
+    copyLimit: 1,
+    requiresSingleton: true,
+  },
 }
 
 export const COLOR_FILTER_OPTIONS: Array<{
@@ -60,6 +154,17 @@ export const MANA_VALUE_OPTIONS: Array<{
   { value: '7+', label: '7+' },
 ]
 
+export const RARITY_FILTER_OPTIONS: Array<{
+  value: CardRarityFilter
+  label: string
+}> = [
+  { value: 'ANY', label: 'Any rarity' },
+  { value: 'common', label: 'Common' },
+  { value: 'uncommon', label: 'Uncommon' },
+  { value: 'rare', label: 'Rare' },
+  { value: 'mythic', label: 'Mythic' },
+]
+
 export const CARD_SORT_OPTIONS: Array<{
   value: CardSortOption
   label: string
@@ -67,6 +172,7 @@ export const CARD_SORT_OPTIONS: Array<{
   { value: 'RELEVANCE', label: 'Best match' },
   { value: 'NAME', label: 'Name A-Z' },
   { value: 'MANA_VALUE', label: 'Mana value' },
+  { value: 'PRICE_LOW', label: 'Price low-high' },
   { value: 'PRICE_HIGH', label: 'Price high-low' },
   { value: 'NEWEST', label: 'Newest print' },
 ]

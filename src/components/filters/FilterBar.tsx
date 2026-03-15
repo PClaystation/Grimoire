@@ -1,7 +1,13 @@
 import type { ChangeEvent, FormEvent } from 'react'
 import { RefreshCw, Search, Sparkles } from 'lucide-react'
 
-import { COLOR_FILTER_OPTIONS, MANA_VALUE_OPTIONS, TYPE_FILTER_OPTIONS } from '@/constants/mtg'
+import {
+  COLOR_FILTER_OPTIONS,
+  DECK_FORMAT_OPTIONS,
+  MANA_VALUE_OPTIONS,
+  RARITY_FILTER_OPTIONS,
+  TYPE_FILTER_OPTIONS,
+} from '@/constants/mtg'
 import { SectionPanel } from '@/components/ui/SectionPanel'
 import type { CardSearchFilters, CardSetOption } from '@/types/filters'
 
@@ -48,7 +54,7 @@ export function FilterBar({
   return (
     <SectionPanel
       title="Search Cards"
-      subtitle="Filter by Standard legality, color, type, mana value, and set. Search runs against Scryfall's public card API."
+      subtitle="Filter by format, legality, color, type, mana value, rarity, and set. Search runs against Scryfall's public card API."
       actions={
         <div className="inline-flex items-center gap-2 rounded-full border border-ember-400/25 bg-ember-500/10 px-3 py-1 text-xs font-medium text-ember-100">
           <Sparkles className="h-3.5 w-3.5" />
@@ -57,7 +63,7 @@ export function FilterBar({
       }
     >
       <form className="space-y-4" onSubmit={handleSubmit}>
-        <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-[minmax(20rem,2.5fr)_repeat(4,minmax(10rem,1fr))]">
+        <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-[minmax(20rem,2.3fr)_repeat(6,minmax(9rem,1fr))]">
           <label className="space-y-2">
             <span className="text-sm font-medium text-ink-200">Card name or advanced query</span>
             <div className="flex items-center gap-3 rounded-2xl border border-white/10 bg-ink-800/80 px-4 py-3 focus-within:border-tide-400 focus-within:ring-2 focus-within:ring-tide-400/30">
@@ -70,6 +76,21 @@ export function FilterBar({
                 className="w-full border-none bg-transparent text-sm text-ink-50 outline-none placeholder:text-ink-400"
               />
             </div>
+          </label>
+
+          <label className="space-y-2">
+            <span className="text-sm font-medium text-ink-200">Format</span>
+            <select
+              value={filters.format}
+              onChange={(event) => updateFilter('format', event.target.value as CardSearchFilters['format'])}
+              className="w-full rounded-2xl border border-white/10 bg-ink-800/80 px-4 py-3 text-sm text-ink-50 outline-none transition focus:border-tide-400 focus:ring-2 focus:ring-tide-400/30"
+            >
+              {DECK_FORMAT_OPTIONS.map((option) => (
+                <option key={option.value} value={option.value}>
+                  {option.label}
+                </option>
+              ))}
+            </select>
           </label>
 
           <label className="space-y-2">
@@ -120,6 +141,23 @@ export function FilterBar({
           </label>
 
           <label className="space-y-2">
+            <span className="text-sm font-medium text-ink-200">Rarity</span>
+            <select
+              value={filters.rarity}
+              onChange={(event) =>
+                updateFilter('rarity', event.target.value as CardSearchFilters['rarity'])
+              }
+              className="w-full rounded-2xl border border-white/10 bg-ink-800/80 px-4 py-3 text-sm text-ink-50 outline-none transition focus:border-tide-400 focus:ring-2 focus:ring-tide-400/30"
+            >
+              {RARITY_FILTER_OPTIONS.map((option) => (
+                <option key={option.value} value={option.value}>
+                  {option.label}
+                </option>
+              ))}
+            </select>
+          </label>
+
+          <label className="space-y-2">
             <span className="text-sm font-medium text-ink-200">Set</span>
             <select
               value={filters.setCode}
@@ -140,11 +178,11 @@ export function FilterBar({
           <label className="inline-flex items-center gap-3 rounded-2xl border border-white/10 bg-ink-800/55 px-4 py-3 text-sm text-ink-200">
             <input
               type="checkbox"
-              checked={filters.standardOnly}
-              onChange={(event) => updateFilter('standardOnly', event.target.checked)}
+              checked={filters.legalityOnly}
+              onChange={(event) => updateFilter('legalityOnly', event.target.checked)}
               className="h-4 w-4 rounded border-white/20 bg-ink-900 text-tide-500 focus:ring-tide-400/30"
             />
-            Standard legal only
+            Legal in selected format only
           </label>
 
           <div className="flex flex-wrap items-center gap-3">

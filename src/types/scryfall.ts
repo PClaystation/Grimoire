@@ -56,6 +56,13 @@ export interface ScryfallCardsResponse {
   data: ScryfallCard[]
 }
 
+export interface ScryfallCollectionResponse {
+  object: 'list'
+  has_more: boolean
+  data: ScryfallCard[]
+  not_found?: Array<Record<string, string>>
+}
+
 export interface ScryfallSet {
   id: string
   code: string
@@ -103,4 +110,9 @@ export interface CardSearchResult {
   cards: MagicCard[]
   totalCards: number
   hasMore: boolean
+}
+
+export interface DeckImportIdentifier {
+  name: string
+  setCode?: string
 }

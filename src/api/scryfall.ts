@@ -2,8 +2,10 @@ import type { CardSearchFilters, CardSetOption } from '@/types/filters'
 import type {
   CardColor,
   CardSearchResult,
+  DeckImportIdentifier,
   MagicCard,
   ScryfallCard,
+  ScryfallCollectionResponse,
   ScryfallCardsResponse,
   ScryfallImageUris,
   ScryfallSetsResponse,
@@ -43,6 +45,13 @@ const MANA_VALUE_QUERY_MAP: Record<string, string> = {
   '7+': 'mv>=7',
 }
 
+const RARITY_QUERY_MAP: Record<string, string> = {
+  common: 'r:common',
+  uncommon: 'r:uncommon',
+  rare: 'r:rare',
+  mythic: 'r:mythic',
+}
+
 const EXCLUDED_SET_TYPES = new Set([
   'alchemy',
   'archenemy',
@@ -57,8 +66,8 @@ const EXCLUDED_SET_TYPES = new Set([
 function buildSearchQuery(filters: CardSearchFilters): string {
   const queryParts = ['game:paper', '-is:token']
 
-  if (filters.standardOnly) {
-    queryParts.push('legal:standard')
+  if (filters.legalityOnly) {
+    queryParts.push(`legal:${filters.format}`)
   }
 
   const colorQuery = COLOR_QUERY_MAP[filters.color]
@@ -74,6 +83,11 @@ function buildSearchQuery(filters: CardSearchFilters): string {
   const manaValueQuery = MANA_VALUE_QUERY_MAP[filters.manaValue]
   if (manaValueQuery) {
     queryParts.push(manaValueQuery)
+  }
+
+  const rarityQuery = RARITY_QUERY_MAP[filters.rarity]
+  if (rarityQuery) {
+    queryParts.push(rarityQuery)
   }
 
   if (filters.setCode !== 'ANY') {
@@ -183,6 +197,16 @@ async function fetchJson<T>(url: URL, signal?: AbortSignal): Promise<T> {
   return (await response.json()) as T
 }
 
+function batchItems<T>(items: T[], batchSize: number): T[][] {
+  const batches: T[][] = []
+
+  for (let index = 0; index < items.length; index += batchSize) {
+    batches.push(items.slice(index, index + batchSize))
+  }
+
+  return batches
+}
+
 export async function searchCards(
   filters: CardSearchFilters,
   page: number,
@@ -219,6 +243,60 @@ export async function searchCards(
     totalCards: data.total_cards,
     hasMore: data.has_more,
   }
+}
+
+export async function lookupDeckCards(
+  identifiers: DeckImportIdentifier[],
+  signal?: AbortSignal,
+): Promise<Map<string, MagicCard>> {
+  const batches = batchItems(identifiers, 75)
+  const resolvedCards = new Map<string, MagicCard>()
+
+  for (const batch of batches) {
+    const response = await fetch(new URL('/cards/collection', SCRYFALL_BASE_URL).toString(), {
+      method: 'POST',
+      signal,
+      headers: {
+        Accept: 'application/json',
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        identifiers: batch.map((entry) =>
+          entry.setCode ? { name: entry.name, set: entry.setCode } : { name: entry.name },
+        ),
+      }),
+    })
+
+    if (!response.ok) {
+      throw new Error(`Deck import lookup failed with status ${response.status}`)
+    }
+
+    const data = (await response.json()) as ScryfallCollectionResponse
+    const normalizedCards = data.data
+      .map((card) => normalizeCard(card))
+      .filter((card): card is MagicCard => card !== null)
+
+    for (const card of normalizedCards) {
+      resolvedCards.set(card.name.toLowerCase(), card)
+      resolvedCards.set(`${card.name.toLowerCase()}|${card.setCode.toLowerCase()}`, card)
+    }
+  }
+
+  return resolvedCards
+}
+
+export async function fetchCardPrints(
+  oracleId: string,
+  signal?: AbortSignal,
+): Promise<MagicCard[]> {
+  const url = new URL('/cards/search', SCRYFALL_BASE_URL)
+  url.searchParams.set('q', `oracleid:${oracleId}`)
+  url.searchParams.set('unique', 'prints')
+  url.searchParams.set('order', 'released')
+  url.searchParams.set('dir', 'desc')
+
+  const data = await fetchJson<ScryfallCardsResponse>(url, signal)
+  return data.data.map(normalizeCard).filter((card): card is MagicCard => card !== null)
 }
 
 export async function fetchCardSets(signal?: AbortSignal): Promise<CardSetOption[]> {

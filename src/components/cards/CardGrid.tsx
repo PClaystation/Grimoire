@@ -26,10 +26,10 @@ interface CardGridProps {
 }
 
 function buildResultDescription(filters: CardSearchFilters): string {
-  const detailParts = []
+  const detailParts: string[] = [filters.format]
 
-  if (filters.standardOnly) {
-    detailParts.push('Standard-legal')
+  if (filters.legalityOnly) {
+    detailParts.push('legal-only')
   }
 
   if (filters.color !== 'ANY') {
@@ -42,6 +42,10 @@ function buildResultDescription(filters: CardSearchFilters): string {
 
   if (filters.manaValue !== 'ANY') {
     detailParts.push(`mv ${filters.manaValue}`)
+  }
+
+  if (filters.rarity !== 'ANY') {
+    detailParts.push(filters.rarity)
   }
 
   if (filters.setCode !== 'ANY') {
@@ -58,8 +62,10 @@ function buildResultDescription(filters: CardSearchFilters): string {
 function buildActiveChips(filters: CardSearchFilters): string[] {
   const chips: string[] = []
 
-  if (filters.standardOnly) {
-    chips.push('Standard')
+  chips.push(filters.format[0].toUpperCase() + filters.format.slice(1))
+
+  if (filters.legalityOnly) {
+    chips.push('Legal only')
   }
   if (filters.color !== 'ANY') {
     chips.push(filters.color === 'MULTI' ? 'Multicolor' : filters.color)
@@ -69,6 +75,9 @@ function buildActiveChips(filters: CardSearchFilters): string[] {
   }
   if (filters.manaValue !== 'ANY') {
     chips.push(`MV ${filters.manaValue}`)
+  }
+  if (filters.rarity !== 'ANY') {
+    chips.push(filters.rarity)
   }
   if (filters.setCode !== 'ANY') {
     chips.push(filters.setCode.toUpperCase())

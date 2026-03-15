@@ -1,7 +1,8 @@
-import { DECK_TYPE_BUCKETS, MANA_CURVE_LABELS } from '@/constants/mtg'
+import { DECK_FORMAT_CONFIG, DECK_TYPE_BUCKETS, MANA_CURVE_LABELS } from '@/constants/mtg'
 import type {
   DeckCardEntry,
   DeckColorStatKey,
+  DeckFormat,
   DeckSectionStats,
   DeckStats,
   DeckTypeStatKey,
@@ -103,17 +104,31 @@ function getSectionStats(entries: DeckCardEntry[]): DeckSectionStats {
   }
 }
 
-export function getDeckStats(mainboard: DeckCardEntry[], sideboard: DeckCardEntry[]): DeckStats {
+export function getDeckStats(
+  mainboard: DeckCardEntry[],
+  sideboard: DeckCardEntry[],
+  format: DeckFormat,
+  budgetTargetUsd: number | null,
+): DeckStats {
   const mainboardStats = getSectionStats(mainboard)
   const sideboardStats = getSectionStats(sideboard)
+  const formatConfig = DECK_FORMAT_CONFIG[format]
+  const totalEstimatedValueUsd = mainboardStats.estimatedValueUsd + sideboardStats.estimatedValueUsd
 
   return {
     mainboard: mainboardStats,
     sideboard: sideboardStats,
-    cardsToSixty: Math.max(0, 60 - countDeckEntries(mainboard)),
-    sideboardSlotsLeft: Math.max(0, 15 - countDeckEntries(sideboard)),
-    totalEstimatedValueUsd:
-      mainboardStats.estimatedValueUsd + sideboardStats.estimatedValueUsd,
-    validation: getDeckValidationIssues(mainboard, sideboard),
+    cardsToTarget: Math.max(0, formatConfig.recommendedMainboard - countDeckEntries(mainboard)),
+    mainboardTarget: formatConfig.recommendedMainboard,
+    sideboardMax: formatConfig.sideboardMax,
+    sideboardSlotsLeft: Math.max(0, formatConfig.sideboardMax - countDeckEntries(sideboard)),
+    totalEstimatedValueUsd,
+    validation: getDeckValidationIssues(
+      mainboard,
+      sideboard,
+      format,
+      budgetTargetUsd,
+      totalEstimatedValueUsd,
+    ),
   }
 }

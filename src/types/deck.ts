@@ -2,6 +2,15 @@ import type { CardColor, MagicCard } from '@/types/scryfall'
 
 export type DeckSection = 'mainboard' | 'sideboard'
 
+export type DeckFormat =
+  | 'standard'
+  | 'pioneer'
+  | 'modern'
+  | 'legacy'
+  | 'vintage'
+  | 'pauper'
+  | 'commander'
+
 export interface DeckCardEntry {
   card: MagicCard
   quantity: number
@@ -10,16 +19,24 @@ export interface DeckCardEntry {
 export interface DeckDraft {
   id: string | null
   name: string
+  format: DeckFormat
   mainboard: DeckCardEntry[]
   sideboard: DeckCardEntry[]
+  notes: string
+  matchupNotes: string
+  budgetTargetUsd: number | null
   createdAt: string | null
 }
 
 export interface SavedDeck {
   id: string
   name: string
+  format: DeckFormat
   mainboard: DeckCardEntry[]
   sideboard: DeckCardEntry[]
+  notes: string
+  matchupNotes: string
+  budgetTargetUsd: number | null
   createdAt: string
   updatedAt: string
 }
@@ -55,10 +72,19 @@ export interface DeckValidationIssue {
   description: string
 }
 
+export interface DeckRecommendation {
+  id: string
+  tone: 'success' | 'warning' | 'info'
+  title: string
+  description: string
+}
+
 export interface DeckStats {
   mainboard: DeckSectionStats
   sideboard: DeckSectionStats
-  cardsToSixty: number
+  cardsToTarget: number
+  mainboardTarget: number
+  sideboardMax: number
   sideboardSlotsLeft: number
   totalEstimatedValueUsd: number
   validation: DeckValidationIssue[]

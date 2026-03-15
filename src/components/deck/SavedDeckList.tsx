@@ -53,7 +53,7 @@ export function SavedDeckList({
                   ) : null}
                 </div>
                 <p className="mt-1 text-xs text-ink-400">
-                  {mainboardCount} main • {sideboardCount} side • saved{' '}
+                  {deck.format} • {mainboardCount} main • {sideboardCount} side • saved{' '}
                   {formatSavedDeckDate(deck.updatedAt)}
                 </p>
               </div>

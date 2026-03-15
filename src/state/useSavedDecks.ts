@@ -129,10 +129,25 @@ function normalizeSavedDeck(value: unknown): SavedDeck | null {
   return {
     id: value.id,
     name: value.name,
+    format:
+      value.format === 'pioneer' ||
+      value.format === 'modern' ||
+      value.format === 'legacy' ||
+      value.format === 'vintage' ||
+      value.format === 'pauper' ||
+      value.format === 'commander'
+        ? value.format
+        : 'standard',
     createdAt: value.createdAt,
     updatedAt: value.updatedAt,
     mainboard,
     sideboard,
+    notes: typeof value.notes === 'string' ? value.notes : '',
+    matchupNotes: typeof value.matchupNotes === 'string' ? value.matchupNotes : '',
+    budgetTargetUsd:
+      isNullableNumber(value.budgetTargetUsd) && value.budgetTargetUsd !== undefined
+        ? value.budgetTargetUsd
+        : null,
   }
 }
 
@@ -179,8 +194,12 @@ export function useSavedDecks() {
       savedDeck = {
         id: existingDeck?.id ?? crypto.randomUUID(),
         name: draft.name.trim() || 'Untitled Deck',
+        format: draft.format,
         mainboard: draft.mainboard,
         sideboard: draft.sideboard,
+        notes: draft.notes.trim(),
+        matchupNotes: draft.matchupNotes.trim(),
+        budgetTargetUsd: draft.budgetTargetUsd,
         createdAt: existingDeck?.createdAt ?? draft.createdAt ?? now,
         updatedAt: now,
       }
