@@ -1,6 +1,8 @@
 import { BookOpenText, Swords } from 'lucide-react'
 import { NavLink } from 'react-router-dom'
 
+import { ContinentalBranding } from '@/components/layout/ContinentalBranding'
+
 type ConnectionStatus = 'connecting' | 'connected' | 'disconnected'
 
 interface SiteNavProps {
@@ -28,23 +30,7 @@ export function SiteNav({ connectionStatus, compact = false }: SiteNavProps) {
           compact ? 'gap-3' : 'gap-4'
         }`}
       >
-        <div className="flex items-center gap-3">
-          <div
-            className={`flex items-center justify-center rounded-2xl border border-tide-400/25 bg-tide-500/12 text-tide-100 ${
-              compact ? 'h-9 w-9' : 'h-11 w-11'
-            }`}
-          >
-            <Swords className={compact ? 'h-4 w-4' : 'h-5 w-5'} />
-          </div>
-          <div>
-            <p className="text-xs font-semibold uppercase tracking-[0.24em] text-ink-400">
-              Grimoire
-            </p>
-            <p className={compact ? 'text-xs text-ink-200' : 'text-sm text-ink-200'}>
-              Deckbuilder and online tabletop
-            </p>
-          </div>
-        </div>
+        <ContinentalBranding variant="nav" />
 
         <div className="flex flex-wrap items-center gap-3">
           <div

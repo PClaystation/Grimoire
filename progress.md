@@ -68,3 +68,13 @@ Original prompt: You are extending an existing MTG deckbuilder web app into an o
   - Reproduced a live reconnect loop caused by `PlayProvider` mounting on every route: a deckbuilder tab at `/` and a play tab in the same browser shared one stored session ID and kept replacing each other’s websocket connection.
   - Scoped `PlayProvider` to `/play` routes only, so non-play tabs no longer open multiplayer sockets.
   - Updated the client close handler to stop auto-reconnecting after server close code `4001` (`Replaced by a newer connection.`) and surface a user-facing message instead.
+
+2026-03-15
+- Continental branding pass:
+  - Copied the provided Continental C2 mark and Continental wordmark into `public/branding/` so they are available in the production build.
+  - Added a shared `ContinentalBranding` layout component and used it in the main nav plus the deckbuilder and `/play` hero panels to make Grimoire visibly branded without overwhelming the existing interface.
+  - Updated the HTML metadata title/description to present the app as `Grimoire by Continental`.
+- Verification:
+  - `npm run build` passed.
+  - `npm run lint` passed.
+  - Ran the `develop-web-game` Playwright smoke client against `http://127.0.0.1:8787/` and `http://127.0.0.1:8787/play`, then visually reviewed `artifacts/playwright/branding-home/shot-0.png` and `artifacts/playwright/branding-play/shot-0.png`.

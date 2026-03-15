@@ -1,5 +1,7 @@
 import { BookOpen, Layers3, Sparkles } from 'lucide-react'
 
+import { ContinentalBranding } from '@/components/layout/ContinentalBranding'
+
 interface AppHeaderProps {
   mainboardCards: number
   sideboardCards: number
@@ -25,6 +27,7 @@ export function AppHeader({ mainboardCards, sideboardCards, savedDecks }: AppHea
             Search live Scryfall data, sort and page through results, tune both mainboard and
             sideboard, then copy a clean decklist when the build is ready.
           </p>
+          <ContinentalBranding />
         </div>
 
         <div className="grid gap-3 sm:grid-cols-3 xl:grid-cols-1 2xl:grid-cols-3">

@@ -1,6 +1,7 @@
 import { AlertTriangle } from 'lucide-react'
 import type { ReactNode } from 'react'
 
+import { ContinentalBranding } from '@/components/layout/ContinentalBranding'
 import { SiteNav } from '@/components/layout/SiteNav'
 
 interface PlayFrameProps {
@@ -44,6 +45,7 @@ export function PlayFrame({
               <p className="mt-4 max-w-3xl text-base leading-8 text-ink-300 sm:text-lg">
                 {description}
               </p>
+              <ContinentalBranding className="max-w-[22rem]" />
             </div>
 
             {actions ? <div className="flex flex-wrap gap-3">{actions}</div> : null}
