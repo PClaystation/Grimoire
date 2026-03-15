@@ -62,3 +62,9 @@ Original prompt: You are extending an existing MTG deckbuilder web app into an o
   - Added a 5 second server-side disconnect grace window so brief websocket drops during play do not immediately mark a player offline or reassign lobby state before the client has a chance to reconnect.
   - Added server websocket heartbeats so idle or marginal proxy/network paths are less likely to silently drop active game sessions.
   - Added `tests/playServer.test.ts` coverage for reconnect-before-timeout and disconnect-after-timeout behavior.
+
+2026-03-15
+- Multi-tab websocket loop fix:
+  - Reproduced a live reconnect loop caused by `PlayProvider` mounting on every route: a deckbuilder tab at `/` and a play tab in the same browser shared one stored session ID and kept replacing each other’s websocket connection.
+  - Scoped `PlayProvider` to `/play` routes only, so non-play tabs no longer open multiplayer sockets.
+  - Updated the client close handler to stop auto-reconnecting after server close code `4001` (`Replaced by a newer connection.`) and surface a user-facing message instead.

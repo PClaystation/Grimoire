@@ -72,6 +72,18 @@ function parseServerMessage(value: string): ServerMessage | null {
   }
 }
 
+function getSocketCloseMessage(event: CloseEvent) {
+  if (event.code === 4001) {
+    return 'Another Grimoire tab or window is already using this play session.'
+  }
+
+  if (event.code === 1006) {
+    return 'The play server connection dropped unexpectedly.'
+  }
+
+  return 'Unable to reach the play server right now.'
+}
+
 export function PlayProvider({ children }: PropsWithChildren) {
   const [state, setState] = useState<PlayState>(() => {
     const storedPlayerName = readPlayPlayerName()
@@ -235,15 +247,16 @@ export function PlayProvider({ children }: PropsWithChildren) {
         handleServerMessage(message)
       })
 
-      socket.addEventListener('close', () => {
+      socket.addEventListener('close', (event) => {
         socketRef.current = null
 
         setState((currentState) => ({
           ...currentState,
           connectionStatus: 'disconnected',
+          error: currentState.error ?? getSocketCloseMessage(event),
         }))
 
-        if (!shouldReconnectRef.current) {
+        if (!shouldReconnectRef.current || event.code === 4001) {
           return
         }
 
@@ -259,7 +272,7 @@ export function PlayProvider({ children }: PropsWithChildren) {
       socket.addEventListener('error', () => {
         setState((currentState) => ({
           ...currentState,
-          error: 'Unable to reach the play server right now.',
+          error: currentState.error ?? 'Unable to reach the play server right now.',
         }))
       })
     }

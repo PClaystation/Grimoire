@@ -1,4 +1,4 @@
-import { BrowserRouter, HashRouter, Navigate, Route, Routes } from 'react-router-dom'
+import { BrowserRouter, HashRouter, Navigate, Outlet, Route, Routes } from 'react-router-dom'
 
 import App from '@/App'
 import { PlayProvider } from '@/play/PlayProvider'
@@ -13,17 +13,25 @@ export default function AppRouter() {
 
   return (
     <Router basename={import.meta.env.BASE_URL}>
-      <PlayProvider>
-        <Routes>
-          <Route path="/" element={<App />} />
+      <Routes>
+        <Route path="/" element={<App />} />
+        <Route element={<PlayRouteShell />}>
           <Route path="/play" element={<PlayHomePage />} />
           <Route path="/play/create" element={<PlayCreatePage />} />
           <Route path="/play/join" element={<PlayJoinPage />} />
           <Route path="/play/room/:roomId" element={<PlayRoomPage />} />
           <Route path="/play/game/:gameId" element={<PlayGamePage />} />
-          <Route path="*" element={<Navigate to="/" replace />} />
-        </Routes>
-      </PlayProvider>
+        </Route>
+        <Route path="*" element={<Navigate to="/" replace />} />
+      </Routes>
     </Router>
+  )
+}
+
+function PlayRouteShell() {
+  return (
+    <PlayProvider>
+      <Outlet />
+    </PlayProvider>
   )
 }
