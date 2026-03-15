@@ -269,8 +269,10 @@ async function main() {
 
   await alicePage.getByTestId('lane-board-local').locator('button[data-card-name]').first().click()
   await alicePage.getByRole('button', { name: /^Add$/i }).click()
+  await alicePage.locator('summary').filter({ hasText: 'Table note' }).click()
   await alicePage.getByPlaceholder('Status, chosen mode, remembered trigger...').fill('Marked for alpha swing')
   await alicePage.getByRole('button', { name: /Save note/i }).click()
+  await alicePage.getByRole('button', { name: /^Tokens$/i }).click()
   await alicePage.getByRole('button', { name: /^Treasure/i }).click()
 
   const bobHandCards = bobPage.getByTestId('hand-tray').locator('button[data-card-name]')

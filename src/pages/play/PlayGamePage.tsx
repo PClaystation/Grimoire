@@ -31,6 +31,7 @@ import type {
   TableCardSnapshot,
 } from '@/shared/play'
 import type { CardColor, MagicCard } from '@/types/scryfall'
+import { formatManaCost, formatTypeLine } from '@/utils/format'
 
 type PublicZone = 'graveyard' | 'exile' | 'command'
 
@@ -114,6 +115,7 @@ export function PlayGamePage() {
   const [selectedCard, setSelectedCard] = useState<TableSelection | null>(null)
   const [focusedPlayerId, setFocusedPlayerId] = useState<string | null>(null)
   const [activeZone, setActiveZone] = useState<PublicZone>('command')
+  const [utilityPanel, setUtilityPanel] = useState<'zones' | 'tokens' | 'log'>('zones')
   const [counterDraft, setCounterDraft] = useState(COUNTER_PRESETS[0])
   const [noteEditor, setNoteEditor] = useState<{ cardId: string | null; value: string }>({
     cardId: null,
@@ -215,6 +217,7 @@ export function PlayGamePage() {
   function openZone(playerId: string, zone: PublicZone) {
     setFocusedPlayerId(playerId)
     setActiveZone(zone)
+    setUtilityPanel('zones')
   }
 
   function selectZoneCard(playerId: string, zone: PublicZone, cardId: string) {
@@ -255,7 +258,7 @@ export function PlayGamePage() {
           </div>
         ) : null}
 
-        <div className="grid gap-5 2xl:grid-cols-[minmax(0,1fr)_24rem]">
+        <div className="grid gap-5 2xl:grid-cols-[minmax(0,1fr)_22rem]">
           <div className="grid gap-5">
             {opponentPlayers.length > 0 ? (
               <section
@@ -414,33 +417,63 @@ export function PlayGamePage() {
               isLocallyControlled={isSelectedCardLocallyControlled}
               isLocalOwned={isSelectedCardLocalOwned}
             />
+            <section className="rounded-[1.9rem] border border-white/10 bg-ink-900/90 p-3 shadow-panel">
+              <div className="grid grid-cols-3 gap-2">
+                {[
+                  ['zones', 'Zones'],
+                  ['tokens', 'Tokens'],
+                  ['log', 'Log'],
+                ].map(([value, label]) => (
+                  <button
+                    key={value}
+                    type="button"
+                    onClick={() => setUtilityPanel(value as 'zones' | 'tokens' | 'log')}
+                    className={`rounded-2xl border px-3 py-2 text-sm font-semibold transition ${
+                      utilityPanel === value
+                        ? 'border-tide-400/35 bg-tide-500/12 text-tide-100'
+                        : 'border-white/10 bg-white/6 text-ink-200 hover:border-white/20'
+                    }`}
+                  >
+                    {label}
+                  </button>
+                ))}
+              </div>
 
-            <ZoneBrowser
-              players={players}
-              localPlayerId={localPlayerId}
-              focusedPlayer={focusedPlayer}
-              activeZone={activeZone}
-              cards={zoneCards}
-              selectedCard={activeSelection}
-              onFocusPlayer={(playerId) => setFocusedPlayerId(playerId)}
-              onZoneChange={setActiveZone}
-              onOpenZone={openZone}
-              onSelectCard={selectZoneCard}
-              onQuickCast={(zone, cardId) => moveOwnedCard(zone, 'battlefield', cardId)}
-            />
+              <div className="mt-3">
+                {utilityPanel === 'zones' ? (
+                  <ZoneBrowser
+                    players={players}
+                    localPlayerId={localPlayerId}
+                    focusedPlayer={focusedPlayer}
+                    activeZone={activeZone}
+                    cards={zoneCards}
+                    selectedCard={activeSelection}
+                    onFocusPlayer={(playerId) => setFocusedPlayerId(playerId)}
+                    onZoneChange={setActiveZone}
+                    onOpenZone={openZone}
+                    onSelectCard={selectZoneCard}
+                    onQuickCast={(zone, cardId) => moveOwnedCard(zone, 'battlefield', cardId)}
+                  />
+                ) : null}
 
-            <TokenWorkshop
-              draft={tokenDraft}
-              onDraftChange={setTokenDraft}
-              onCreateToken={(preset) =>
-                sendGameAction(activeGameId, {
-                  type: 'create_token',
-                  ...preset,
-                })
-              }
-            />
+                {utilityPanel === 'tokens' ? (
+                  <TokenWorkshop
+                    draft={tokenDraft}
+                    onDraftChange={setTokenDraft}
+                    onCreateToken={(preset) =>
+                      sendGameAction(activeGameId, {
+                        type: 'create_token',
+                        ...preset,
+                      })
+                    }
+                  />
+                ) : null}
 
-            <ActivityLog entries={activeGame.publicState.actionLog} />
+                {utilityPanel === 'log' ? (
+                  <ActivityLog entries={activeGame.publicState.actionLog} />
+                ) : null}
+              </div>
+            </section>
           </aside>
         </div>
       </div>
@@ -551,7 +584,7 @@ function BattlefieldLane({
   onToggleTapped: (cardId: string, tapped: boolean) => void
 }) {
   const isLocalLane = player.id === localPlayerId
-  const laneHeight = compact ? 'min-h-[15rem]' : 'min-h-[18rem]'
+  const laneHeight = compact ? 'min-h-[13.5rem]' : 'min-h-[15.5rem]'
 
   function handleDrop(event: DragEvent<HTMLDivElement>) {
     event.preventDefault()
@@ -657,23 +690,18 @@ function BattlefieldLane({
         onDrop={handleDrop}
       >
         <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top_left,rgba(29,150,167,0.08),transparent_22%),linear-gradient(rgba(255,255,255,0.04)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.04)_1px,transparent_1px)] bg-[length:auto,28px_28px,28px_28px]" />
-        <div className="pointer-events-none absolute inset-x-4 top-[20%] border-t border-dashed border-white/8" />
-        <div className="pointer-events-none absolute inset-x-4 top-[53%] border-t border-dashed border-white/8" />
-        <div className="pointer-events-none absolute inset-x-4 top-[76%] border-t border-dashed border-white/8" />
+        <div className="pointer-events-none absolute inset-x-0 bottom-0 h-[31%] border-t border-white/10 bg-[linear-gradient(180deg,rgba(255,255,255,0.04),rgba(223,107,11,0.08))]" />
         <div className="pointer-events-none absolute left-4 top-3 text-[0.65rem] font-semibold uppercase tracking-[0.16em] text-ink-500">
-          Pressure row
+          Active board
         </div>
-        <div className="pointer-events-none absolute left-4 top-[47%] text-[0.65rem] font-semibold uppercase tracking-[0.16em] text-ink-500">
-          Support row
-        </div>
-        <div className="pointer-events-none absolute left-4 top-[70%] text-[0.65rem] font-semibold uppercase tracking-[0.16em] text-ink-500">
-          Resource row
+        <div className="pointer-events-none absolute right-4 bottom-3 text-[0.65rem] font-semibold uppercase tracking-[0.16em] text-ember-200/80">
+          Mana shelf
         </div>
 
         {permanents.length === 0 ? (
           <div className="absolute inset-0 flex items-center justify-center px-8 text-center text-sm text-ink-400">
             {isLocalLane
-              ? 'Drag cards from your hand or command zone here to build your board.'
+              ? 'Drag cards from your hand or command zone here. Lands settle into the mana shelf automatically.'
               : 'No permanents in this lane yet.'}
           </div>
         ) : null}
@@ -681,27 +709,13 @@ function BattlefieldLane({
         {permanents.map((permanent, index) => {
           const canControl =
             permanent.ownerPlayerId === localPlayerId || permanent.controllerPlayerId === localPlayerId
+          const footprintClassName = permanent.tapped
+            ? 'h-[9.2rem] w-[11.8rem]'
+            : 'h-[13rem] w-[8.25rem]'
 
           return (
-            <button
+            <div
               key={permanent.instanceId}
-              type="button"
-              data-card-name={permanent.card.name}
-              draggable={canControl}
-              onDragStart={(event) =>
-                event.dataTransfer.setData(
-                  'application/x-grimoire-card',
-                  JSON.stringify({
-                    cardId: permanent.instanceId,
-                    fromZone: 'battlefield',
-                    controllerPlayerId: permanent.controllerPlayerId,
-                  } satisfies DragPayload),
-                )
-              }
-              onClick={() => onSelectPermanent(permanent.instanceId)}
-              onDoubleClick={() =>
-                canControl ? onToggleTapped(permanent.instanceId, !permanent.tapped) : undefined
-              }
               style={{
                 left: `${permanent.position.x}%`,
                 top: `${permanent.position.y}%`,
@@ -709,16 +723,56 @@ function BattlefieldLane({
               }}
               className="absolute -translate-x-1/2 -translate-y-1/2 text-left"
             >
-              <TableCard
-                card={permanent.card}
-                variant="battlefield"
-                tapped={permanent.tapped}
-                selected={selectedCardId === permanent.instanceId}
-                counters={permanent.counters}
-                note={permanent.note}
-                badge={permanent.isToken ? 'Token' : undefined}
-              />
-            </button>
+              <div className={`relative ${footprintClassName}`}>
+                {canControl ? (
+                  <button
+                    type="button"
+                    onClick={(event) => {
+                      event.stopPropagation()
+                      onToggleTapped(permanent.instanceId, !permanent.tapped)
+                    }}
+                    className={`absolute right-1 top-1 z-20 rounded-full border px-2.5 py-1 text-[0.62rem] font-semibold uppercase tracking-[0.14em] transition ${
+                      permanent.tapped
+                        ? 'border-emerald-400/25 bg-emerald-500/12 text-emerald-100 hover:border-emerald-400/40'
+                        : 'border-ember-400/25 bg-ember-500/12 text-ember-100 hover:border-ember-400/40'
+                    }`}
+                  >
+                    {permanent.tapped ? 'Untap' : 'Tap'}
+                  </button>
+                ) : null}
+
+                <button
+                  type="button"
+                  data-card-name={permanent.card.name}
+                  draggable={canControl}
+                  onDragStart={(event) =>
+                    event.dataTransfer.setData(
+                      'application/x-grimoire-card',
+                      JSON.stringify({
+                        cardId: permanent.instanceId,
+                        fromZone: 'battlefield',
+                        controllerPlayerId: permanent.controllerPlayerId,
+                      } satisfies DragPayload),
+                    )
+                  }
+                  onClick={() => onSelectPermanent(permanent.instanceId)}
+                  onDoubleClick={() =>
+                    canControl ? onToggleTapped(permanent.instanceId, !permanent.tapped) : undefined
+                  }
+                  className="absolute inset-0 flex items-center justify-center text-left"
+                >
+                  <TableCard
+                    card={permanent.card}
+                    variant="battlefield"
+                    tapped={permanent.tapped}
+                    selected={selectedCardId === permanent.instanceId}
+                    counters={permanent.counters}
+                    note={permanent.note}
+                    badge={permanent.isToken ? 'Token' : undefined}
+                  />
+                </button>
+              </div>
+            </div>
           )
         })}
       </div>
@@ -754,8 +808,8 @@ function HandTray({
           <h2 className="mt-2 text-2xl font-semibold text-ink-50">
             {privateState.hand.length} cards in hand
           </h2>
-          <p className="mt-2 text-sm text-ink-400">
-            Drag cards onto your lane or double-click a card for a quick move to the battlefield.
+          <p className="mt-1 text-sm text-ink-400">
+            Drag to the board or double-click for a quick cast.
           </p>
         </div>
 
@@ -793,7 +847,7 @@ function HandTray({
                 }
                 onClick={() => onSelectCard(card.instanceId)}
                 onDoubleClick={() => onQuickCast(card.instanceId)}
-                className={`${index === 0 ? '' : '-ml-12'} rounded-[1.3rem] transition hover:z-10 hover:-translate-y-3`}
+                className={`${index === 0 ? '' : '-ml-16'} rounded-[1.3rem] transition hover:z-10 hover:-translate-y-2`}
               >
                 <TableCard
                   card={card.card}
@@ -854,6 +908,15 @@ function InspectorCard({
   isLocalOwned: boolean
 }) {
   const selectedPermanent = selected?.permanent ?? null
+  const selectedActions = selected
+    ? renderSelectedActions({
+        selected,
+        isLocalOwned,
+        isLocallyControlled,
+        onMoveOwnedCard,
+        onToggleTapped,
+      })
+    : null
 
   return (
     <section className="rounded-[1.9rem] border border-white/10 bg-ink-900/90 p-4 shadow-panel">
@@ -886,48 +949,56 @@ function InspectorCard({
 
       {selected ? (
         <>
-          <div className="mt-4 overflow-hidden rounded-[1.5rem] border border-white/10 bg-ink-800/70">
-            <img
-              src={selected.card.card.largeImageUrl}
-              alt={selected.card.card.name}
-              className="h-auto w-full object-cover"
-            />
-          </div>
+          <div className="mt-4 grid gap-3">
+            <div className="grid gap-3 sm:grid-cols-[7rem_minmax(0,1fr)]">
+              <div className="overflow-hidden rounded-[1.35rem] border border-white/10 bg-ink-800/70">
+                <img
+                  src={selected.card.card.largeImageUrl}
+                  alt={selected.card.card.name}
+                  className="h-[9.75rem] w-full object-cover"
+                />
+              </div>
 
-          <div className="mt-4 flex flex-wrap gap-2">
-            <InfoChip label={selected.card.card.typeLine} tone="info" />
-            <InfoChip label={selected.player?.name ?? 'Unknown owner'} />
-            {selectedPermanent?.isToken ? <InfoChip label="Token" tone="accent" /> : null}
-            {selectedPermanent &&
-            selectedPermanent.controllerPlayerId !== selected.card.ownerPlayerId ? (
-              <InfoChip
-                label={`Controlled by ${
-                  players.find((player) => player.id === selectedPermanent.controllerPlayerId)?.name ??
-                  'another player'
-                }`}
-                tone="warning"
-              />
+              <div className="space-y-3">
+                <div className="flex flex-wrap gap-2">
+                  <InfoChip label={selected.card.card.manaCost ? formatManaCost(selected.card.card.manaCost) : 'No mana cost'} tone="warning" />
+                  <InfoChip label={formatTypeLine(selected.card.card.typeLine)} tone="info" />
+                  <InfoChip label={selected.player?.name ?? 'Unknown owner'} />
+                  {selectedPermanent?.isToken ? <InfoChip label="Token" tone="accent" /> : null}
+                  {selectedPermanent &&
+                  selectedPermanent.controllerPlayerId !== selected.card.ownerPlayerId ? (
+                    <InfoChip
+                      label={`Controlled by ${
+                        players.find((player) => player.id === selectedPermanent.controllerPlayerId)?.name ??
+                        'another player'
+                      }`}
+                      tone="warning"
+                    />
+                  ) : null}
+                </div>
+
+                <div className="grid gap-2 sm:grid-cols-2">{selectedActions}</div>
+              </div>
+            </div>
+
+            {selected.card.card.oracleText ? (
+              <div className="rounded-[1.3rem] border border-white/10 bg-white/5 px-3 py-3 text-sm leading-6 text-ink-300">
+                {selected.card.card.oracleText}
+              </div>
             ) : null}
-          </div>
-
-          <div className="mt-4 grid gap-2">
-            {renderSelectedActions({
-              selected,
-              isLocalOwned,
-              isLocallyControlled,
-              onMoveOwnedCard,
-              onToggleTapped,
-            })}
           </div>
 
           {selectedPermanent && isLocallyControlled ? (
             <>
-              <div className="mt-5 rounded-[1.5rem] border border-white/10 bg-white/5 p-4">
+              <InspectorSection
+                title="Counters"
+                icon={<ShieldPlus className="h-4 w-4 text-tide-200" />}
+                defaultOpen
+              >
                 <div className="flex items-center gap-2">
-                  <ShieldPlus className="h-4 w-4 text-tide-200" />
-                  <h3 className="text-sm font-semibold uppercase tracking-[0.16em] text-ink-200">
-                    Counters
-                  </h3>
+                  <p className="text-xs font-medium text-ink-300">
+                    Track shields, stuns, loyalty, or any custom counter without leaving the board.
+                  </p>
                 </div>
 
                 <div className="mt-3 flex flex-wrap gap-2">
@@ -983,15 +1054,12 @@ function InspectorCard({
                     ))}
                   </div>
                 ) : null}
-              </div>
+              </InspectorSection>
 
-              <div className="rounded-[1.5rem] border border-white/10 bg-white/5 p-4">
-                <div className="flex items-center gap-2">
-                  <ScrollText className="h-4 w-4 text-ember-200" />
-                  <h3 className="text-sm font-semibold uppercase tracking-[0.16em] text-ink-200">
-                    Table note
-                  </h3>
-                </div>
+              <InspectorSection
+                title="Table note"
+                icon={<ScrollText className="h-4 w-4 text-ember-200" />}
+              >
                 <textarea
                   value={noteDraft}
                   onChange={(event) => onNoteDraftChange(event.target.value)}
@@ -1008,15 +1076,12 @@ function InspectorCard({
                     Save note
                   </InspectorButton>
                 </div>
-              </div>
+              </InspectorSection>
 
-              <div className="rounded-[1.5rem] border border-white/10 bg-white/5 p-4">
-                <div className="flex items-center gap-2">
-                  <Undo2 className="h-4 w-4 text-tide-200" />
-                  <h3 className="text-sm font-semibold uppercase tracking-[0.16em] text-ink-200">
-                    Control
-                  </h3>
-                </div>
+              <InspectorSection
+                title="Control"
+                icon={<Undo2 className="h-4 w-4 text-tide-200" />}
+              >
                 <div className="mt-3 flex flex-wrap gap-2">
                   {players.map((player) => (
                     <button
@@ -1033,7 +1098,7 @@ function InspectorCard({
                     </button>
                   ))}
                 </div>
-              </div>
+              </InspectorSection>
             </>
           ) : null}
         </>
@@ -1139,7 +1204,7 @@ function ZoneBrowser({
       </div>
 
       {cards.length > 0 ? (
-        <div className="mt-4 grid max-h-[24rem] grid-cols-2 gap-3 overflow-y-auto pr-1">
+        <div className="mt-4 grid max-h-[18rem] grid-cols-2 gap-3 overflow-y-auto pr-1">
           {cards.map((card) => {
             const isSelected =
               selectedCard?.zone === activeZone &&
@@ -1342,7 +1407,7 @@ function ActivityLog({ entries }: { entries: GameActionEvent[] }) {
       </div>
 
       {entries.length > 0 ? (
-        <div className="mt-4 grid max-h-[24rem] gap-2 overflow-y-auto pr-1">
+        <div className="mt-4 grid max-h-[18rem] gap-2 overflow-y-auto pr-1">
           {entries.map((entry) => (
             <article
               key={entry.id}
@@ -1383,42 +1448,52 @@ function TableCard({
 }) {
   const cardClassName =
     variant === 'battlefield'
-      ? 'w-[7.8rem]'
+      ? 'w-[7.2rem]'
       : variant === 'hand'
-        ? 'w-[10rem]'
+        ? 'w-[8.75rem]'
         : 'w-full'
   const imageClassName =
     variant === 'battlefield'
-      ? 'h-[11rem]'
+      ? 'h-[9.25rem]'
       : variant === 'hand'
-        ? 'h-[14rem]'
-        : 'h-[9.8rem]'
+        ? 'h-[12rem]'
+        : 'h-[8.9rem]'
+  const manaLabel = card.manaCost
+    ? formatManaCost(card.manaCost)
+    : card.typeLine.includes('Land')
+      ? 'Land'
+      : `MV ${card.manaValue}`
+  const battlefieldRotationClassName =
+    tapped && variant === 'battlefield' ? 'rotate-90 origin-center' : ''
 
   return (
     <article
-      className={`${cardClassName} rounded-[1.25rem] border bg-ink-900/95 p-2 shadow-card transition ${
+      className={`${cardClassName} rounded-[1.2rem] border bg-ink-900/95 p-2 shadow-card transition duration-200 ${
+        battlefieldRotationClassName
+      } ${
         selected
           ? 'border-tide-300/60 ring-2 ring-tide-300/20'
           : 'border-white/10 hover:border-white/20'
       }`}
     >
-      <div className={`relative ${imageClassName} overflow-visible`}>
-        <div
-          className={`absolute inset-0 overflow-hidden rounded-[0.95rem] border border-white/10 bg-ink-800/70 transition duration-200 ${
-            tapped && variant === 'battlefield'
-              ? 'translate-x-4 translate-y-4 rotate-90 origin-center'
-              : ''
-          }`}
-        >
+      <div className={`relative ${imageClassName} overflow-hidden rounded-[0.95rem] border border-white/10 bg-ink-800/70`}>
+        <div className="absolute inset-0">
           <img src={card.imageUrl} alt={card.name} className="h-full w-full object-cover" />
           <div className="absolute inset-x-0 top-0 bg-gradient-to-b from-black/70 via-black/25 to-transparent px-2 py-2">
-            <p className="line-clamp-2 text-xs font-semibold text-white">{card.name}</p>
+            <div className="flex items-start justify-between gap-2">
+              <p className="line-clamp-2 text-xs font-semibold text-white">{card.name}</p>
+              <span className="max-w-[46%] rounded-full border border-black/20 bg-black/55 px-2 py-1 text-[0.58rem] font-semibold uppercase tracking-[0.12em] text-white/90">
+                {manaLabel}
+              </span>
+            </div>
           </div>
         </div>
       </div>
 
       <div className="mt-2 flex items-center justify-between gap-2">
-        <p className="line-clamp-2 text-[0.7rem] font-medium text-ink-300">{card.typeLine}</p>
+        <p className="line-clamp-2 text-[0.68rem] font-medium text-ink-300">
+          {formatTypeLine(card.typeLine)}
+        </p>
         {badge ? (
           <span className="rounded-full border border-white/10 bg-white/8 px-2 py-1 text-[0.6rem] font-semibold uppercase tracking-[0.14em] text-ink-100">
             {badge}
@@ -1444,6 +1519,38 @@ function TableCard({
         </div>
       ) : null}
     </article>
+  )
+}
+
+function InspectorSection({
+  title,
+  icon,
+  children,
+  defaultOpen = false,
+}: {
+  title: string
+  icon: ReactNode
+  children: ReactNode
+  defaultOpen?: boolean
+}) {
+  return (
+    <details
+      open={defaultOpen}
+      className="rounded-[1.5rem] border border-white/10 bg-white/5 p-4 open:bg-white/[0.07]"
+    >
+      <summary className="flex cursor-pointer list-none items-center justify-between gap-3 [&::-webkit-details-marker]:hidden">
+        <div className="flex items-center gap-2">
+          {icon}
+          <h3 className="text-sm font-semibold uppercase tracking-[0.16em] text-ink-200">
+            {title}
+          </h3>
+        </div>
+        <span className="rounded-full border border-white/10 bg-white/6 px-2.5 py-1 text-[0.62rem] font-semibold uppercase tracking-[0.14em] text-ink-300">
+          Toggle
+        </span>
+      </summary>
+      <div className="mt-3">{children}</div>
+    </details>
   )
 }
 

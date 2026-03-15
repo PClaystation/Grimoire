@@ -44,3 +44,15 @@ Original prompt: You are extending an existing MTG deckbuilder web app into an o
   - Ran `npm run preview`, verified `GET /health`, `GET /`, and executed a two-client `/ws` smoke test covering malformed-message rejection, room creation/join, deck selection, game start, draw, and battlefield sync.
 - Follow-up:
   - The `develop-web-game` Playwright client could not be executed in this environment because the external `playwright` runtime package is not installed. Runtime verification used direct HTTP/WebSocket smoke tests instead.
+
+2026-03-15
+- Battle-screen convenience pass:
+  - Shrunk the inspector art, moved core card actions up beside the preview, and converted counters/note/control tools into collapsible inspector sections to cut constant scrolling.
+  - Replaced the three labeled battlefield rows with a simpler open playmat plus a dedicated mana shelf, added visible mana-cost chips on table cards, reduced hand/battlefield card footprints, and added direct tap/untap buttons on permanents.
+  - Updated battlefield card rendering so the whole card frame rotates when tapped, not just the image, and aligned server auto-placement so lands land lower on the board and action cards sit in the main play area.
+- Validation follow-up:
+  - Updated `scripts/validate-play-table.mjs` to open the new inspector note section and switch to the `Tokens` utility tab before creating a token.
+  - `npm run build` passed.
+  - `npm run lint` passed.
+  - Ran `node scripts/validate-play-table.mjs http://127.0.0.1:8787` successfully against the preview server and refreshed `artifacts/playwright/revamp/alice-table.png` and `artifacts/playwright/revamp/bob-table.png`.
+  - Ran the required `develop-web-game` smoke client against `http://127.0.0.1:8787/play` and refreshed `artifacts/playwright/web-game-client-smoke/shot-0.png`.

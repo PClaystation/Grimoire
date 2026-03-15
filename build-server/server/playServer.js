@@ -596,17 +596,14 @@ export class PlayServer {
             (card.ownerPlayerId === actor.id || card.controllerPlayerId === actor.id));
     }
     getAutoBattlefieldPosition(game, controllerPlayerId, typeLine) {
-        const preferredY = typeLine.includes('Land')
-            ? 72
-            : /Creature|Planeswalker|Battle/i.test(typeLine)
-                ? 36
-                : 54;
+        const isLand = typeLine.includes('Land');
+        const preferredY = isLand ? 80 : /Creature|Planeswalker|Battle/i.test(typeLine) ? 42 : 58;
         const laneCards = game.battlefield.filter((card) => card.controllerPlayerId === controllerPlayerId);
-        const rowCards = laneCards.filter((card) => Math.abs(card.position.y - preferredY) < 12);
+        const rowCards = laneCards.filter((card) => Math.abs(card.position.y - preferredY) < (isLand ? 9 : 14));
         const slotIndex = rowCards.length;
         return clampPermanentPosition({
             x: 12 + (slotIndex % 6) * 14,
-            y: preferredY + Math.floor(slotIndex / 6) * 8,
+            y: preferredY + Math.floor(slotIndex / 6) * (isLand ? 5 : 8),
         });
     }
     buildInitialCommandZone(deck, ownerPlayerId, library) {
