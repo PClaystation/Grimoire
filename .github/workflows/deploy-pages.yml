@@ -1,0 +1,94 @@
+name: Deploy GitHub Pages
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: github-pages
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    outputs:
+      page_url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Configure GitHub Pages
+        uses: actions/configure-pages@v5
+
+      - name: Resolve frontend deployment settings
+        id: settings
+        shell: bash
+        env:
+          PAGES_BASE_PATH: ${{ vars.PAGES_BASE_PATH }}
+          PLAY_SERVER_URL: ${{ vars.VITE_PLAY_SERVER_URL }}
+          ROUTER_MODE: ${{ vars.VITE_ROUTER_MODE }}
+        run: |
+          if [ -n "$PAGES_BASE_PATH" ]; then
+            base_path="$PAGES_BASE_PATH"
+          else
+            repo_name="${GITHUB_REPOSITORY#*/}"
+            base_path="/${repo_name}/"
+          fi
+
+          if [ -n "$PLAY_SERVER_URL" ]; then
+            play_server_url="$PLAY_SERVER_URL"
+          else
+            play_server_url="https://mpmc.ddns.net"
+          fi
+
+          if [ -n "$ROUTER_MODE" ]; then
+            router_mode="$ROUTER_MODE"
+          else
+            router_mode="hash"
+          fi
+
+          echo "base_path=$base_path" >> "$GITHUB_OUTPUT"
+          echo "play_server_url=$play_server_url" >> "$GITHUB_OUTPUT"
+          echo "router_mode=$router_mode" >> "$GITHUB_OUTPUT"
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build frontend for GitHub Pages
+        env:
+          VITE_BASE_PATH: ${{ steps.settings.outputs.base_path }}
+          VITE_PLAY_SERVER_URL: ${{ steps.settings.outputs.play_server_url }}
+          VITE_ROUTER_MODE: ${{ steps.settings.outputs.router_mode }}
+        run: npm run build:client
+
+      - name: Disable Jekyll processing
+        run: touch dist/.nojekyll
+
+      - name: Upload Pages artifact
+        uses: actions/upload-pages-artifact@v4
+        with:
+          path: dist
+
+  deploy:
+    runs-on: ubuntu-latest
+    needs: build
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4

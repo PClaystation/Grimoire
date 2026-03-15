@@ -59,10 +59,17 @@ function handleHttpRequest(request, response) {
         return;
     }
     if (!existsSync(DIST_DIR)) {
-        response.writeHead(503, {
+        if (url.pathname === '/' || url.pathname === '/index.html') {
+            response.writeHead(200, {
+                'Content-Type': 'text/plain; charset=utf-8',
+            });
+            response.end('Grimoire multiplayer backend is running. Frontend is hosted separately.\n');
+            return;
+        }
+        response.writeHead(404, {
             'Content-Type': 'text/plain; charset=utf-8',
         });
-        response.end('Frontend build not found. Run `npm run build` before starting the production server.');
+        response.end('Frontend assets are not installed on this server.\n');
         return;
     }
     const requestedFile = resolvePublicFile(url.pathname);

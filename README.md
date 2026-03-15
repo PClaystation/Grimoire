@@ -61,6 +61,38 @@ https://mpmc.ddns.net
 
 Important: if the frontend is served over HTTPS, the play server must also be reachable over HTTPS/WSS. In practice that means putting the Node server behind a reverse proxy such as Caddy or Nginx and terminating TLS for `mpmc.ddns.net`.
 
+Ready-to-paste deployment files:
+
+- Caddy: `deploy/caddy/Caddyfile`
+- Nginx: `deploy/nginx/mpmc.ddns.net.conf`
+- systemd service: `deploy/systemd/grimoire-play.service`
+
+Suggested Linux deployment flow:
+
+```bash
+sudo mkdir -p /opt/grimoire
+sudo chown "$USER":"$USER" /opt/grimoire
+cd /opt/grimoire
+git clone <your-repo-url> Grimoire
+cd Grimoire
+npm install
+npm run build:server
+```
+
+Then:
+
+1. Copy `deploy/systemd/grimoire-play.service` to `/etc/systemd/system/`.
+2. Adjust `User`, `Group`, and `WorkingDirectory`.
+3. Run `sudo systemctl daemon-reload`.
+4. Run `sudo systemctl enable --now grimoire-play`.
+5. Install either the Caddy or Nginx config for `mpmc.ddns.net`.
+
+You can confirm the backend before wiring the frontend by visiting:
+
+```bash
+https://mpmc.ddns.net/health
+```
+
 ### Frontend on GitHub Pages
 
 GitHub Pages is static hosting, so build the frontend separately from the backend:
@@ -80,3 +112,29 @@ Notes:
 - Use `VITE_BASE_PATH=/` if you publish at the domain root instead.
 - `VITE_ROUTER_MODE=hash` avoids GitHub Pages SPA refresh problems because Pages does not provide app rewrites.
 - If you later move the frontend off GitHub Pages and onto a host with SPA rewrites, use `VITE_ROUTER_MODE=browser`.
+
+### GitHub Pages workflow
+
+This repo now includes a Pages workflow at `.github/workflows/deploy-pages.yml`.
+
+Before using it:
+
+1. In GitHub, open `Settings -> Pages`.
+2. Set `Source` to `GitHub Actions`.
+3. Push to `main` or run the workflow manually from the `Actions` tab.
+
+Optional repository variables:
+
+- `VITE_PLAY_SERVER_URL`
+  Default: `https://mpmc.ddns.net`
+- `PAGES_BASE_PATH`
+  Default: `/<repo-name>/`
+- `VITE_ROUTER_MODE`
+  Default: `hash`
+
+Examples:
+
+- Project Pages site at `https://<user>.github.io/Grimoire/`
+  Leave the defaults alone.
+- Custom Pages domain at the root
+  Set `PAGES_BASE_PATH=/`

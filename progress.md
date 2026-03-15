@@ -16,3 +16,6 @@ Original prompt: You are extending an existing MTG deckbuilder web app into an o
   - Added configurable router mode (`browser` vs `hash`) so GitHub Pages can use hash routing without changing app code.
   - Added `VITE_BASE_PATH` support in Vite config plus `build:client`, `build:server`, and `start:server` scripts for split frontend/backend deployment.
   - Documented GitHub Pages + separate backend deployment steps in `README.md`.
+  - Added `.github/workflows/deploy-pages.yml` for automatic GitHub Pages deploys from `main`.
+  - Added ready-to-paste Caddy, Nginx, and systemd deployment files under `deploy/`.
+  - Updated the Node server to return a simple backend-only status response when frontend assets are not present on the server.
