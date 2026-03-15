@@ -49,6 +49,7 @@ test('parseClientMessage accepts a valid deck selection payload', () => {
             card: sampleCard,
           },
         ],
+        sideboard: [],
       },
     }),
   )
@@ -105,6 +106,7 @@ test('parseClientMessage rejects incomplete card payloads before they reach the 
             },
           },
         ],
+        sideboard: [],
       },
     }),
   )

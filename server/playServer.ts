@@ -90,7 +90,12 @@ interface RoomState {
 
 interface PlayServerDependencies {
   sendToSession: (sessionId: string, message: ServerMessage) => void
+  disconnectGracePeriodMs?: number
+  setTimeout?: (callback: () => void, delayMs: number) => ReturnType<typeof globalThis.setTimeout>
+  clearTimeout?: (timeoutId: ReturnType<typeof globalThis.setTimeout>) => void
 }
+
+const DEFAULT_DISCONNECT_GRACE_PERIOD_MS = 5_000
 
 function removeCardFromZone(cards: CardInstance[], cardId: string) {
   const cardIndex = cards.findIndex((card) => card.instanceId === cardId)
@@ -227,10 +232,25 @@ export class PlayServer {
   private readonly gameRoomIds = new Map<string, string>()
   private readonly sessionRoomIds = new Map<string, string>()
   private readonly sessionNames = new Map<string, string>()
+  private readonly pendingDisconnectTimers = new Map<string, ReturnType<typeof globalThis.setTimeout>>()
+  private readonly disconnectGracePeriodMs: number
+  private readonly setTimeoutFn: (
+    callback: () => void,
+    delayMs: number,
+  ) => ReturnType<typeof globalThis.setTimeout>
+  private readonly clearTimeoutFn: (timeoutId: ReturnType<typeof globalThis.setTimeout>) => void
 
-  constructor(private readonly dependencies: PlayServerDependencies) {}
+  constructor(private readonly dependencies: PlayServerDependencies) {
+    this.disconnectGracePeriodMs = Math.max(
+      0,
+      dependencies.disconnectGracePeriodMs ?? DEFAULT_DISCONNECT_GRACE_PERIOD_MS,
+    )
+    this.setTimeoutFn = dependencies.setTimeout ?? globalThis.setTimeout
+    this.clearTimeoutFn = dependencies.clearTimeout ?? globalThis.clearTimeout
+  }
 
   handleHello(sessionId: string, playerName: string) {
+    this.clearPendingDisconnect(sessionId)
     const normalizedName = normalizePlayerName(playerName)
     this.sessionNames.set(sessionId, normalizedName)
     const room = this.getRoomBySession(sessionId)
@@ -265,6 +285,22 @@ export class PlayServer {
   }
 
   handleDisconnect(sessionId: string) {
+    this.clearPendingDisconnect(sessionId)
+
+    if (this.disconnectGracePeriodMs === 0) {
+      this.finalizeDisconnect(sessionId)
+      return
+    }
+
+    const timeoutId = this.setTimeoutFn(() => {
+      this.pendingDisconnectTimers.delete(sessionId)
+      this.finalizeDisconnect(sessionId)
+    }, this.disconnectGracePeriodMs)
+
+    this.pendingDisconnectTimers.set(sessionId, timeoutId)
+  }
+
+  private finalizeDisconnect(sessionId: string) {
     const room = this.getRoomBySession(sessionId)
 
     if (!room) {
@@ -296,6 +332,17 @@ export class PlayServer {
 
     this.emitRoomSnapshots(room)
     this.emitGameSnapshots(room)
+  }
+
+  private clearPendingDisconnect(sessionId: string) {
+    const timeoutId = this.pendingDisconnectTimers.get(sessionId)
+
+    if (timeoutId === undefined) {
+      return
+    }
+
+    this.clearTimeoutFn(timeoutId)
+    this.pendingDisconnectTimers.delete(sessionId)
   }
 
   handleMessage(sessionId: string, message: Exclude<ClientMessage, { type: 'hello' }>) {

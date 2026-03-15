@@ -1,6 +1,9 @@
 import { type ClientMessage, type ServerMessage } from '../src/shared/play.js';
 interface PlayServerDependencies {
     sendToSession: (sessionId: string, message: ServerMessage) => void;
+    disconnectGracePeriodMs?: number;
+    setTimeout?: (callback: () => void, delayMs: number) => ReturnType<typeof globalThis.setTimeout>;
+    clearTimeout?: (timeoutId: ReturnType<typeof globalThis.setTimeout>) => void;
 }
 export declare class PlayServer {
     private readonly dependencies;
@@ -8,9 +11,15 @@ export declare class PlayServer {
     private readonly gameRoomIds;
     private readonly sessionRoomIds;
     private readonly sessionNames;
+    private readonly pendingDisconnectTimers;
+    private readonly disconnectGracePeriodMs;
+    private readonly setTimeoutFn;
+    private readonly clearTimeoutFn;
     constructor(dependencies: PlayServerDependencies);
     handleHello(sessionId: string, playerName: string): void;
     handleDisconnect(sessionId: string): void;
+    private finalizeDisconnect;
+    private clearPendingDisconnect;
     handleMessage(sessionId: string, message: Exclude<ClientMessage, {
         type: 'hello';
     }>): void;

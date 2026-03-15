@@ -56,3 +56,9 @@ Original prompt: You are extending an existing MTG deckbuilder web app into an o
   - `npm run lint` passed.
   - Ran `node scripts/validate-play-table.mjs http://127.0.0.1:8787` successfully against the preview server and refreshed `artifacts/playwright/revamp/alice-table.png` and `artifacts/playwright/revamp/bob-table.png`.
   - Ran the required `develop-web-game` smoke client against `http://127.0.0.1:8787/play` and refreshed `artifacts/playwright/web-game-client-smoke/shot-0.png`.
+
+2026-03-15
+- Multiplayer connection resilience pass:
+  - Added a 5 second server-side disconnect grace window so brief websocket drops during play do not immediately mark a player offline or reassign lobby state before the client has a chance to reconnect.
+  - Added server websocket heartbeats so idle or marginal proxy/network paths are less likely to silently drop active game sessions.
+  - Added `tests/playServer.test.ts` coverage for reconnect-before-timeout and disconnect-after-timeout behavior.

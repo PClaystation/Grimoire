@@ -1,5 +1,6 @@
 import { PLAY_COMMANDER_STARTING_LIFE_TOTAL, PLAY_MAX_PLAYERS, PLAY_MIN_PLAYERS, PLAY_OPENING_HAND_SIZE, PLAY_STARTING_LIFE_TOTAL, buildDeckSelectionSummary, buildRandomRoomCode, clampPermanentPosition, countDeckCards, normalizeDeckFormat, normalizePlayerName, normalizeRoomCode, } from '../src/shared/play.js';
 import { expandDeckEntries, shuffleCardInstances, } from '../src/shared/playDeck.js';
+const DEFAULT_DISCONNECT_GRACE_PERIOD_MS = 5_000;
 function removeCardFromZone(cards, cardId) {
     const cardIndex = cards.findIndex((card) => card.instanceId === cardId);
     if (cardIndex < 0) {
@@ -108,10 +109,18 @@ export class PlayServer {
     gameRoomIds = new Map();
     sessionRoomIds = new Map();
     sessionNames = new Map();
+    pendingDisconnectTimers = new Map();
+    disconnectGracePeriodMs;
+    setTimeoutFn;
+    clearTimeoutFn;
     constructor(dependencies) {
         this.dependencies = dependencies;
+        this.disconnectGracePeriodMs = Math.max(0, dependencies.disconnectGracePeriodMs ?? DEFAULT_DISCONNECT_GRACE_PERIOD_MS);
+        this.setTimeoutFn = dependencies.setTimeout ?? globalThis.setTimeout;
+        this.clearTimeoutFn = dependencies.clearTimeout ?? globalThis.clearTimeout;
     }
     handleHello(sessionId, playerName) {
+        this.clearPendingDisconnect(sessionId);
         const normalizedName = normalizePlayerName(playerName);
         this.sessionNames.set(sessionId, normalizedName);
         const room = this.getRoomBySession(sessionId);
@@ -139,6 +148,18 @@ export class PlayServer {
         this.emitGameSnapshots(room);
     }
     handleDisconnect(sessionId) {
+        this.clearPendingDisconnect(sessionId);
+        if (this.disconnectGracePeriodMs === 0) {
+            this.finalizeDisconnect(sessionId);
+            return;
+        }
+        const timeoutId = this.setTimeoutFn(() => {
+            this.pendingDisconnectTimers.delete(sessionId);
+            this.finalizeDisconnect(sessionId);
+        }, this.disconnectGracePeriodMs);
+        this.pendingDisconnectTimers.set(sessionId, timeoutId);
+    }
+    finalizeDisconnect(sessionId) {
         const room = this.getRoomBySession(sessionId);
         if (!room) {
             return;
@@ -161,6 +182,14 @@ export class PlayServer {
         }
         this.emitRoomSnapshots(room);
         this.emitGameSnapshots(room);
+    }
+    clearPendingDisconnect(sessionId) {
+        const timeoutId = this.pendingDisconnectTimers.get(sessionId);
+        if (timeoutId === undefined) {
+            return;
+        }
+        this.clearTimeoutFn(timeoutId);
+        this.pendingDisconnectTimers.delete(sessionId);
     }
     handleMessage(sessionId, message) {
         switch (message.type) {

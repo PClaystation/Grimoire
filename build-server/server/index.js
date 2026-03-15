@@ -9,6 +9,7 @@ const PORT = Number(process.env.PORT ?? 8787);
 const HOST = process.env.HOST ?? '0.0.0.0';
 const DIST_DIR = resolve(process.cwd(), 'dist');
 const MAX_CLIENT_MESSAGE_BYTES = 256 * 1024;
+const SOCKET_HEARTBEAT_INTERVAL_MS = 25_000;
 const MIME_TYPES = {
     '.css': 'text/css; charset=utf-8',
     '.html': 'text/html; charset=utf-8',
@@ -82,8 +83,30 @@ const webSocketServer = new WebSocketServer({
     path: '/ws',
     maxPayload: MAX_CLIENT_MESSAGE_BYTES,
 });
-webSocketServer.on('connection', (socket) => {
+const socketHeartbeatInterval = setInterval(() => {
+    for (const client of webSocketServer.clients) {
+        const socket = client;
+        if (socket.readyState !== WebSocket.OPEN) {
+            continue;
+        }
+        if (!socket.isAlive) {
+            socket.terminate();
+            continue;
+        }
+        socket.isAlive = false;
+        socket.ping();
+    }
+}, SOCKET_HEARTBEAT_INTERVAL_MS);
+webSocketServer.on('close', () => {
+    clearInterval(socketHeartbeatInterval);
+});
+webSocketServer.on('connection', (rawSocket) => {
+    const socket = rawSocket;
     let attachedSessionId = null;
+    socket.isAlive = true;
+    socket.on('pong', () => {
+        socket.isAlive = true;
+    });
     socket.on('error', () => {
         // `ws` emits `error` separately from `close`; keep the process alive and
         // let the normal close/disconnect path clean up the session mapping.

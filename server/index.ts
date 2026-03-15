@@ -11,6 +11,7 @@ const PORT = Number(process.env.PORT ?? 8787)
 const HOST = process.env.HOST ?? '0.0.0.0'
 const DIST_DIR = resolve(process.cwd(), 'dist')
 const MAX_CLIENT_MESSAGE_BYTES = 256 * 1024
+const SOCKET_HEARTBEAT_INTERVAL_MS = 25_000
 
 const MIME_TYPES: Record<string, string> = {
   '.css': 'text/css; charset=utf-8',
@@ -97,6 +98,10 @@ const playServer = new PlayServer({
   },
 })
 
+interface TrackedWebSocket extends WebSocket {
+  isAlive: boolean
+}
+
 const httpServer = createServer(handleHttpRequest)
 const webSocketServer = new WebSocketServer({
   server: httpServer,
@@ -104,8 +109,36 @@ const webSocketServer = new WebSocketServer({
   maxPayload: MAX_CLIENT_MESSAGE_BYTES,
 })
 
-webSocketServer.on('connection', (socket) => {
+const socketHeartbeatInterval = setInterval(() => {
+  for (const client of webSocketServer.clients) {
+    const socket = client as TrackedWebSocket
+
+    if (socket.readyState !== WebSocket.OPEN) {
+      continue
+    }
+
+    if (!socket.isAlive) {
+      socket.terminate()
+      continue
+    }
+
+    socket.isAlive = false
+    socket.ping()
+  }
+}, SOCKET_HEARTBEAT_INTERVAL_MS)
+
+webSocketServer.on('close', () => {
+  clearInterval(socketHeartbeatInterval)
+})
+
+webSocketServer.on('connection', (rawSocket) => {
+  const socket = rawSocket as TrackedWebSocket
   let attachedSessionId: string | null = null
+  socket.isAlive = true
+
+  socket.on('pong', () => {
+    socket.isAlive = true
+  })
 
   socket.on('error', () => {
     // `ws` emits `error` separately from `close`; keep the process alive and
