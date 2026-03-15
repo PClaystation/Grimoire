@@ -125,7 +125,13 @@ export type ClientMessage =
   | { type: 'game_action'; gameId: string; action: ClientGameAction }
 
 export type ServerMessage =
-  | { type: 'session_ready'; sessionId: string; playerName: string }
+  | {
+      type: 'session_ready'
+      sessionId: string
+      playerName: string
+      roomId: string | null
+      gameId: string | null
+    }
   | { type: 'room_snapshot'; room: RoomSnapshot }
   | { type: 'game_snapshot'; game: GameSnapshot }
   | { type: 'room_left'; roomId: string }

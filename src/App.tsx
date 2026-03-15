@@ -19,6 +19,7 @@ import type { DeckFormat } from '@/types/deck'
 import type { CardSearchFilters, CardSortOption } from '@/types/filters'
 import type { MagicCard } from '@/types/scryfall'
 import { sortCards } from '@/utils/cardSort'
+import { copyTextToClipboard } from '@/utils/clipboard'
 import { getDeckImportIdentifiers, parseDeckImport, buildImportedDeck } from '@/utils/deckImport'
 import { buildDeckExportJson, buildDecklistText, buildPortableDeckPayload } from '@/utils/decklist'
 import { getDeckStats } from '@/utils/deckStats'
@@ -200,9 +201,17 @@ function App() {
       return
     }
 
-    const savedDeck = saveDeck(deckDraft)
-    syncSavedDeck(savedDeck)
-    setStatusMessage(`Saved "${savedDeck.name}" to local storage.`)
+    try {
+      const savedDeck = saveDeck(deckDraft)
+      syncSavedDeck(savedDeck)
+      setStatusMessage(`Saved "${savedDeck.name}" to local storage.`)
+    } catch (saveError) {
+      setStatusMessage(
+        saveError instanceof Error
+          ? saveError.message
+          : 'Unable to save this deck in local storage.',
+      )
+    }
   }
 
   async function handleCopyDecklist() {
@@ -220,8 +229,12 @@ function App() {
     )
 
     try {
-      await navigator.clipboard.writeText(decklist)
-      setStatusMessage('Copied decklist to the clipboard.')
+      const didCopy = await copyTextToClipboard(decklist)
+      setStatusMessage(
+        didCopy
+          ? 'Copied decklist to the clipboard.'
+          : 'Unable to copy decklist in this browser.',
+      )
     } catch {
       setStatusMessage('Unable to copy decklist in this browser.')
     }
@@ -237,8 +250,12 @@ function App() {
     url.searchParams.set('deck', encodeDeckSharePayload(payload))
 
     try {
-      await navigator.clipboard.writeText(url.toString())
-      setStatusMessage('Copied a shareable deck link to the clipboard.')
+      const didCopy = await copyTextToClipboard(url.toString())
+      setStatusMessage(
+        didCopy
+          ? 'Copied a shareable deck link to the clipboard.'
+          : 'Unable to copy the share link in this browser.',
+      )
     } catch {
       setStatusMessage('Unable to copy the share link in this browser.')
     }
@@ -324,14 +341,22 @@ function App() {
   function handleDeleteSavedDeck(deckId: string) {
     const deckToDelete = savedDecks.find((deck) => deck.id === deckId)
 
-    deleteDeck(deckId)
+    try {
+      deleteDeck(deckId)
 
-    if (activeDeckId === deckId) {
-      detachSavedDeck()
-    }
+      if (activeDeckId === deckId) {
+        detachSavedDeck()
+      }
 
-    if (deckToDelete) {
-      setStatusMessage(`Deleted "${deckToDelete.name}".`)
+      if (deckToDelete) {
+        setStatusMessage(`Deleted "${deckToDelete.name}".`)
+      }
+    } catch (deleteError) {
+      setStatusMessage(
+        deleteError instanceof Error
+          ? deleteError.message
+          : 'Unable to delete that saved deck right now.',
+      )
     }
   }
 
@@ -352,7 +377,9 @@ function App() {
   }
 
   function handleBudgetTargetChange(nextValue: number | null) {
-    setBudgetTargetUsd(Number.isFinite(nextValue) ? nextValue : null)
+    setBudgetTargetUsd(
+      nextValue !== null && Number.isFinite(nextValue) && nextValue >= 0 ? nextValue : null,
+    )
   }
 
   return (

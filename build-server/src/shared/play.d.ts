@@ -137,6 +137,8 @@ export type ServerMessage = {
     type: 'session_ready';
     sessionId: string;
     playerName: string;
+    roomId: string | null;
+    gameId: string | null;
 } | {
     type: 'room_snapshot';
     room: RoomSnapshot;

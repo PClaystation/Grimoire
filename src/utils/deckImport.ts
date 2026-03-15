@@ -1,7 +1,7 @@
 import type { DeckCardEntry, DeckDraft, DeckFormat, DeckSection } from '@/types/deck'
 import type { DeckImportIdentifier, MagicCard } from '@/types/scryfall'
-import type { PortableDeckEntry, PortableDeckPayload } from '@/utils/decklist'
-import { buildPortableDeckSection } from '@/utils/decklist'
+import type { PortableDeckEntry } from '@/utils/decklist'
+import { buildPortableDeckSection, isPortableDeckPayload } from '@/utils/decklist'
 
 interface ParsedDeckEntry extends PortableDeckEntry {
   section: DeckSection
@@ -61,14 +61,9 @@ function extractCardNameParts(rawValue: string): { name: string; setCode?: strin
 
 function parseJsonDeckImport(input: string): ParsedDeckImport | null {
   try {
-    const parsedValue = JSON.parse(input) as PortableDeckPayload
+    const parsedValue = JSON.parse(input) as unknown
 
-    if (
-      parsedValue.version !== 1 ||
-      typeof parsedValue.name !== 'string' ||
-      !Array.isArray(parsedValue.mainboard) ||
-      !Array.isArray(parsedValue.sideboard)
-    ) {
+    if (!isPortableDeckPayload(parsedValue)) {
       return null
     }
 
@@ -178,6 +173,12 @@ export function parseDeckImport(input: string): ParsedDeckImport {
     }
 
     const quantity = Number.parseInt(quantityMatch.groups.quantity, 10)
+
+    if (!Number.isInteger(quantity) || quantity <= 0) {
+      warnings.push(`Skipped "${trimmedLine}" because quantity must be at least 1.`)
+      continue
+    }
+
     const { name: cardName, setCode } = extractCardNameParts(quantityMatch.groups.card)
 
     entries.push({

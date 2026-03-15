@@ -24,9 +24,18 @@ import {
 } from '@/play/playStorage'
 
 function buildSocketUrl() {
+  const fallbackSocketUrl = () => {
+    const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:'
+    return `${protocol}//${window.location.host}/ws`
+  }
+
   const configuredServerUrl = import.meta.env.VITE_PLAY_SERVER_URL?.trim()
 
-  if (configuredServerUrl) {
+  if (!configuredServerUrl) {
+    return fallbackSocketUrl()
+  }
+
+  try {
     const normalizedUrl = new URL(configuredServerUrl, window.location.href)
 
     if (normalizedUrl.protocol === 'http:') {
@@ -40,10 +49,9 @@ function buildSocketUrl() {
     }
 
     return normalizedUrl.toString()
+  } catch {
+    return fallbackSocketUrl()
   }
-
-  const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:'
-  return `${protocol}//${window.location.host}/ws`
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -97,20 +105,38 @@ export function PlayProvider({ children }: PropsWithChildren) {
       setState((currentState) => {
         switch (message.type) {
           case 'session_ready': {
+            if (typeof message.sessionId !== 'string' || typeof message.playerName !== 'string') {
+              return currentState
+            }
+
             writePlaySessionId(message.sessionId)
             writePlayPlayerName(message.playerName)
             sessionIdRef.current = message.sessionId
             playerNameRef.current = message.playerName
+            const activeRoomId = typeof message.roomId === 'string' ? message.roomId : null
+            const activeGameId = typeof message.gameId === 'string' ? message.gameId : null
 
             return {
               ...currentState,
               sessionId: message.sessionId,
               playerName: message.playerName,
+              room:
+                activeRoomId && currentState.room?.roomId === activeRoomId
+                  ? currentState.room
+                  : null,
+              game:
+                activeGameId && currentState.game?.gameId === activeGameId
+                  ? currentState.game
+                  : null,
               error: null,
             }
           }
 
           case 'room_snapshot':
+            if (!(message.room && typeof message.room.roomId === 'string')) {
+              return currentState
+            }
+
             return {
               ...currentState,
               room: message.room,
@@ -118,6 +144,10 @@ export function PlayProvider({ children }: PropsWithChildren) {
             }
 
           case 'game_snapshot':
+            if (!(message.game && typeof message.game.gameId === 'string')) {
+              return currentState
+            }
+
             return {
               ...currentState,
               game: message.game,
@@ -125,6 +155,10 @@ export function PlayProvider({ children }: PropsWithChildren) {
             }
 
           case 'room_left':
+            if (typeof message.roomId !== 'string') {
+              return currentState
+            }
+
             return {
               ...currentState,
               room:
@@ -135,6 +169,10 @@ export function PlayProvider({ children }: PropsWithChildren) {
             }
 
           case 'error':
+            if (typeof message.message !== 'string') {
+              return currentState
+            }
+
             return {
               ...currentState,
               error: message.message,

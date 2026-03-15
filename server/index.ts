@@ -3,12 +3,14 @@ import { extname, join, normalize, resolve } from 'node:path'
 import { createServer } from 'node:http'
 import { WebSocket, WebSocketServer } from 'ws'
 
-import { normalizePlayerName, type ClientMessage, type ServerMessage } from '../src/shared/play.js'
+import { normalizePlayerName, type ServerMessage } from '../src/shared/play.js'
+import { parseClientMessage } from './clientMessageValidation.js'
 import { PlayServer } from './playServer.js'
 
 const PORT = Number(process.env.PORT ?? 8787)
 const HOST = process.env.HOST ?? '0.0.0.0'
 const DIST_DIR = resolve(process.cwd(), 'dist')
+const MAX_CLIENT_MESSAGE_BYTES = 256 * 1024
 
 const MIME_TYPES: Record<string, string> = {
   '.css': 'text/css; charset=utf-8',
@@ -18,24 +20,6 @@ const MIME_TYPES: Record<string, string> = {
   '.png': 'image/png',
   '.svg': 'image/svg+xml',
   '.woff2': 'font/woff2',
-}
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === 'object' && value !== null
-}
-
-function parseClientMessage(rawData: string): ClientMessage | null {
-  try {
-    const parsed = JSON.parse(rawData) as unknown
-
-    if (!isRecord(parsed) || typeof parsed.type !== 'string') {
-      return null
-    }
-
-    return parsed as ClientMessage
-  } catch {
-    return null
-  }
 }
 
 function sendJson(socket: WebSocket, message: ServerMessage) {
@@ -117,10 +101,16 @@ const httpServer = createServer(handleHttpRequest)
 const webSocketServer = new WebSocketServer({
   server: httpServer,
   path: '/ws',
+  maxPayload: MAX_CLIENT_MESSAGE_BYTES,
 })
 
 webSocketServer.on('connection', (socket) => {
   let attachedSessionId: string | null = null
+
+  socket.on('error', () => {
+    // `ws` emits `error` separately from `close`; keep the process alive and
+    // let the normal close/disconnect path clean up the session mapping.
+  })
 
   socket.on('message', (rawData) => {
     const message = parseClientMessage(rawData.toString())

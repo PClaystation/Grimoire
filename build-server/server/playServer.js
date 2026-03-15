@@ -20,12 +20,14 @@ export class PlayServer {
     handleHello(sessionId, playerName) {
         const normalizedName = normalizePlayerName(playerName);
         this.sessionNames.set(sessionId, normalizedName);
+        const room = this.getRoomBySession(sessionId);
         this.dependencies.sendToSession(sessionId, {
             type: 'session_ready',
             sessionId,
             playerName: normalizedName,
+            roomId: room?.roomId ?? null,
+            gameId: room?.gameId ?? null,
         });
-        const room = this.getRoomBySession(sessionId);
         if (!room) {
             return;
         }

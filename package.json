@@ -12,6 +12,7 @@
     "start:server": "node build-server/server/index.js",
     "build": "tsc -b && vite build",
     "lint": "eslint .",
+    "test": "tsx --tsconfig tsconfig.app.json --test tests/*.test.ts",
     "preview": "node build-server/server/index.js"
   },
   "dependencies": {

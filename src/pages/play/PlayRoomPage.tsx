@@ -1,4 +1,4 @@
-import { useEffect } from 'react'
+import { useEffect, useState } from 'react'
 import { ArrowRight, Copy, LogOut, RadioTower, Swords } from 'lucide-react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 
@@ -6,11 +6,13 @@ import { PlayFrame } from '@/play/components/PlayFrame'
 import { usePlay } from '@/play/usePlay'
 import { createDeckSelectionSnapshot, PLAY_MIN_PLAYERS } from '@/shared/play'
 import { useSavedDecks } from '@/state/useSavedDecks'
+import { copyTextToClipboard } from '@/utils/clipboard'
 
 export function PlayRoomPage() {
   const navigate = useNavigate()
   const { roomId = '' } = useParams()
   const { savedDecks } = useSavedDecks()
+  const [statusMessage, setStatusMessage] = useState<string | null>(null)
   const {
     connectionStatus,
     room,
@@ -88,7 +90,14 @@ export function PlayRoomPage() {
           <button
             type="button"
             onClick={() => {
-              void navigator.clipboard.writeText(room.code)
+              void (async () => {
+                const didCopy = await copyTextToClipboard(room.code)
+                setStatusMessage(
+                  didCopy
+                    ? `Copied room code ${room.code}.`
+                    : 'Unable to copy the room code in this browser.',
+                )
+              })()
             }}
             className="inline-flex items-center gap-2 rounded-2xl border border-white/10 bg-white/6 px-4 py-3 text-sm font-semibold text-ink-100 transition hover:bg-white/10"
           >
@@ -193,6 +202,12 @@ export function PlayRoomPage() {
                 : `Need at least ${PLAY_MIN_PLAYERS} connected players, and every player must choose a deck before the host can start.`}
             </p>
           </div>
+
+          {statusMessage ? (
+            <p className="mt-4 rounded-[1.4rem] border border-tide-400/20 bg-tide-500/10 px-4 py-3 text-sm text-tide-100">
+              {statusMessage}
+            </p>
+          ) : null}
         </section>
 
         <section className="rounded-[2rem] border border-white/10 bg-ink-900/82 p-6 shadow-panel">

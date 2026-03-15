@@ -1,4 +1,4 @@
-import type { PortableDeckPayload } from '@/utils/decklist'
+import { isPortableDeckPayload, type PortableDeckPayload } from '@/utils/decklist'
 
 function toBase64Url(value: string): string {
   const bytes = new TextEncoder().encode(value)
@@ -26,7 +26,8 @@ export function encodeDeckSharePayload(payload: PortableDeckPayload): string {
 
 export function decodeDeckSharePayload(value: string): PortableDeckPayload | null {
   try {
-    return JSON.parse(fromBase64Url(value)) as PortableDeckPayload
+    const parsedValue = JSON.parse(fromBase64Url(value)) as unknown
+    return isPortableDeckPayload(parsedValue) ? parsedValue : null
   } catch {
     return null
   }

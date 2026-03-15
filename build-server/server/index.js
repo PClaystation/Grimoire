@@ -3,10 +3,12 @@ import { extname, join, normalize, resolve } from 'node:path';
 import { createServer } from 'node:http';
 import { WebSocket, WebSocketServer } from 'ws';
 import { normalizePlayerName } from '../src/shared/play.js';
+import { parseClientMessage } from './clientMessageValidation.js';
 import { PlayServer } from './playServer.js';
 const PORT = Number(process.env.PORT ?? 8787);
 const HOST = process.env.HOST ?? '0.0.0.0';
 const DIST_DIR = resolve(process.cwd(), 'dist');
+const MAX_CLIENT_MESSAGE_BYTES = 256 * 1024;
 const MIME_TYPES = {
     '.css': 'text/css; charset=utf-8',
     '.html': 'text/html; charset=utf-8',
@@ -16,21 +18,6 @@ const MIME_TYPES = {
     '.svg': 'image/svg+xml',
     '.woff2': 'font/woff2',
 };
-function isRecord(value) {
-    return typeof value === 'object' && value !== null;
-}
-function parseClientMessage(rawData) {
-    try {
-        const parsed = JSON.parse(rawData);
-        if (!isRecord(parsed) || typeof parsed.type !== 'string') {
-            return null;
-        }
-        return parsed;
-    }
-    catch {
-        return null;
-    }
-}
 function sendJson(socket, message) {
     if (socket.readyState !== WebSocket.OPEN) {
         return;
@@ -93,9 +80,14 @@ const httpServer = createServer(handleHttpRequest);
 const webSocketServer = new WebSocketServer({
     server: httpServer,
     path: '/ws',
+    maxPayload: MAX_CLIENT_MESSAGE_BYTES,
 });
 webSocketServer.on('connection', (socket) => {
     let attachedSessionId = null;
+    socket.on('error', () => {
+        // `ws` emits `error` separately from `close`; keep the process alive and
+        // let the normal close/disconnect path clean up the session mapping.
+    });
     socket.on('message', (rawData) => {
         const message = parseClientMessage(rawData.toString());
         if (!message) {

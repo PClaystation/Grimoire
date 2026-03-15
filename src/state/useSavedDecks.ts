@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 
 import type { DeckCardEntry, DeckDraft, SavedDeck } from '@/types/deck'
 import type { MagicCard } from '@/types/scryfall'
@@ -176,56 +176,57 @@ function readSavedDecks(): SavedDeck[] {
 }
 
 function persistSavedDecks(savedDecks: SavedDeck[]) {
-  window.localStorage.setItem(STORAGE_KEY, JSON.stringify(savedDecks))
+  try {
+    window.localStorage.setItem(STORAGE_KEY, JSON.stringify(savedDecks))
+  } catch {
+    throw new Error('Unable to update local storage in this browser.')
+  }
 }
 
 export function useSavedDecks() {
   const [savedDecks, setSavedDecks] = useState<SavedDeck[]>(() => readSavedDecks())
+  const savedDecksRef = useRef(savedDecks)
+
+  useEffect(() => {
+    savedDecksRef.current = savedDecks
+  }, [savedDecks])
+
+  function commitSavedDecks(nextDecks: SavedDeck[]) {
+    persistSavedDecks(nextDecks)
+    savedDecksRef.current = nextDecks
+    setSavedDecks(nextDecks)
+  }
 
   function saveDeck(draft: DeckDraft): SavedDeck {
     const now = new Date().toISOString()
-    let savedDeck: SavedDeck | undefined
-
-    setSavedDecks((currentDecks) => {
-      const existingDeck = draft.id
-        ? currentDecks.find((deck) => deck.id === draft.id) ?? null
-        : null
-
-      savedDeck = {
-        id: existingDeck?.id ?? crypto.randomUUID(),
-        name: draft.name.trim() || 'Untitled Deck',
-        format: draft.format,
-        mainboard: draft.mainboard,
-        sideboard: draft.sideboard,
-        notes: draft.notes.trim(),
-        matchupNotes: draft.matchupNotes.trim(),
-        budgetTargetUsd: draft.budgetTargetUsd,
-        createdAt: existingDeck?.createdAt ?? draft.createdAt ?? now,
-        updatedAt: now,
-      }
-
-      const nextDecks = existingDeck
-        ? currentDecks.map((deck) => (deck.id === existingDeck.id ? savedDeck! : deck))
-        : [savedDeck, ...currentDecks]
-
-      const orderedDecks = sortSavedDecks(nextDecks)
-      persistSavedDecks(orderedDecks)
-      return orderedDecks
-    })
-
-    if (!savedDeck) {
-      throw new Error('Unable to save deck.')
+    const currentDecks = savedDecksRef.current
+    const existingDeck = draft.id ? currentDecks.find((deck) => deck.id === draft.id) ?? null : null
+    const savedDeck: SavedDeck = {
+      id: existingDeck?.id ?? crypto.randomUUID(),
+      name: draft.name.trim() || 'Untitled Deck',
+      format: draft.format,
+      mainboard: draft.mainboard,
+      sideboard: draft.sideboard,
+      notes: draft.notes.trim(),
+      matchupNotes: draft.matchupNotes.trim(),
+      budgetTargetUsd: draft.budgetTargetUsd,
+      createdAt: existingDeck?.createdAt ?? draft.createdAt ?? now,
+      updatedAt: now,
     }
+
+    const nextDecks = existingDeck
+      ? currentDecks.map((deck) => (deck.id === existingDeck.id ? savedDeck : deck))
+      : [savedDeck, ...currentDecks]
+    const orderedDecks = sortSavedDecks(nextDecks)
+
+    commitSavedDecks(orderedDecks)
 
     return savedDeck
   }
 
   function deleteDeck(deckId: string) {
-    setSavedDecks((currentDecks) => {
-      const nextDecks = currentDecks.filter((deck) => deck.id !== deckId)
-      persistSavedDecks(nextDecks)
-      return nextDecks
-    })
+    const nextDecks = savedDecksRef.current.filter((deck) => deck.id !== deckId)
+    commitSavedDecks(nextDecks)
   }
 
   return {

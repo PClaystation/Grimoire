@@ -16,6 +16,21 @@ Original prompt: You are extending an existing MTG deckbuilder web app into an o
   - Added configurable router mode (`browser` vs `hash`) so GitHub Pages can use hash routing without changing app code.
   - Added `VITE_BASE_PATH` support in Vite config plus `build:client`, `build:server`, and `start:server` scripts for split frontend/backend deployment.
   - Documented GitHub Pages + separate backend deployment steps in `README.md`.
-  - Added `.github/workflows/deploy-pages.yml` for automatic GitHub Pages deploys from `main`.
+ - Added `.github/workflows/deploy-pages.yml` for automatic GitHub Pages deploys from `main`.
   - Added ready-to-paste Caddy, Nginx, and systemd deployment files under `deploy/`.
   - Updated the Node server to return a simple backend-only status response when frontend assets are not present on the server.
+- Reliability hardening pass:
+  - Added strict server-side WebSocket message validation plus a `ws` payload cap so malformed client messages no longer reach the authoritative game logic and crash it.
+  - Extended `session_ready` with active room/game IDs so reconnects can clear stale room/game state when the backend no longer has that session attached.
+  - Hardened browser persistence paths: play session storage now falls back to memory when `localStorage` is blocked, and saved-deck writes now fail cleanly instead of mutating UI state after a storage exception.
+  - Added a clipboard utility with a DOM fallback and wired it into deck exports/share links and lobby room-code copy.
+  - Tightened deck/share import validation so malformed JSON payloads are rejected and non-positive quantities are skipped instead of entering invalid deck state.
+  - Removed the unused `src/App 2.tsx` scaffold file.
+- Verification:
+  - `npm run lint` passed.
+  - `npm test` passed with new coverage for client message validation and share/deck import validation.
+  - `npm run build` passed.
+  - `npm audit` passed with no reported vulnerabilities.
+  - Ran `npm run preview`, verified `GET /health`, `GET /`, and executed a two-client `/ws` smoke test covering malformed-message rejection, room creation/join, deck selection, game start, draw, and battlefield sync.
+- Follow-up:
+  - The `develop-web-game` Playwright client could not be executed in this environment because the external `playwright` runtime package is not installed. Runtime verification used direct HTTP/WebSocket smoke tests instead.
