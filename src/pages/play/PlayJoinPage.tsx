@@ -4,7 +4,7 @@ import { Link, useNavigate } from 'react-router-dom'
 
 import { PlayFrame } from '@/play/components/PlayFrame'
 import { usePlay } from '@/play/usePlay'
-import { normalizeRoomCode } from '@/shared/play'
+import { PLAYER_NAME_MAX_LENGTH, ROOM_CODE_LENGTH, normalizeRoomCode } from '@/shared/play'
 
 export function PlayJoinPage() {
   const navigate = useNavigate()
@@ -53,9 +53,13 @@ export function PlayJoinPage() {
           <label className="grid gap-2">
             <span className="text-sm font-semibold text-ink-100">Display name</span>
             <input
+              type="text"
+              name="display-name"
               value={nameInput}
               onChange={(event) => setNameInput(event.target.value)}
               placeholder="Planeswalker"
+              autoComplete="nickname"
+              maxLength={PLAYER_NAME_MAX_LENGTH}
               className="rounded-[1.2rem] border border-white/10 bg-white/5 px-4 py-3 text-base text-ink-50 outline-none transition focus:border-tide-400/40 focus:bg-white/7"
             />
           </label>
@@ -63,9 +67,16 @@ export function PlayJoinPage() {
           <label className="grid gap-2">
             <span className="text-sm font-semibold text-ink-100">Room code</span>
             <input
+              type="text"
+              name="room-code"
               value={roomCodeInput}
               onChange={(event) => setRoomCodeInput(normalizeRoomCode(event.target.value))}
               placeholder="ABC123"
+              autoCapitalize="characters"
+              autoCorrect="off"
+              autoComplete="off"
+              spellCheck={false}
+              maxLength={ROOM_CODE_LENGTH}
               className="rounded-[1.2rem] border border-white/10 bg-white/5 px-4 py-3 text-base uppercase tracking-[0.18em] text-ink-50 outline-none transition focus:border-ember-400/40 focus:bg-white/7"
             />
           </label>
@@ -73,7 +84,8 @@ export function PlayJoinPage() {
           <div className="flex flex-wrap gap-3">
             <button
               type="submit"
-              className="inline-flex items-center gap-2 rounded-2xl bg-ember-500 px-5 py-3 text-sm font-semibold text-white transition hover:bg-ember-400"
+              disabled={!roomCodeInput || connectionStatus === 'disconnected'}
+              className="inline-flex items-center gap-2 rounded-2xl bg-ember-500 px-5 py-3 text-sm font-semibold text-white transition hover:bg-ember-400 disabled:cursor-not-allowed disabled:opacity-60"
             >
               <DoorOpen className="h-4 w-4" />
               Join room

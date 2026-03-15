@@ -1,6 +1,6 @@
-# Grimoire Deckbuilder
+# Grimoire by Continental
 
-Responsive MTG deckbuilder built with React, TypeScript, Vite, and Tailwind.
+Responsive MTG deckbuilder and online tabletop built with React, TypeScript, Vite, Tailwind, and a small WebSocket backend.
 
 ## What It Includes
 
@@ -10,7 +10,9 @@ Responsive MTG deckbuilder built with React, TypeScript, Vite, and Tailwind.
 - Click-through card detail modal with larger art and rules text
 - Deck add/remove controls with counts, curve, color spread, and average mana value
 - `localStorage` persistence for saving, loading, and deleting deck snapshots
-- Modular project structure for future expansion into multiplayer systems
+- Share-link, import, and export flows for moving decks between browsers
+- Room-based online tabletop play with private hands and synchronized public zones
+- Split frontend/backend deployment support for GitHub Pages plus a separate play server
 
 ## Project Structure
 
@@ -20,9 +22,12 @@ src/
   components/   UI split by cards, deck, filters, layout, shared panels
   constants/    MTG options and filter defaults
   hooks/        Card search and set-loading hooks
+  play/         Multiplayer provider, storage, and tabletop UI
   state/        Deck builder and localStorage deck persistence
+  shared/       Shared multiplayer protocol + deck helpers
   types/        Strong TypeScript models for cards, filters, and decks
   utils/        Formatting and deck stat helpers
+server/         Authoritative WebSocket backend + HTTP preview server
 ```
 
 ## Development

@@ -1,5 +1,5 @@
 import { createReadStream, existsSync, statSync } from 'node:fs'
-import { extname, join, normalize, resolve } from 'node:path'
+import { extname, join, normalize, relative, resolve, sep } from 'node:path'
 import { createServer } from 'node:http'
 import { WebSocket, WebSocketServer } from 'ws'
 
@@ -23,6 +23,15 @@ const MIME_TYPES: Record<string, string> = {
   '.woff2': 'font/woff2',
 }
 
+function buildBaseHeaders() {
+  return {
+    'Permissions-Policy': 'camera=(), microphone=(), geolocation=()',
+    'Referrer-Policy': 'strict-origin-when-cross-origin',
+    'X-Content-Type-Options': 'nosniff',
+    'X-Frame-Options': 'DENY',
+  }
+}
+
 function sendJson(socket: WebSocket, message: ServerMessage) {
   if (socket.readyState !== WebSocket.OPEN) {
     return
@@ -33,7 +42,17 @@ function sendJson(socket: WebSocket, message: ServerMessage) {
 
 function sendFile(response: import('node:http').ServerResponse, filePath: string) {
   const fileExtension = extname(filePath)
+  const isHtml = fileExtension === '.html'
+  const relativePath = relative(DIST_DIR, filePath)
+  const cacheControl = isHtml
+    ? 'no-cache'
+    : relativePath.startsWith(`assets${sep}`)
+      ? 'public, max-age=31536000, immutable'
+      : 'public, max-age=3600'
+
   response.writeHead(200, {
+    ...buildBaseHeaders(),
+    'Cache-Control': cacheControl,
     'Content-Type': MIME_TYPES[fileExtension] ?? 'application/octet-stream',
   })
   createReadStream(filePath).pipe(response)
@@ -53,6 +72,8 @@ function handleHttpRequest(
 
   if (url.pathname === '/health') {
     response.writeHead(200, {
+      ...buildBaseHeaders(),
+      'Cache-Control': 'no-store',
       'Content-Type': 'application/json; charset=utf-8',
     })
     response.end(JSON.stringify({ ok: true }))
@@ -62,6 +83,8 @@ function handleHttpRequest(
   if (!existsSync(DIST_DIR)) {
     if (url.pathname === '/' || url.pathname === '/index.html') {
       response.writeHead(200, {
+        ...buildBaseHeaders(),
+        'Cache-Control': 'no-store',
         'Content-Type': 'text/plain; charset=utf-8',
       })
       response.end('Grimoire multiplayer backend is running. Frontend is hosted separately.\n')
@@ -69,6 +92,8 @@ function handleHttpRequest(
     }
 
     response.writeHead(404, {
+      ...buildBaseHeaders(),
+      'Cache-Control': 'no-store',
       'Content-Type': 'text/plain; charset=utf-8',
     })
     response.end('Frontend assets are not installed on this server.\n')

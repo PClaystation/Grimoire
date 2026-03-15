@@ -204,7 +204,11 @@ export function PlayRoomPage() {
           </div>
 
           {statusMessage ? (
-            <p className="mt-4 rounded-[1.4rem] border border-tide-400/20 bg-tide-500/10 px-4 py-3 text-sm text-tide-100">
+            <p
+              role="status"
+              aria-live="polite"
+              className="mt-4 rounded-[1.4rem] border border-tide-400/20 bg-tide-500/10 px-4 py-3 text-sm text-tide-100"
+            >
               {statusMessage}
             </p>
           ) : null}
@@ -233,6 +237,7 @@ export function PlayRoomPage() {
                     key={deck.id}
                     type="button"
                     onClick={() => selectDeck(room.roomId, createDeckSelectionSnapshot(deck))}
+                    aria-pressed={isSelected}
                     className={`rounded-[1.5rem] border px-4 py-4 text-left transition ${
                       isSelected
                         ? 'border-tide-400/30 bg-tide-500/12'
@@ -243,7 +248,11 @@ export function PlayRoomPage() {
                       <div>
                         <h3 className="text-lg font-semibold text-ink-50">{deck.name}</h3>
                         <p className="mt-2 text-sm text-ink-300">
-                          {deck.format} • {deck.mainboard.reduce((sum, entry) => sum + entry.quantity, 0)} mainboard
+                          {deck.format} •{' '}
+                          {deck.mainboard.reduce((sum, entry) => sum + entry.quantity, 0)} mainboard
+                          {deck.sideboard.length > 0
+                            ? ` • ${deck.sideboard.reduce((sum, entry) => sum + entry.quantity, 0)} sideboard`
+                            : ''}
                         </p>
                       </div>
 

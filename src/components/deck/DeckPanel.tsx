@@ -250,7 +250,11 @@ export function DeckPanel({
             </div>
 
             {statusMessage ? (
-              <p className="rounded-2xl border border-tide-400/20 bg-tide-500/10 px-4 py-3 text-sm text-tide-100">
+              <p
+                role="status"
+                aria-live="polite"
+                className="rounded-2xl border border-tide-400/20 bg-tide-500/10 px-4 py-3 text-sm text-tide-100"
+              >
                 {statusMessage}
               </p>
             ) : null}

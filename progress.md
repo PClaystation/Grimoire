@@ -78,3 +78,21 @@ Original prompt: You are extending an existing MTG deckbuilder web app into an o
   - `npm run build` passed.
   - `npm run lint` passed.
   - Ran the `develop-web-game` Playwright smoke client against `http://127.0.0.1:8787/` and `http://127.0.0.1:8787/play`, then visually reviewed `artifacts/playwright/branding-home/shot-0.png` and `artifacts/playwright/branding-play/shot-0.png`.
+
+2026-03-15
+- Public polish pass:
+  - Reworked the shared Continental signature lockup so the wordmark sits on a centered baseline with the C2 mark instead of hanging slightly low inside the hero badge.
+  - Fixed the branding asset paths to respect `import.meta.env.BASE_URL`, so the Continental graphics now load correctly on GitHub Pages and other non-root deployments.
+  - Added release-facing metadata and a base-path-safe favicon reference in `index.html`.
+  - Added global dark color-scheme, focus-visible outlines, textarea font inheritance, and reduced-motion handling in `src/index.css`.
+  - Tightened play route forms with max lengths, autocomplete/casing hints, and disabled submit states for disconnected or incomplete room joins.
+  - Added `aria-live` status messaging in the deckbuilder and room lobby, plus richer lobby deck summaries and pressed-state affordances.
+  - Added basic HTTP hardening/caching headers to the Node preview/play server and refreshed the README summary so it matches the shipped product.
+- Verification:
+  - `npm run build` passed.
+  - `npm run lint` passed.
+  - `npm test` passed.
+  - `npm audit --omit=dev` passed with 0 vulnerabilities.
+  - Ran `node scripts/validate-play-table.mjs http://127.0.0.1:8787` against the built preview server and visually reviewed the refreshed live-table screenshot in `artifacts/playwright/revamp/alice-table.png`.
+  - Ran the required `develop-web-game` Playwright smoke client against `http://127.0.0.1:8787/` and `http://127.0.0.1:8787/play`, then captured cleaner top-of-page verification screenshots in `artifacts/playwright/public-home-top.png` and `artifacts/playwright/public-play-top.png`.
+  - Confirmed preview HTTP headers with `curl -I` for `/`, `/health`, and the hashed frontend asset route under `/assets/`.

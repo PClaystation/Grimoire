@@ -8,6 +8,7 @@
   font-family: 'Space Grotesk', sans-serif;
   color: #f4f7f8;
   background-color: #07131b;
+  color-scheme: dark;
   line-height: 1.5;
   font-synthesis: none;
   text-rendering: optimizeLegibility;
@@ -49,8 +50,26 @@ body::before {
 
 button,
 input,
-select {
+select,
+textarea {
   font: inherit;
+}
+
+a,
+button,
+input,
+select,
+textarea {
+  -webkit-tap-highlight-color: transparent;
+}
+
+a:focus-visible,
+button:focus-visible,
+input:focus-visible,
+select:focus-visible,
+textarea:focus-visible {
+  outline: 2px solid rgba(112, 208, 214, 0.92);
+  outline-offset: 2px;
 }
 
 img {
@@ -75,4 +94,18 @@ p {
 ::selection {
   background: rgba(112, 208, 214, 0.28);
   color: #f4f7f8;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
+
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
 }
