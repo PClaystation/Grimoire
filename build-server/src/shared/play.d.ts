@@ -1,13 +1,22 @@
 import type { DeckCardEntry, DeckFormat, SavedDeck } from '../types/deck.js';
-import type { MagicCard } from '../types/scryfall.js';
+import type { CardColor, MagicCard } from '../types/scryfall.js';
 export declare const PLAY_MIN_PLAYERS = 2;
 export declare const PLAY_MAX_PLAYERS = 6;
 export declare const PLAY_STARTING_LIFE_TOTAL = 20;
+export declare const PLAY_COMMANDER_STARTING_LIFE_TOTAL = 40;
 export declare const PLAY_OPENING_HAND_SIZE = 7;
 export declare const ROOM_CODE_LENGTH = 6;
 export declare const PLAYER_NAME_MAX_LENGTH = 24;
 export type RoomPhase = 'lobby' | 'game';
-export type OwnedZone = 'hand' | 'battlefield' | 'graveyard' | 'exile';
+export type OwnedZone = 'hand' | 'battlefield' | 'graveyard' | 'exile' | 'command';
+export interface PermanentPosition {
+    x: number;
+    y: number;
+}
+export interface PermanentCounter {
+    kind: string;
+    amount: number;
+}
 export interface DeckSelectionSummary {
     id: string;
     name: string;
@@ -17,6 +26,7 @@ export interface DeckSelectionSummary {
 }
 export interface DeckSelectionSnapshot extends DeckSelectionSummary {
     mainboard: DeckCardEntry[];
+    sideboard: DeckCardEntry[];
 }
 export interface PlayerZoneCounts {
     library: number;
@@ -24,6 +34,7 @@ export interface PlayerZoneCounts {
     battlefield: number;
     graveyard: number;
     exile: number;
+    command: number;
 }
 export interface RoomPlayerSnapshot {
     id: string;
@@ -53,6 +64,10 @@ export interface BattlefieldPermanentSnapshot extends TableCardSnapshot {
     controllerPlayerId: string;
     tapped: boolean;
     enteredAt: string;
+    position: PermanentPosition;
+    counters: PermanentCounter[];
+    note: string;
+    isToken: boolean;
 }
 export interface GamePlayerPublicSnapshot {
     id: string;
@@ -63,6 +78,7 @@ export interface GamePlayerPublicSnapshot {
     zoneCounts: PlayerZoneCounts;
     graveyard: TableCardSnapshot[];
     exile: TableCardSnapshot[];
+    command: TableCardSnapshot[];
 }
 export interface GamePrivatePlayerState {
     playerId: string;
@@ -95,19 +111,49 @@ export type ClientGameAction = {
     type: 'shuffle_library';
 } | {
     type: 'draw_card';
+    amount?: number;
 } | {
     type: 'move_owned_card';
     cardId: string;
     fromZone: OwnedZone;
     toZone: OwnedZone;
+    position?: PermanentPosition;
 } | {
     type: 'tap_card';
     cardId: string;
     tapped: boolean;
 } | {
+    type: 'untap_all';
+} | {
     type: 'adjust_life';
     playerId: string;
     delta: number;
+} | {
+    type: 'set_permanent_position';
+    cardId: string;
+    position: PermanentPosition;
+} | {
+    type: 'adjust_permanent_counter';
+    cardId: string;
+    counterKind: string;
+    delta: number;
+} | {
+    type: 'set_permanent_note';
+    cardId: string;
+    note: string;
+} | {
+    type: 'change_control';
+    cardId: string;
+    controllerPlayerId: string;
+} | {
+    type: 'create_token';
+    name: string;
+    tokenType?: string;
+    note?: string;
+    colors?: CardColor[];
+    power?: string;
+    toughness?: string;
+    position?: PermanentPosition;
 };
 export type ClientMessage = {
     type: 'hello';
@@ -158,4 +204,5 @@ export declare function buildDeckSelectionSummary(deck: Pick<DeckSelectionSnapsh
 export declare function normalizeRoomCode(value: string): string;
 export declare function buildRandomRoomCode(): string;
 export declare function normalizePlayerName(value: string): string;
+export declare function clampPermanentPosition(position: Partial<PermanentPosition> | null | undefined): PermanentPosition;
 export declare function normalizeDeckFormat(value: string): DeckFormat;

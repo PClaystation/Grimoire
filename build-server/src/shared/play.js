@@ -1,6 +1,7 @@
 export const PLAY_MIN_PLAYERS = 2;
 export const PLAY_MAX_PLAYERS = 6;
 export const PLAY_STARTING_LIFE_TOTAL = 20;
+export const PLAY_COMMANDER_STARTING_LIFE_TOTAL = 40;
 export const PLAY_OPENING_HAND_SIZE = 7;
 export const ROOM_CODE_LENGTH = 6;
 export const PLAYER_NAME_MAX_LENGTH = 24;
@@ -14,6 +15,7 @@ export function createDeckSelectionSnapshot(deck) {
         name: deck.name,
         format: deck.format,
         mainboard: deck.mainboard,
+        sideboard: deck.sideboard,
         mainboardCount: countDeckCards(deck.mainboard),
         sideboardCount: countDeckCards(deck.sideboard),
     };
@@ -48,6 +50,14 @@ export function normalizePlayerName(value) {
         return 'Planeswalker';
     }
     return trimmed.slice(0, PLAYER_NAME_MAX_LENGTH);
+}
+export function clampPermanentPosition(position) {
+    const nextX = typeof position?.x === 'number' ? position.x : 50;
+    const nextY = typeof position?.y === 'number' ? position.y : 50;
+    return {
+        x: Math.max(4, Math.min(96, Number(nextX.toFixed(1)))),
+        y: Math.max(8, Math.min(88, Number(nextY.toFixed(1)))),
+    };
 }
 export function normalizeDeckFormat(value) {
     switch (value) {

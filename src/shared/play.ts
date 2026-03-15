@@ -1,9 +1,10 @@
 import type { DeckCardEntry, DeckFormat, SavedDeck } from '../types/deck.js'
-import type { MagicCard } from '../types/scryfall.js'
+import type { CardColor, MagicCard } from '../types/scryfall.js'
 
 export const PLAY_MIN_PLAYERS = 2
 export const PLAY_MAX_PLAYERS = 6
 export const PLAY_STARTING_LIFE_TOTAL = 20
+export const PLAY_COMMANDER_STARTING_LIFE_TOTAL = 40
 export const PLAY_OPENING_HAND_SIZE = 7
 export const ROOM_CODE_LENGTH = 6
 export const PLAYER_NAME_MAX_LENGTH = 24
@@ -11,7 +12,17 @@ export const PLAYER_NAME_MAX_LENGTH = 24
 const ROOM_CODE_ALPHABET = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'
 
 export type RoomPhase = 'lobby' | 'game'
-export type OwnedZone = 'hand' | 'battlefield' | 'graveyard' | 'exile'
+export type OwnedZone = 'hand' | 'battlefield' | 'graveyard' | 'exile' | 'command'
+
+export interface PermanentPosition {
+  x: number
+  y: number
+}
+
+export interface PermanentCounter {
+  kind: string
+  amount: number
+}
 
 export interface DeckSelectionSummary {
   id: string
@@ -23,6 +34,7 @@ export interface DeckSelectionSummary {
 
 export interface DeckSelectionSnapshot extends DeckSelectionSummary {
   mainboard: DeckCardEntry[]
+  sideboard: DeckCardEntry[]
 }
 
 export interface PlayerZoneCounts {
@@ -31,6 +43,7 @@ export interface PlayerZoneCounts {
   battlefield: number
   graveyard: number
   exile: number
+  command: number
 }
 
 export interface RoomPlayerSnapshot {
@@ -64,6 +77,10 @@ export interface BattlefieldPermanentSnapshot extends TableCardSnapshot {
   controllerPlayerId: string
   tapped: boolean
   enteredAt: string
+  position: PermanentPosition
+  counters: PermanentCounter[]
+  note: string
+  isToken: boolean
 }
 
 export interface GamePlayerPublicSnapshot {
@@ -75,6 +92,7 @@ export interface GamePlayerPublicSnapshot {
   zoneCounts: PlayerZoneCounts
   graveyard: TableCardSnapshot[]
   exile: TableCardSnapshot[]
+  command: TableCardSnapshot[]
 }
 
 export interface GamePrivatePlayerState {
@@ -110,10 +128,31 @@ export interface GameSnapshot {
 
 export type ClientGameAction =
   | { type: 'shuffle_library' }
-  | { type: 'draw_card' }
-  | { type: 'move_owned_card'; cardId: string; fromZone: OwnedZone; toZone: OwnedZone }
+  | { type: 'draw_card'; amount?: number }
+  | {
+      type: 'move_owned_card'
+      cardId: string
+      fromZone: OwnedZone
+      toZone: OwnedZone
+      position?: PermanentPosition
+    }
   | { type: 'tap_card'; cardId: string; tapped: boolean }
+  | { type: 'untap_all' }
   | { type: 'adjust_life'; playerId: string; delta: number }
+  | { type: 'set_permanent_position'; cardId: string; position: PermanentPosition }
+  | { type: 'adjust_permanent_counter'; cardId: string; counterKind: string; delta: number }
+  | { type: 'set_permanent_note'; cardId: string; note: string }
+  | { type: 'change_control'; cardId: string; controllerPlayerId: string }
+  | {
+      type: 'create_token'
+      name: string
+      tokenType?: string
+      note?: string
+      colors?: CardColor[]
+      power?: string
+      toughness?: string
+      position?: PermanentPosition
+    }
 
 export type ClientMessage =
   | { type: 'hello'; sessionId: string; playerName: string }
@@ -149,6 +188,7 @@ export function createDeckSelectionSnapshot(
     name: deck.name,
     format: deck.format,
     mainboard: deck.mainboard,
+    sideboard: deck.sideboard,
     mainboardCount: countDeckCards(deck.mainboard),
     sideboardCount: countDeckCards(deck.sideboard),
   }
@@ -193,6 +233,18 @@ export function normalizePlayerName(value: string) {
   }
 
   return trimmed.slice(0, PLAYER_NAME_MAX_LENGTH)
+}
+
+export function clampPermanentPosition(
+  position: Partial<PermanentPosition> | null | undefined,
+): PermanentPosition {
+  const nextX = typeof position?.x === 'number' ? position.x : 50
+  const nextY = typeof position?.y === 'number' ? position.y : 50
+
+  return {
+    x: Math.max(4, Math.min(96, Number(nextX.toFixed(1)))),
+    y: Math.max(8, Math.min(88, Number(nextY.toFixed(1)))),
+  }
 }
 
 export function normalizeDeckFormat(value: string): DeckFormat {

@@ -16,9 +16,19 @@ Original prompt: You are extending an existing MTG deckbuilder web app into an o
   - Added configurable router mode (`browser` vs `hash`) so GitHub Pages can use hash routing without changing app code.
   - Added `VITE_BASE_PATH` support in Vite config plus `build:client`, `build:server`, and `start:server` scripts for split frontend/backend deployment.
   - Documented GitHub Pages + separate backend deployment steps in `README.md`.
- - Added `.github/workflows/deploy-pages.yml` for automatic GitHub Pages deploys from `main`.
+  - Added `.github/workflows/deploy-pages.yml` for automatic GitHub Pages deploys from `main`.
   - Added ready-to-paste Caddy, Nginx, and systemd deployment files under `deploy/`.
   - Updated the Node server to return a simple backend-only status response when frontend assets are not present on the server.
+- Live table revamp started:
+  - Expanded the shared play protocol and server model to support command zone data, commander starting life, battlefield positions, counters, token permanents, permanent notes, control changes, multi-card draw, and untap-all actions.
+  - Added command-zone bootstrap heuristics for commander games and widened client message validation for the richer tabletop action set.
+  - Replaced the old stacked-panel game page with a board-first table view: compact HUD, smaller game nav, per-player battlefield lanes, drag-and-drop placement, a persistent overlapping hand tray, a side inspector, a focused public-zone browser, and a token workshop.
+  - Added stable automation hooks on the live table (`data-testid`/data attributes) and a Playwright validation script under `scripts/validate-play-table.mjs` that seeds two commander decks, spins up a real room, starts a game, performs table actions, and captures refreshed screenshots.
+  - Verification:
+    - `npm run build` passed.
+    - `npm run lint` passed.
+    - Ran `node scripts/validate-play-table.mjs http://127.0.0.1:8787` against the built preview server and captured updated battle-screen screenshots in `artifacts/playwright/revamp/alice-table.png` and `artifacts/playwright/revamp/bob-table.png`.
+    - Ran the required skill Playwright smoke client against `/play` and captured `artifacts/playwright/web-game-client-smoke/shot-0.png`.
 - Reliability hardening pass:
   - Added strict server-side WebSocket message validation plus a `ws` payload cap so malformed client messages no longer reach the authoritative game logic and crash it.
   - Extended `session_ready` with active room/game IDs so reconnects can clear stale room/game state when the backend no longer has that session attached.

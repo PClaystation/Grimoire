@@ -22,6 +22,9 @@ export declare class PlayServer {
     private applyGameAction;
     private takeOwnedCard;
     private placeOwnedCard;
+    private getControllablePermanent;
+    private getAutoBattlefieldPosition;
+    private buildInitialCommandZone;
     private emitRoomSnapshots;
     private emitGameSnapshots;
     private buildRoomSnapshot;

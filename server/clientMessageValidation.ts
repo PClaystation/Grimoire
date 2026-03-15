@@ -1,10 +1,11 @@
 import type { DeckCardEntry } from '../src/types/deck.js'
-import type { MagicCard } from '../src/types/scryfall.js'
+import type { CardColor, MagicCard } from '../src/types/scryfall.js'
 import type {
   ClientGameAction,
   ClientMessage,
   DeckSelectionSnapshot,
   OwnedZone,
+  PermanentPosition,
 } from '../src/shared/play.js'
 
 const MAX_CLIENT_STRING_LENGTH = 256
@@ -27,7 +28,27 @@ function isNullableNumber(value: unknown): value is number | null {
 }
 
 function isOwnedZone(value: unknown): value is OwnedZone {
-  return value === 'hand' || value === 'battlefield' || value === 'graveyard' || value === 'exile'
+  return (
+    value === 'hand' ||
+    value === 'battlefield' ||
+    value === 'graveyard' ||
+    value === 'exile' ||
+    value === 'command'
+  )
+}
+
+function isCardColor(value: unknown): value is CardColor {
+  return value === 'W' || value === 'U' || value === 'B' || value === 'R' || value === 'G'
+}
+
+function isPermanentPosition(value: unknown): value is PermanentPosition {
+  return (
+    isRecord(value) &&
+    typeof value.x === 'number' &&
+    Number.isFinite(value.x) &&
+    typeof value.y === 'number' &&
+    Number.isFinite(value.y)
+  )
 }
 
 function isMagicCardPayload(value: unknown): value is MagicCard {
@@ -83,7 +104,10 @@ function isDeckSelectionSnapshotPayload(value: unknown): value is DeckSelectionS
     typeof value.sideboardCount === 'number' &&
     Number.isFinite(value.sideboardCount) &&
     Array.isArray(value.mainboard) &&
+    Array.isArray(value.sideboard) &&
     value.mainboard.length <= MAX_DECK_ENTRIES &&
+    value.sideboard.length <= MAX_DECK_ENTRIES &&
+    value.sideboard.every((entry) => isDeckCardEntryPayload(entry)) &&
     value.mainboard.every((entry) => isDeckCardEntryPayload(entry))
   )
 }
@@ -95,18 +119,44 @@ function isClientGameActionPayload(value: unknown): value is ClientGameAction {
 
   switch (value.type) {
     case 'shuffle_library':
-    case 'draw_card':
+    case 'untap_all':
       return true
+    case 'draw_card':
+      return value.amount === undefined || typeof value.amount === 'number'
     case 'move_owned_card':
       return (
         isNonEmptyString(value.cardId) &&
         isOwnedZone(value.fromZone) &&
-        isOwnedZone(value.toZone)
+        isOwnedZone(value.toZone) &&
+        (value.position === undefined || isPermanentPosition(value.position))
       )
     case 'tap_card':
       return isNonEmptyString(value.cardId) && typeof value.tapped === 'boolean'
     case 'adjust_life':
       return isNonEmptyString(value.playerId) && typeof value.delta === 'number'
+    case 'set_permanent_position':
+      return isNonEmptyString(value.cardId) && isPermanentPosition(value.position)
+    case 'adjust_permanent_counter':
+      return (
+        isNonEmptyString(value.cardId) &&
+        isNonEmptyString(value.counterKind) &&
+        typeof value.delta === 'number'
+      )
+    case 'set_permanent_note':
+      return isNonEmptyString(value.cardId) && typeof value.note === 'string'
+    case 'change_control':
+      return isNonEmptyString(value.cardId) && isNonEmptyString(value.controllerPlayerId)
+    case 'create_token':
+      return (
+        isNonEmptyString(value.name) &&
+        (value.tokenType === undefined || typeof value.tokenType === 'string') &&
+        (value.note === undefined || typeof value.note === 'string') &&
+        (value.power === undefined || typeof value.power === 'string') &&
+        (value.toughness === undefined || typeof value.toughness === 'string') &&
+        (value.position === undefined || isPermanentPosition(value.position)) &&
+        (value.colors === undefined ||
+          (Array.isArray(value.colors) && value.colors.every((entry) => isCardColor(entry))))
+      )
     default:
       return false
   }

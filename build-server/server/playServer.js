@@ -1,4 +1,4 @@
-import { PLAY_MAX_PLAYERS, PLAY_MIN_PLAYERS, PLAY_OPENING_HAND_SIZE, PLAY_STARTING_LIFE_TOTAL, buildDeckSelectionSummary, buildRandomRoomCode, countDeckCards, normalizeDeckFormat, normalizePlayerName, normalizeRoomCode, } from '../src/shared/play.js';
+import { PLAY_COMMANDER_STARTING_LIFE_TOTAL, PLAY_MAX_PLAYERS, PLAY_MIN_PLAYERS, PLAY_OPENING_HAND_SIZE, PLAY_STARTING_LIFE_TOTAL, buildDeckSelectionSummary, buildRandomRoomCode, clampPermanentPosition, countDeckCards, normalizeDeckFormat, normalizePlayerName, normalizeRoomCode, } from '../src/shared/play.js';
 import { expandDeckEntries, shuffleCardInstances, } from '../src/shared/playDeck.js';
 function removeCardFromZone(cards, cardId) {
     const cardIndex = cards.findIndex((card) => card.instanceId === cardId);
@@ -7,6 +7,100 @@ function removeCardFromZone(cards, cardId) {
     }
     const [card] = cards.splice(cardIndex, 1);
     return card;
+}
+function sanitizePermanentNote(value) {
+    return (value ?? '').trim().replace(/\s+/g, ' ').slice(0, 120);
+}
+function sanitizeCounterKind(value) {
+    const normalized = value.trim().toLowerCase().replace(/[^a-z0-9/+ -]/g, '');
+    return normalized.slice(0, 20);
+}
+function clampCounterDelta(value) {
+    return Math.max(-20, Math.min(20, Math.trunc(value)));
+}
+function clampDrawAmount(value) {
+    return Math.max(1, Math.min(7, Math.trunc(value ?? 1)));
+}
+function isCommanderCandidate(card) {
+    return (card.typeLine.includes('Legendary Creature') || card.typeLine.includes('Legendary Planeswalker'));
+}
+function hasPartnerText(card) {
+    const oracleText = card.oracleText.toLowerCase();
+    return (oracleText.includes('partner') ||
+        oracleText.includes('friends forever') ||
+        oracleText.includes('choose a background'));
+}
+function isVirtualTokenCard(cardId) {
+    return cardId.startsWith('token:');
+}
+function buildTokenImage(name, colors, power, toughness) {
+    const palette = colors.length === 0
+        ? ['#f6e2b3', '#b7791f']
+        : colors.includes('G')
+            ? ['#d7f6df', '#25613f']
+            : colors.includes('U')
+                ? ['#d7f1ff', '#1d5d86']
+                : colors.includes('R')
+                    ? ['#ffd8c9', '#a53920']
+                    : colors.includes('B')
+                        ? ['#e4daf6', '#4c2d78']
+                        : ['#fff1c9', '#946400'];
+    const stats = power && toughness ? `${power}/${toughness}` : 'TOKEN';
+    const escapedName = name.replace(/[<>&"]/g, '');
+    const svg = `
+    <svg xmlns="http://www.w3.org/2000/svg" width="744" height="1039" viewBox="0 0 744 1039">
+      <defs>
+        <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
+          <stop offset="0%" stop-color="${palette[0]}"/>
+          <stop offset="100%" stop-color="${palette[1]}"/>
+        </linearGradient>
+      </defs>
+      <rect width="744" height="1039" rx="42" fill="#111827"/>
+      <rect x="26" y="26" width="692" height="987" rx="34" fill="url(#bg)"/>
+      <rect x="54" y="54" width="636" height="128" rx="26" fill="rgba(12,18,29,0.78)"/>
+      <text x="84" y="132" fill="#f8fafc" font-size="52" font-family="Georgia, serif" font-weight="700">${escapedName}</text>
+      <rect x="54" y="214" width="636" height="520" rx="28" fill="rgba(12,18,29,0.18)" stroke="rgba(255,255,255,0.28)" stroke-width="4"/>
+      <text x="372" y="510" text-anchor="middle" fill="rgba(12,18,29,0.82)" font-size="82" font-family="Verdana, sans-serif" font-weight="700">${stats}</text>
+      <rect x="54" y="772" width="636" height="188" rx="28" fill="rgba(12,18,29,0.78)"/>
+      <text x="84" y="838" fill="#dbeafe" font-size="28" font-family="Verdana, sans-serif">Token</text>
+      <text x="84" y="902" fill="#f8fafc" font-size="46" font-family="Verdana, sans-serif" font-weight="700">${escapedName}</text>
+    </svg>
+  `;
+    return `data:image/svg+xml;charset=UTF-8,${encodeURIComponent(svg)}`;
+}
+function buildTokenCard(ownerPlayerId, name, tokenType, colors, note, power, toughness) {
+    const suffix = power && toughness ? ` ${power}/${toughness}` : '';
+    const imageUrl = buildTokenImage(name, colors, power, toughness);
+    return {
+        instanceId: crypto.randomUUID(),
+        ownerPlayerId,
+        card: {
+            id: `token:${crypto.randomUUID()}`,
+            oracleId: null,
+            name,
+            manaCost: '',
+            manaValue: 0,
+            releasedAt: new Date().toISOString().slice(0, 10),
+            typeLine: tokenType,
+            oracleText: note || `Created token${suffix}.`,
+            colors,
+            colorIdentity: colors,
+            setCode: 'tok',
+            setName: 'Table Tokens',
+            collectorNumber: 'T-1',
+            rarity: 'token',
+            legalities: {},
+            imageUrl,
+            largeImageUrl: imageUrl,
+            prices: {
+                usd: null,
+                usdFoil: null,
+                eur: null,
+                eurFoil: null,
+                tix: null,
+            },
+        },
+    };
 }
 export class PlayServer {
     dependencies;
@@ -226,6 +320,7 @@ export class PlayServer {
         const players = room.players.map((player) => {
             const selectedDeck = player.selectedDeck;
             const library = shuffleCardInstances(expandDeckEntries(selectedDeck.mainboard, player.id));
+            const command = this.buildInitialCommandZone(selectedDeck, player.id, library);
             const hand = library.splice(0, PLAY_OPENING_HAND_SIZE);
             return {
                 id: player.id,
@@ -234,11 +329,14 @@ export class PlayServer {
                 isConnected: player.isConnected,
                 joinedAt: player.joinedAt,
                 selectedDeck: buildDeckSelectionSummary(selectedDeck),
-                lifeTotal: PLAY_STARTING_LIFE_TOTAL,
+                lifeTotal: selectedDeck.format === 'commander'
+                    ? PLAY_COMMANDER_STARTING_LIFE_TOTAL
+                    : PLAY_STARTING_LIFE_TOTAL,
                 library,
                 hand,
                 graveyard: [],
                 exile: [],
+                command,
             };
         });
         room.gameId = gameId;
@@ -275,13 +373,23 @@ export class PlayServer {
                 break;
             }
             case 'draw_card': {
-                const nextCard = actor.library.shift();
-                if (!nextCard) {
+                const drawAmount = clampDrawAmount(action.amount);
+                const drawnCards = [];
+                for (let index = 0; index < drawAmount; index += 1) {
+                    const nextCard = actor.library.shift();
+                    if (!nextCard) {
+                        break;
+                    }
+                    actor.hand.push(nextCard);
+                    drawnCards.push(nextCard);
+                }
+                if (drawnCards.length === 0) {
                     this.emitError(sessionId, 'Your library is empty.');
                     return;
                 }
-                actor.hand.push(nextCard);
-                this.recordEvent(game, actor.id, action.type, `${actor.name} drew a card.`);
+                this.recordEvent(game, actor.id, action.type, drawnCards.length === 1
+                    ? `${actor.name} drew a card.`
+                    : `${actor.name} drew ${drawnCards.length} cards.`);
                 break;
             }
             case 'move_owned_card': {
@@ -293,7 +401,7 @@ export class PlayServer {
                     this.emitError(sessionId, 'Card not found in that zone.');
                     return;
                 }
-                this.placeOwnedCard(game, actor, action.toZone, movedCard);
+                this.placeOwnedCard(game, actor, action.toZone, movedCard, action.position);
                 this.recordEvent(game, actor.id, action.type, `${actor.name} moved ${movedCard.card.name} from ${this.formatZoneLabel(action.fromZone)} to ${this.formatZoneLabel(action.toZone)}.`);
                 break;
             }
@@ -306,6 +414,17 @@ export class PlayServer {
                 }
                 permanent.tapped = action.tapped;
                 this.recordEvent(game, actor.id, action.type, `${actor.name} ${action.tapped ? 'tapped' : 'untapped'} ${permanent.card.name}.`);
+                break;
+            }
+            case 'untap_all': {
+                const tappedPermanents = game.battlefield.filter((card) => card.controllerPlayerId === actor.id && card.tapped);
+                if (tappedPermanents.length === 0) {
+                    return;
+                }
+                tappedPermanents.forEach((card) => {
+                    card.tapped = false;
+                });
+                this.recordEvent(game, actor.id, action.type, `${actor.name} untapped all permanents they control.`);
                 break;
             }
             case 'adjust_life': {
@@ -322,6 +441,97 @@ export class PlayServer {
                 this.recordEvent(game, actor.id, action.type, `${actor.name} changed ${targetPlayer.name}'s life by ${normalizedDelta > 0 ? `+${normalizedDelta}` : normalizedDelta}.`);
                 break;
             }
+            case 'set_permanent_position': {
+                const permanent = this.getControllablePermanent(game, actor, action.cardId);
+                if (!permanent) {
+                    this.emitError(sessionId, 'Permanent not found on your battlefield.');
+                    return;
+                }
+                permanent.position = clampPermanentPosition(action.position);
+                break;
+            }
+            case 'adjust_permanent_counter': {
+                const permanent = this.getControllablePermanent(game, actor, action.cardId);
+                if (!permanent) {
+                    this.emitError(sessionId, 'Permanent not found on your battlefield.');
+                    return;
+                }
+                const counterKind = sanitizeCounterKind(action.counterKind);
+                const normalizedDelta = clampCounterDelta(action.delta);
+                if (!counterKind || normalizedDelta === 0) {
+                    return;
+                }
+                const existingCounter = permanent.counters.find((counter) => counter.kind === counterKind);
+                if (existingCounter) {
+                    existingCounter.amount = Math.max(0, Math.min(99, existingCounter.amount + normalizedDelta));
+                }
+                else if (normalizedDelta > 0) {
+                    permanent.counters.push({
+                        kind: counterKind,
+                        amount: Math.min(99, normalizedDelta),
+                    });
+                }
+                permanent.counters = permanent.counters.filter((counter) => counter.amount > 0);
+                this.recordEvent(game, actor.id, action.type, `${actor.name} adjusted ${counterKind} counters on ${permanent.card.name} by ${normalizedDelta > 0 ? `+${normalizedDelta}` : normalizedDelta}.`);
+                break;
+            }
+            case 'set_permanent_note': {
+                const permanent = this.getControllablePermanent(game, actor, action.cardId);
+                if (!permanent) {
+                    this.emitError(sessionId, 'Permanent not found on your battlefield.');
+                    return;
+                }
+                const nextNote = sanitizePermanentNote(action.note);
+                if (nextNote === permanent.note) {
+                    return;
+                }
+                permanent.note = nextNote;
+                this.recordEvent(game, actor.id, action.type, nextNote
+                    ? `${actor.name} updated the table note on ${permanent.card.name}.`
+                    : `${actor.name} cleared the table note on ${permanent.card.name}.`);
+                break;
+            }
+            case 'change_control': {
+                const permanent = this.getControllablePermanent(game, actor, action.cardId);
+                const targetPlayer = game.players.find((player) => player.id === action.controllerPlayerId);
+                if (!permanent) {
+                    this.emitError(sessionId, 'Permanent not found on your battlefield.');
+                    return;
+                }
+                if (!targetPlayer) {
+                    this.emitError(sessionId, 'Target controller not found.');
+                    return;
+                }
+                permanent.controllerPlayerId = targetPlayer.id;
+                permanent.position = this.getAutoBattlefieldPosition(game, targetPlayer.id, permanent.card.typeLine);
+                this.recordEvent(game, actor.id, action.type, `${actor.name} moved control of ${permanent.card.name} to ${targetPlayer.name}.`);
+                break;
+            }
+            case 'create_token': {
+                const tokenName = action.name.trim().slice(0, 40) || 'Token';
+                const tokenType = action.tokenType?.trim().slice(0, 50) || 'Creature Token';
+                const tokenNote = sanitizePermanentNote(action.note);
+                const tokenColors = Array.isArray(action.colors)
+                    ? action.colors.filter((color) => color === 'W' || color === 'U' || color === 'B' || color === 'R' || color === 'G')
+                    : [];
+                const power = action.power?.trim().slice(0, 4) || undefined;
+                const toughness = action.toughness?.trim().slice(0, 4) || undefined;
+                const tokenCard = buildTokenCard(actor.id, tokenName, tokenType, tokenColors, tokenNote, power, toughness);
+                game.battlefield.push({
+                    ...tokenCard,
+                    controllerPlayerId: actor.id,
+                    tapped: false,
+                    enteredAt: new Date().toISOString(),
+                    position: action.position
+                        ? clampPermanentPosition(action.position)
+                        : this.getAutoBattlefieldPosition(game, actor.id, tokenType),
+                    counters: [],
+                    note: tokenNote,
+                    isToken: true,
+                });
+                this.recordEvent(game, actor.id, action.type, `${actor.name} created ${power && toughness ? `${power}/${toughness} ` : ''}${tokenName}.`);
+                break;
+            }
         }
         this.emitGameSnapshots(room);
     }
@@ -333,8 +543,11 @@ export class PlayServer {
                 return removeCardFromZone(player.graveyard, cardId);
             case 'exile':
                 return removeCardFromZone(player.exile, cardId);
+            case 'command':
+                return removeCardFromZone(player.command, cardId);
             case 'battlefield': {
-                const permanentIndex = game.battlefield.findIndex((card) => card.instanceId === cardId && card.ownerPlayerId === player.id);
+                const permanentIndex = game.battlefield.findIndex((card) => card.instanceId === cardId &&
+                    (card.ownerPlayerId === player.id || card.controllerPlayerId === player.id));
                 if (permanentIndex < 0) {
                     return null;
                 }
@@ -347,16 +560,20 @@ export class PlayServer {
             }
         }
     }
-    placeOwnedCard(game, player, toZone, card) {
+    placeOwnedCard(game, player, toZone, card, position) {
+        const owner = game.players.find((candidate) => candidate.id === card.ownerPlayerId) ?? player;
         switch (toZone) {
             case 'hand':
-                player.hand.push(card);
+                owner.hand.push(card);
                 break;
             case 'graveyard':
-                player.graveyard.push(card);
+                owner.graveyard.push(card);
                 break;
             case 'exile':
-                player.exile.push(card);
+                owner.exile.push(card);
+                break;
+            case 'command':
+                owner.command.push(card);
                 break;
             case 'battlefield':
                 game.battlefield.push({
@@ -364,9 +581,58 @@ export class PlayServer {
                     controllerPlayerId: player.id,
                     tapped: false,
                     enteredAt: new Date().toISOString(),
+                    position: position
+                        ? clampPermanentPosition(position)
+                        : this.getAutoBattlefieldPosition(game, player.id, card.card.typeLine),
+                    counters: [],
+                    note: '',
+                    isToken: isVirtualTokenCard(card.card.id),
                 });
                 break;
         }
+    }
+    getControllablePermanent(game, actor, cardId) {
+        return game.battlefield.find((card) => card.instanceId === cardId &&
+            (card.ownerPlayerId === actor.id || card.controllerPlayerId === actor.id));
+    }
+    getAutoBattlefieldPosition(game, controllerPlayerId, typeLine) {
+        const preferredY = typeLine.includes('Land')
+            ? 72
+            : /Creature|Planeswalker|Battle/i.test(typeLine)
+                ? 36
+                : 54;
+        const laneCards = game.battlefield.filter((card) => card.controllerPlayerId === controllerPlayerId);
+        const rowCards = laneCards.filter((card) => Math.abs(card.position.y - preferredY) < 12);
+        const slotIndex = rowCards.length;
+        return clampPermanentPosition({
+            x: 12 + (slotIndex % 6) * 14,
+            y: preferredY + Math.floor(slotIndex / 6) * 8,
+        });
+    }
+    buildInitialCommandZone(deck, ownerPlayerId, library) {
+        if (deck.format !== 'commander') {
+            return [];
+        }
+        const sideboardCards = expandDeckEntries(deck.sideboard, ownerPlayerId);
+        if (sideboardCards.length > 0 && sideboardCards.length <= 2) {
+            return sideboardCards;
+        }
+        const partnerCandidates = deck.mainboard.filter((entry) => entry.quantity === 1 && isCommanderCandidate(entry.card) && hasPartnerText(entry.card));
+        const exactCandidates = partnerCandidates.length === 2
+            ? partnerCandidates
+            : deck.mainboard.filter((entry) => entry.quantity === 1 && isCommanderCandidate(entry.card)).length === 1
+                ? deck.mainboard.filter((entry) => entry.quantity === 1 && isCommanderCandidate(entry.card))
+                : [];
+        return exactCandidates
+            .map((entry) => {
+            const cardIndex = library.findIndex((card) => card.card.id === entry.card.id);
+            if (cardIndex < 0) {
+                return null;
+            }
+            const [card] = library.splice(cardIndex, 1);
+            return card;
+        })
+            .filter((card) => Boolean(card));
     }
     emitRoomSnapshots(room) {
         room.players.forEach((player) => {
@@ -420,9 +686,11 @@ export class PlayServer {
                 battlefield: game.battlefield.filter((card) => card.ownerPlayerId === player.id).length,
                 graveyard: player.graveyard.length,
                 exile: player.exile.length,
+                command: player.command.length,
             },
             graveyard: player.graveyard.map((card) => this.toTableCardSnapshot(card)),
             exile: player.exile.map((card) => this.toTableCardSnapshot(card)),
+            command: player.command.map((card) => this.toTableCardSnapshot(card)),
         }));
         const localPlayer = game.players.find((player) => player.id === localPlayerId) ?? null;
         return {
@@ -439,6 +707,10 @@ export class PlayServer {
                     controllerPlayerId: card.controllerPlayerId,
                     tapped: card.tapped,
                     enteredAt: card.enteredAt,
+                    position: card.position,
+                    counters: card.counters,
+                    note: card.note,
+                    isToken: card.isToken,
                 })),
                 players: publicPlayers,
                 actionLog: game.actionLog,
@@ -527,6 +799,14 @@ export class PlayServer {
             entry.card &&
             typeof entry.card.id === 'string' &&
             typeof entry.card.name === 'string'));
+        const sideboard = Array.isArray(deck.sideboard)
+            ? deck.sideboard.filter((entry) => Boolean(entry &&
+                typeof entry.quantity === 'number' &&
+                entry.quantity > 0 &&
+                entry.card &&
+                typeof entry.card.id === 'string' &&
+                typeof entry.card.name === 'string'))
+            : [];
         if (mainboard.length === 0 || countDeckCards(mainboard) === 0) {
             return null;
         }
@@ -535,8 +815,9 @@ export class PlayServer {
             name: deck.name.trim().slice(0, 60) || 'Untitled Deck',
             format: normalizeDeckFormat(deck.format),
             mainboard,
+            sideboard,
             mainboardCount: countDeckCards(mainboard),
-            sideboardCount: typeof deck.sideboardCount === 'number' ? Math.max(0, Math.trunc(deck.sideboardCount)) : 0,
+            sideboardCount: countDeckCards(sideboard),
         };
     }
     formatZoneLabel(zone) {
@@ -549,6 +830,8 @@ export class PlayServer {
                 return 'exile';
             case 'hand':
                 return 'their hand';
+            case 'command':
+                return 'the command zone';
         }
     }
 }
