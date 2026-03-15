@@ -1,4 +1,4 @@
-import type { CardColor, MagicCard } from '@/types/scryfall'
+import type { CardColor, MagicCard } from './scryfall.js'
 
 export type DeckSection = 'mainboard' | 'sideboard'
 

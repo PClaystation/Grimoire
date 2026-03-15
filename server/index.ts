@@ -1,0 +1,170 @@
+import { createReadStream, existsSync, statSync } from 'node:fs'
+import { extname, join, normalize, resolve } from 'node:path'
+import { createServer } from 'node:http'
+import { WebSocket, WebSocketServer } from 'ws'
+
+import { normalizePlayerName, type ClientMessage, type ServerMessage } from '../src/shared/play.js'
+import { PlayServer } from './playServer.js'
+
+const PORT = Number(process.env.PORT ?? 8787)
+const HOST = process.env.HOST ?? '0.0.0.0'
+const DIST_DIR = resolve(process.cwd(), 'dist')
+
+const MIME_TYPES: Record<string, string> = {
+  '.css': 'text/css; charset=utf-8',
+  '.html': 'text/html; charset=utf-8',
+  '.js': 'text/javascript; charset=utf-8',
+  '.json': 'application/json; charset=utf-8',
+  '.png': 'image/png',
+  '.svg': 'image/svg+xml',
+  '.woff2': 'font/woff2',
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null
+}
+
+function parseClientMessage(rawData: string): ClientMessage | null {
+  try {
+    const parsed = JSON.parse(rawData) as unknown
+
+    if (!isRecord(parsed) || typeof parsed.type !== 'string') {
+      return null
+    }
+
+    return parsed as ClientMessage
+  } catch {
+    return null
+  }
+}
+
+function sendJson(socket: WebSocket, message: ServerMessage) {
+  if (socket.readyState !== WebSocket.OPEN) {
+    return
+  }
+
+  socket.send(JSON.stringify(message))
+}
+
+function sendFile(response: import('node:http').ServerResponse, filePath: string) {
+  const fileExtension = extname(filePath)
+  response.writeHead(200, {
+    'Content-Type': MIME_TYPES[fileExtension] ?? 'application/octet-stream',
+  })
+  createReadStream(filePath).pipe(response)
+}
+
+function resolvePublicFile(pathname: string) {
+  const sanitizedPath = normalize(pathname).replace(/^(\.\.(\/|\\|$))+/, '')
+  const nextPath = sanitizedPath === '/' ? '/index.html' : sanitizedPath
+  return join(DIST_DIR, nextPath)
+}
+
+function handleHttpRequest(
+  request: import('node:http').IncomingMessage,
+  response: import('node:http').ServerResponse,
+) {
+  const url = new URL(request.url ?? '/', 'http://localhost')
+
+  if (url.pathname === '/health') {
+    response.writeHead(200, {
+      'Content-Type': 'application/json; charset=utf-8',
+    })
+    response.end(JSON.stringify({ ok: true }))
+    return
+  }
+
+  if (!existsSync(DIST_DIR)) {
+    response.writeHead(503, {
+      'Content-Type': 'text/plain; charset=utf-8',
+    })
+    response.end('Frontend build not found. Run `npm run build` before starting the production server.')
+    return
+  }
+
+  const requestedFile = resolvePublicFile(url.pathname)
+
+  if (existsSync(requestedFile) && statSync(requestedFile).isFile()) {
+    sendFile(response, requestedFile)
+    return
+  }
+
+  sendFile(response, join(DIST_DIR, 'index.html'))
+}
+
+const connections = new Map<string, WebSocket>()
+const playServer = new PlayServer({
+  sendToSession(sessionId, message) {
+    const socket = connections.get(sessionId)
+
+    if (!socket) {
+      return
+    }
+
+    sendJson(socket, message)
+  },
+})
+
+const httpServer = createServer(handleHttpRequest)
+const webSocketServer = new WebSocketServer({
+  server: httpServer,
+  path: '/ws',
+})
+
+webSocketServer.on('connection', (socket) => {
+  let attachedSessionId: string | null = null
+
+  socket.on('message', (rawData) => {
+    const message = parseClientMessage(rawData.toString())
+
+    if (!message) {
+      sendJson(socket, {
+        type: 'error',
+        message: 'Unable to parse that message.',
+      })
+      return
+    }
+
+    if (message.type === 'hello') {
+      const normalizedSessionId = message.sessionId.trim() || crypto.randomUUID()
+      const normalizedPlayerName = normalizePlayerName(message.playerName)
+      const existingSocket = connections.get(normalizedSessionId)
+
+      if (existingSocket && existingSocket !== socket) {
+        existingSocket.close(4001, 'Replaced by a newer connection.')
+      }
+
+      attachedSessionId = normalizedSessionId
+      connections.set(normalizedSessionId, socket)
+      playServer.handleHello(normalizedSessionId, normalizedPlayerName)
+      return
+    }
+
+    if (!attachedSessionId) {
+      sendJson(socket, {
+        type: 'error',
+        message: 'Identify yourself before sending room or game actions.',
+      })
+      return
+    }
+
+    playServer.handleMessage(attachedSessionId, message)
+  })
+
+  socket.on('close', () => {
+    if (!attachedSessionId) {
+      return
+    }
+
+    const currentSocket = connections.get(attachedSessionId)
+
+    if (currentSocket === socket) {
+      connections.delete(attachedSessionId)
+      playServer.handleDisconnect(attachedSessionId)
+    }
+  })
+})
+
+httpServer.listen(PORT, HOST, () => {
+  process.stdout.write(`Grimoire play server listening on http://${HOST}:${PORT}\n`)
+})

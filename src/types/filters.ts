@@ -1,5 +1,5 @@
-import type { DeckFormat } from '@/types/deck'
-import type { CardColor } from '@/types/scryfall'
+import type { DeckFormat } from './deck.js'
+import type { CardColor } from './scryfall.js'
 
 export type CardColorFilter = 'ANY' | CardColor | 'MULTI' | 'COLORLESS'
 

@@ -9,6 +9,7 @@ import { DeckPanel } from '@/components/deck/DeckPanel'
 import { PlaytestModal } from '@/components/deck/PlaytestModal'
 import { FilterBar } from '@/components/filters/FilterBar'
 import { AppHeader } from '@/components/layout/AppHeader'
+import { SiteNav } from '@/components/layout/SiteNav'
 import { DEFAULT_FILTERS } from '@/constants/mtg'
 import { useCardSearch } from '@/hooks/useCardSearch'
 import { useCardSets } from '@/hooks/useCardSets'
@@ -357,6 +358,8 @@ function App() {
   return (
     <div className="relative min-h-screen overflow-hidden px-4 py-6 text-ink-50 sm:px-6 lg:px-10 lg:py-8">
       <div className="mx-auto flex w-full max-w-[1520px] flex-col gap-6">
+        <SiteNav />
+
         <AppHeader
           mainboardCards={deckStats.mainboard.totalCards}
           sideboardCards={deckStats.sideboard.totalCards}
