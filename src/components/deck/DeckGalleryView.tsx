@@ -97,103 +97,82 @@ function DeckGallerySectionGrid({
                 onClick={() => onPreview(entry.card)}
                 className="w-full text-left"
               >
-                <div className="relative aspect-[5/7] overflow-hidden">
-                  {entry.quantity > 1 ? (
-                    <div
-                      aria-hidden="true"
-                      className="absolute inset-0 translate-x-2 translate-y-2 rounded-[1.3rem] border border-white/8 bg-ink-950/45"
-                    />
-                  ) : null}
-                  {entry.quantity > 2 ? (
-                    <div
-                      aria-hidden="true"
-                      className="absolute inset-0 translate-x-4 translate-y-4 rounded-[1.3rem] border border-white/5 bg-ink-950/25"
-                    />
-                  ) : null}
-
-                  <img
-                    src={entry.card.imageUrl}
-                    alt={entry.card.name}
-                    loading="lazy"
-                    className="relative z-[1] h-full w-full object-cover transition duration-300 group-hover:scale-[1.03]"
-                  />
-                  <div className="absolute inset-x-0 top-0 z-[2] flex items-start justify-between bg-gradient-to-b from-ink-900/80 via-ink-900/35 to-transparent p-3 text-white">
-                    <div className="space-y-2">
-                      <div className="inline-flex min-w-[4.25rem] items-baseline justify-center gap-1 rounded-[1rem] border border-tide-300/30 bg-tide-500/88 px-3 py-2 text-white shadow-lg shadow-tide-950/30">
-                        <span className="text-2xl font-black leading-none">{entry.quantity}</span>
-                        <span className="text-xs font-bold uppercase tracking-[0.16em]">copies</span>
-                      </div>
-                      <div className="flex flex-wrap gap-1.5">
-                        {Array.from({ length: quantityPips }, (_, index) => (
-                          <span
-                            key={`${entry.card.id}-pip-${index}`}
-                            className="h-2.5 w-2.5 rounded-full bg-tide-200/95 ring-2 ring-tide-900/35"
-                          />
-                        ))}
-                        {entry.quantity > quantityPips ? (
-                          <span className="rounded-full bg-black/45 px-2 py-0.5 text-[10px] font-bold text-white">
-                            +{entry.quantity - quantityPips}
-                          </span>
-                        ) : null}
-                      </div>
+                <div className="space-y-4 p-4">
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="min-w-0">
+                      <p className="truncate text-sm font-semibold text-ink-50">{entry.card.name}</p>
+                      <p className="mt-1 truncate text-xs text-ink-300">
+                        {formatTypeLine(entry.card.typeLine)}
+                      </p>
                     </div>
-
-                    <span className={`rounded-full px-2.5 py-1 text-[11px] font-semibold uppercase tracking-[0.14em] ${badgeTone}`}>
-                      {entry.card.setCode.toUpperCase()}
+                    <span className="shrink-0 rounded-full bg-white/10 px-2 py-1 text-[11px] font-semibold text-ink-100">
+                      MV {entry.card.manaValue}
                     </span>
                   </div>
 
-                  <div className="absolute inset-x-0 bottom-0 z-[2] bg-gradient-to-t from-ink-950 via-ink-950/70 to-transparent p-4">
-                    <div className="flex items-end justify-between gap-3">
-                      <div className="min-w-0">
-                        <p className="truncate text-sm font-semibold text-ink-50">{entry.card.name}</p>
-                        <p className="mt-1 truncate text-xs text-ink-300">
-                          {formatTypeLine(entry.card.typeLine)}
-                        </p>
-                      </div>
-                      <span className="shrink-0 rounded-full bg-black/40 px-2 py-1 text-[11px] font-semibold text-ink-100">
-                        MV {entry.card.manaValue}
-                      </span>
+                  <div className="flex flex-wrap items-center gap-2">
+                    <div className="inline-flex min-w-[4.25rem] items-baseline justify-center gap-1 rounded-[1rem] border border-tide-300/30 bg-tide-500/18 px-3 py-2 text-tide-100">
+                      <span className="text-2xl font-black leading-none">{entry.quantity}</span>
+                      <span className="text-xs font-bold uppercase tracking-[0.16em]">copies</span>
                     </div>
+                    <span className={`rounded-full px-2.5 py-1 text-[11px] font-semibold uppercase tracking-[0.14em] ${badgeTone}`}>
+                      {entry.card.setCode.toUpperCase()}
+                    </span>
+                    <div className="flex flex-wrap gap-1.5">
+                      {Array.from({ length: quantityPips }, (_, index) => (
+                        <span
+                          key={`${entry.card.id}-pip-${index}`}
+                          className="h-2.5 w-2.5 rounded-full bg-tide-200/95 ring-2 ring-tide-900/35"
+                        />
+                      ))}
+                      {entry.quantity > quantityPips ? (
+                        <span className="rounded-full bg-white/10 px-2 py-0.5 text-[10px] font-bold text-ink-100">
+                          +{entry.quantity - quantityPips}
+                        </span>
+                      ) : null}
+                    </div>
+                  </div>
+
+                  <div className="relative aspect-[5/7] overflow-hidden rounded-[1.3rem] border border-white/10 bg-[radial-gradient(circle_at_top,rgba(29,150,167,0.12),transparent_45%),rgba(9,17,23,0.96)] p-3">
+                    {entry.quantity > 1 ? (
+                      <div
+                        aria-hidden="true"
+                        className="absolute inset-0 translate-x-2 translate-y-2 rounded-[1.3rem] border border-white/8 bg-ink-950/45"
+                      />
+                    ) : null}
+                    {entry.quantity > 2 ? (
+                      <div
+                        aria-hidden="true"
+                        className="absolute inset-0 translate-x-4 translate-y-4 rounded-[1.3rem] border border-white/5 bg-ink-950/25"
+                      />
+                    ) : null}
+
+                    <img
+                      src={entry.card.imageUrl}
+                      alt={entry.card.name}
+                      loading="lazy"
+                      className="relative z-[1] h-full w-full object-contain transition duration-300 group-hover:scale-[1.02]"
+                    />
                   </div>
                 </div>
               </button>
 
-              <div className="space-y-3 px-4 py-4">
-                <div className="rounded-[1rem] border border-white/10 bg-white/5 px-3 py-2">
-                  <div className="flex items-center justify-between gap-3">
-                    <span className="text-[11px] font-semibold uppercase tracking-[0.16em] text-ink-400">
-                      Quantity
-                    </span>
-                    <span className="text-lg font-black text-tide-100">{entry.quantity}x</span>
-                  </div>
-                  <div className="mt-2 h-2 overflow-hidden rounded-full bg-ink-950/80">
-                    <div
-                      className="h-full rounded-full bg-gradient-to-r from-tide-500 to-tide-300"
-                      style={{ width: `${Math.min(entry.quantity, 4) / 4 * 100}%` }}
-                    />
-                  </div>
+              <div className="flex items-center justify-between gap-3 px-4 pb-4">
+                <div>
+                  <p className="truncate text-xs font-medium text-emerald-300">
+                    {formatMarketPriceLabel(entry.card)}
+                  </p>
+                  <p className="mt-1 text-xs text-ink-400">
+                    {totalValue === null
+                      ? 'No USD price'
+                      : `${formatUsdPrice(totalValue * entry.quantity)} total`}
+                  </p>
                 </div>
 
-                <div className="min-w-0">
-                  <div className="flex items-center justify-between gap-3">
-                    <div>
-                      <p className="truncate text-xs font-medium text-emerald-300">
-                        {formatMarketPriceLabel(entry.card)}
-                      </p>
-                      <p className="mt-1 text-xs text-ink-400">
-                        {totalValue === null
-                          ? 'No USD price'
-                          : `${formatUsdPrice(totalValue * entry.quantity)} total`}
-                      </p>
-                    </div>
-
-                    <span className="inline-flex items-center gap-1 text-xs font-medium text-tide-200">
-                      <Eye className="h-3.5 w-3.5" />
-                      Preview
-                    </span>
-                  </div>
-                </div>
+                <span className="inline-flex items-center gap-1 text-xs font-medium text-tide-200">
+                  <Eye className="h-3.5 w-3.5" />
+                  Preview
+                </span>
               </div>
             </article>
           )

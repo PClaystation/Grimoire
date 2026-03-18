@@ -4,9 +4,11 @@ import {
   Crown,
   Hand,
   History,
+  Layers3,
   Minus,
   Plus,
   RefreshCcw,
+  Search,
   ScrollText,
   ShieldPlus,
   Shuffle,
@@ -34,10 +36,12 @@ import type { CardColor, MagicCard } from '@/types/scryfall'
 import { formatManaCost, formatTypeLine } from '@/utils/format'
 
 type PublicZone = 'graveyard' | 'exile' | 'command'
+type PrivateZone = 'hand' | 'library'
+type BrowseableZone = PublicZone | 'library'
 
 type TableSelection =
   | { zone: 'battlefield'; cardId: string }
-  | { zone: 'hand'; cardId: string }
+  | { zone: PrivateZone; cardId: string }
   | { zone: PublicZone; playerId: string; cardId: string }
 
 interface SelectedCardData {
@@ -62,8 +66,15 @@ interface TokenPreset {
   toughness?: string
 }
 
+interface BattlefieldStackGroup {
+  id: string
+  position: PermanentPosition
+  cards: BattlefieldPermanentSnapshot[]
+}
+
 const COUNTER_PRESETS = ['+1/+1', 'loyalty', 'shield', 'stun']
 const PUBLIC_ZONE_ORDER: PublicZone[] = ['command', 'graveyard', 'exile']
+const LOCAL_ZONE_ORDER: BrowseableZone[] = ['library', 'command', 'graveyard', 'exile']
 const TOKEN_PRESETS: TokenPreset[] = [
   {
     name: 'Treasure',
@@ -114,7 +125,7 @@ export function PlayGamePage() {
   } = usePlay()
   const [selectedCard, setSelectedCard] = useState<TableSelection | null>(null)
   const [focusedPlayerId, setFocusedPlayerId] = useState<string | null>(null)
-  const [activeZone, setActiveZone] = useState<PublicZone>('command')
+  const [activeZone, setActiveZone] = useState<BrowseableZone>('graveyard')
   const [utilityPanel, setUtilityPanel] = useState<'zones' | 'tokens' | 'log'>('zones')
   const [counterDraft, setCounterDraft] = useState(COUNTER_PRESETS[0])
   const [noteEditor, setNoteEditor] = useState<{ cardId: string | null; value: string }>({
@@ -152,7 +163,7 @@ export function PlayGamePage() {
     player,
     permanents: battlefield
       .filter((card) => card.controllerPlayerId === player.id)
-      .sort((left, right) => left.position.y - right.position.y || left.position.x - right.position.x),
+      .sort(compareBattlefieldPermanents),
   }))
   const resolvedFocusedPlayerId = focusedPlayerId ?? localPublicPlayer?.id ?? players[0]?.id ?? null
   const focusedPlayer =
@@ -162,8 +173,16 @@ export function PlayGamePage() {
     null
   const selectedData = findSelectedCardData(selectedCard, battlefield, players, localPrivatePlayer)
   const activeSelection = selectedData ? selectedCard : null
-  const zoneCards = focusedPlayer ? focusedPlayer[activeZone] : []
+  const zoneCards =
+    activeZone === 'library'
+      ? localPrivatePlayer?.library ?? []
+      : focusedPlayer
+        ? focusedPlayer[activeZone]
+        : []
   const selectedPermanent = selectedData?.permanent ?? null
+  const selectedStackCards = selectedPermanent
+    ? getPermanentStackCards(battlefield, selectedPermanent.instanceId)
+    : []
   const noteDraft =
     selectedPermanent && noteEditor.cardId === selectedPermanent.instanceId
       ? noteEditor.value
@@ -214,7 +233,11 @@ export function PlayGamePage() {
     })
   }
 
-  function openZone(playerId: string, zone: PublicZone) {
+  function openZone(playerId: string, zone: BrowseableZone) {
+    if (zone === 'library' && playerId !== localPlayerId) {
+      return
+    }
+
     setFocusedPlayerId(playerId)
     setActiveZone(zone)
     setUtilityPanel('zones')
@@ -223,6 +246,14 @@ export function PlayGamePage() {
   function selectZoneCard(playerId: string, zone: PublicZone, cardId: string) {
     openZone(playerId, zone)
     setSelectedCard({ zone, playerId, cardId })
+  }
+
+  function openLocalLibrary() {
+    if (!localPlayerId) {
+      return
+    }
+
+    openZone(localPlayerId, 'library')
   }
 
   return (
@@ -307,6 +338,13 @@ export function PlayGamePage() {
                           tapped,
                         })
                       }
+                      onStackCard={(cardId, stackWithCardId) =>
+                        sendGameAction(activeGameId, {
+                          type: 'set_permanent_stack',
+                          cardId,
+                          stackWithCardId,
+                        })
+                      }
                     />
                   ))}
               </section>
@@ -354,6 +392,13 @@ export function PlayGamePage() {
                       tapped,
                     })
                   }
+                  onStackCard={(cardId, stackWithCardId) =>
+                    sendGameAction(activeGameId, {
+                      type: 'set_permanent_stack',
+                      cardId,
+                      stackWithCardId,
+                    })
+                  }
                 />
               ))}
 
@@ -361,9 +406,14 @@ export function PlayGamePage() {
               <HandTray
                 player={localPublicPlayer}
                 privateState={localPrivatePlayer}
-                selectedCardId={activeSelection?.zone === 'hand' ? activeSelection.cardId : null}
+                selectedCardId={
+                  activeSelection?.zone === 'hand' || activeSelection?.zone === 'library'
+                    ? activeSelection.cardId
+                    : null
+                }
                 onOpenZone={(zone) => openZone(localPublicPlayer.id, zone)}
                 onSelectCard={(cardId) => setSelectedCard({ zone: 'hand', cardId })}
+                onOpenLibrary={openLocalLibrary}
                 onQuickCast={(cardId) => moveOwnedCard('hand', 'battlefield', cardId)}
               />
             ) : null}
@@ -384,11 +434,19 @@ export function PlayGamePage() {
               }
               onSelectCounter={(counterKind) => setCounterDraft(counterKind)}
               onMoveOwnedCard={moveOwnedCard}
+              stackCards={selectedStackCards}
               onToggleTapped={(cardId, tapped) =>
                 sendGameAction(activeGameId, {
                   type: 'tap_card',
                   cardId,
                   tapped,
+                })
+              }
+              onSetStack={(cardId, stackWithCardId) =>
+                sendGameAction(activeGameId, {
+                  type: 'set_permanent_stack',
+                  cardId,
+                  stackWithCardId,
                 })
               }
               onAdjustCounter={(cardId, counterKind, delta) =>
@@ -445,6 +503,7 @@ export function PlayGamePage() {
                     players={players}
                     localPlayerId={localPlayerId}
                     focusedPlayer={focusedPlayer}
+                    privateState={localPrivatePlayer}
                     activeZone={activeZone}
                     cards={zoneCards}
                     selectedCard={activeSelection}
@@ -452,6 +511,7 @@ export function PlayGamePage() {
                     onZoneChange={setActiveZone}
                     onOpenZone={openZone}
                     onSelectCard={selectZoneCard}
+                    onSelectLibraryCard={(cardId) => setSelectedCard({ zone: 'library', cardId })}
                     onQuickCast={(zone, cardId) => moveOwnedCard(zone, 'battlefield', cardId)}
                   />
                 ) : null}
@@ -531,6 +591,10 @@ function TableHud({
             <MetaPill icon={<Swords className="h-3.5 w-3.5" />} label={`${battlefieldCount} permanents`} />
             {localPlayer ? (
               <>
+                <MetaPill
+                  icon={<BookOpen className="h-3.5 w-3.5" />}
+                  label={`${localPlayer.zoneCounts.library} in library`}
+                />
                 <MetaPill icon={<Hand className="h-3.5 w-3.5" />} label={`${localPlayer.zoneCounts.hand} in hand`} />
                 <MetaPill
                   icon={<Crown className="h-3.5 w-3.5" />}
@@ -571,6 +635,7 @@ function BattlefieldLane({
   onSelectPermanent,
   onDropCard,
   onToggleTapped,
+  onStackCard,
 }: {
   player: GamePlayerPublicSnapshot
   permanents: BattlefieldPermanentSnapshot[]
@@ -578,13 +643,17 @@ function BattlefieldLane({
   compact?: boolean
   selectedCardId: string | null
   onAdjustLife: (playerId: string, delta: number) => void
-  onOpenZone: (playerId: string, zone: PublicZone) => void
+  onOpenZone: (playerId: string, zone: BrowseableZone) => void
   onSelectPermanent: (cardId: string) => void
   onDropCard: (payload: DragPayload, position: PermanentPosition) => void
   onToggleTapped: (cardId: string, tapped: boolean) => void
+  onStackCard: (cardId: string, stackWithCardId: string | null) => void
 }) {
   const isLocalLane = player.id === localPlayerId
   const laneHeight = compact ? 'min-h-[13.5rem]' : 'min-h-[15.5rem]'
+  const stackGroups = buildBattlefieldStackGroups(permanents)
+  const stackOffsetX = compact ? 10 : 12
+  const stackOffsetY = compact ? 6 : 8
 
   function handleDrop(event: DragEvent<HTMLDivElement>) {
     event.preventDefault()
@@ -643,9 +712,19 @@ function BattlefieldLane({
           </div>
 
           <div className="flex flex-wrap gap-2">
-            <CountPill label="Library" value={player.zoneCounts.library} />
             <CountPill label="Hand" value={player.zoneCounts.hand} />
             <CountPill label="Field" value={player.zoneCounts.battlefield} />
+            {isLocalLane ? (
+              <button
+                type="button"
+                onClick={() => onOpenZone(player.id, 'library')}
+                className="rounded-full border border-tide-400/25 bg-tide-500/12 px-3 py-1.5 text-xs font-semibold text-tide-100 transition hover:border-tide-400/40 hover:bg-tide-500/18"
+              >
+                Library {player.zoneCounts.library}
+              </button>
+            ) : (
+              <CountPill label="Library" value={player.zoneCounts.library} />
+            )}
             {PUBLIC_ZONE_ORDER.map((zone) => (
               <button
                 key={zone}
@@ -685,6 +764,7 @@ function BattlefieldLane({
 
       <div
         data-testid={`lane-board-${isLocalLane ? 'local' : player.name.toLowerCase().replace(/\s+/g, '-')}`}
+        data-lane-dropzone="true"
         className={`relative mt-4 overflow-hidden rounded-[1.7rem] border border-white/10 bg-[linear-gradient(180deg,rgba(17,37,45,0.94),rgba(12,27,34,0.94))] ${laneHeight}`}
         onDragOver={(event) => event.preventDefault()}
         onDrop={handleDrop}
@@ -701,76 +781,153 @@ function BattlefieldLane({
         {permanents.length === 0 ? (
           <div className="absolute inset-0 flex items-center justify-center px-8 text-center text-sm text-ink-400">
             {isLocalLane
-              ? 'Drag cards from your hand or command zone here. Lands settle into the mana shelf automatically.'
+              ? 'Drag cards from your hand, library, graveyard, exile, or command zone here. Drop one permanent onto another to build stacks.'
               : 'No permanents in this lane yet.'}
           </div>
         ) : null}
 
-        {permanents.map((permanent, index) => {
-          const canControl =
-            permanent.ownerPlayerId === localPlayerId || permanent.controllerPlayerId === localPlayerId
-          const footprintClassName = permanent.tapped
-            ? 'h-[9.2rem] w-[11.8rem]'
-            : 'h-[13rem] w-[8.25rem]'
+        {stackGroups.map((group, index) => {
+          const stackWidth = 192 + (group.cards.length - 1) * stackOffsetX
+          const stackHeight = 212 + (group.cards.length - 1) * stackOffsetY
 
           return (
             <div
-              key={permanent.instanceId}
+              key={group.id}
               style={{
-                left: `${permanent.position.x}%`,
-                top: `${permanent.position.y}%`,
+                left: `${group.position.x}%`,
+                top: `${group.position.y}%`,
                 zIndex: index + 2,
               }}
               className="absolute -translate-x-1/2 -translate-y-1/2 text-left"
             >
-              <div className={`relative ${footprintClassName}`}>
-                {canControl ? (
-                  <button
-                    type="button"
-                    onClick={(event) => {
-                      event.stopPropagation()
-                      onToggleTapped(permanent.instanceId, !permanent.tapped)
-                    }}
-                    className={`absolute right-1 top-1 z-20 rounded-full border px-2.5 py-1 text-[0.62rem] font-semibold uppercase tracking-[0.14em] transition ${
-                      permanent.tapped
-                        ? 'border-emerald-400/25 bg-emerald-500/12 text-emerald-100 hover:border-emerald-400/40'
-                        : 'border-ember-400/25 bg-ember-500/12 text-ember-100 hover:border-ember-400/40'
-                    }`}
-                  >
-                    {permanent.tapped ? 'Untap' : 'Tap'}
-                  </button>
+              <div
+                className="relative"
+                style={{
+                  width: `${stackWidth}px`,
+                  height: `${stackHeight}px`,
+                }}
+              >
+                {group.cards.length > 1 ? (
+                  <div className="absolute left-2 top-2 z-30 rounded-full border border-tide-400/25 bg-ink-950/85 px-2.5 py-1 text-[0.62rem] font-semibold uppercase tracking-[0.14em] text-tide-100 shadow-lg">
+                    {group.cards.length} card stack
+                  </div>
                 ) : null}
 
-                <button
-                  type="button"
-                  data-card-name={permanent.card.name}
-                  draggable={canControl}
-                  onDragStart={(event) =>
-                    event.dataTransfer.setData(
-                      'application/x-grimoire-card',
-                      JSON.stringify({
-                        cardId: permanent.instanceId,
-                        fromZone: 'battlefield',
-                        controllerPlayerId: permanent.controllerPlayerId,
-                      } satisfies DragPayload),
-                    )
-                  }
-                  onClick={() => onSelectPermanent(permanent.instanceId)}
-                  onDoubleClick={() =>
-                    canControl ? onToggleTapped(permanent.instanceId, !permanent.tapped) : undefined
-                  }
-                  className="absolute inset-0 flex items-center justify-center text-left"
-                >
-                  <TableCard
-                    card={permanent.card}
-                    variant="battlefield"
-                    tapped={permanent.tapped}
-                    selected={selectedCardId === permanent.instanceId}
-                    counters={permanent.counters}
-                    note={permanent.note}
-                    badge={permanent.isToken ? 'Token' : undefined}
-                  />
-                </button>
+                {group.cards.map((permanent, stackIndex) => {
+                  const canControl =
+                    permanent.ownerPlayerId === localPlayerId ||
+                    permanent.controllerPlayerId === localPlayerId
+
+                  return (
+                    <div
+                      key={permanent.instanceId}
+                      style={{
+                        left: `${stackIndex * stackOffsetX}px`,
+                        top: `${stackIndex * stackOffsetY}px`,
+                        zIndex: stackIndex + 1,
+                      }}
+                      className="absolute"
+                    >
+                      <div className="relative h-[13.25rem] w-[12rem]">
+                        {canControl ? (
+                          <button
+                            type="button"
+                            onClick={(event) => {
+                              event.stopPropagation()
+                              onToggleTapped(permanent.instanceId, !permanent.tapped)
+                            }}
+                            className={`absolute right-1 top-1 z-20 rounded-full border px-2.5 py-1 text-[0.62rem] font-semibold uppercase tracking-[0.14em] transition ${
+                              permanent.tapped
+                                ? 'border-emerald-400/25 bg-emerald-500/12 text-emerald-100 hover:border-emerald-400/40'
+                                : 'border-ember-400/25 bg-ember-500/12 text-ember-100 hover:border-ember-400/40'
+                            }`}
+                          >
+                            {permanent.tapped ? 'Untap' : 'Tap'}
+                          </button>
+                        ) : null}
+
+                        <button
+                          type="button"
+                          data-card-name={permanent.card.name}
+                          draggable={canControl}
+                          onDragStart={(event) =>
+                            event.dataTransfer.setData(
+                              'application/x-grimoire-card',
+                              JSON.stringify({
+                                cardId: permanent.instanceId,
+                                fromZone: 'battlefield',
+                                controllerPlayerId: permanent.controllerPlayerId,
+                              } satisfies DragPayload),
+                            )
+                          }
+                          onDragOver={(event) => {
+                            if (
+                              event.dataTransfer.types.includes('application/x-grimoire-card')
+                            ) {
+                              event.preventDefault()
+                            }
+                          }}
+                          onDrop={(event) => {
+                            const payload = parseDragPayload(
+                              event.dataTransfer.getData('application/x-grimoire-card'),
+                            )
+
+                            if (
+                              !payload ||
+                              payload.fromZone !== 'battlefield' ||
+                              payload.cardId === permanent.instanceId
+                            ) {
+                              return
+                            }
+
+                            event.preventDefault()
+                            event.stopPropagation()
+
+                            if (
+                              payload.fromZone === 'battlefield' &&
+                              payload.cardId !== permanent.instanceId
+                            ) {
+                              onStackCard(payload.cardId, permanent.instanceId)
+                              return
+                            }
+
+                            const laneElement = event.currentTarget.closest('[data-lane-dropzone="true"]')
+
+                            if (!(laneElement instanceof HTMLDivElement)) {
+                              return
+                            }
+
+                            const rect = laneElement.getBoundingClientRect()
+                            const x = ((event.clientX - rect.left) / rect.width) * 100
+                            const y = ((event.clientY - rect.top) / rect.height) * 100
+
+                            onDropCard(payload, {
+                              x,
+                              y,
+                            })
+                          }}
+                          onClick={() => onSelectPermanent(permanent.instanceId)}
+                          onDoubleClick={() =>
+                            canControl
+                              ? onToggleTapped(permanent.instanceId, !permanent.tapped)
+                              : undefined
+                          }
+                          className="absolute inset-0 flex items-center justify-center text-left"
+                        >
+                          <TableCard
+                            card={permanent.card}
+                            variant="battlefield"
+                            tapped={permanent.tapped}
+                            selected={selectedCardId === permanent.instanceId}
+                            counters={permanent.counters}
+                            note={permanent.note}
+                            badge={permanent.isToken ? 'Token' : undefined}
+                          />
+                        </button>
+                      </div>
+                    </div>
+                  )
+                })}
               </div>
             </div>
           )
@@ -785,6 +942,7 @@ function HandTray({
   privateState,
   selectedCardId,
   onOpenZone,
+  onOpenLibrary,
   onSelectCard,
   onQuickCast,
 }: {
@@ -792,6 +950,7 @@ function HandTray({
   privateState: GamePrivatePlayerState
   selectedCardId: string | null
   onOpenZone: (zone: PublicZone) => void
+  onOpenLibrary: () => void
   onSelectCard: (cardId: string) => void
   onQuickCast: (cardId: string) => void
 }) {
@@ -814,6 +973,13 @@ function HandTray({
         </div>
 
         <div className="flex flex-wrap gap-2">
+          <button
+            type="button"
+            onClick={onOpenLibrary}
+            className="rounded-full border border-tide-400/25 bg-tide-500/12 px-3 py-1.5 text-xs font-semibold text-tide-100 transition hover:border-tide-400/40 hover:bg-tide-500/18"
+          >
+            Library {privateState.library.length}
+          </button>
           {PUBLIC_ZONE_ORDER.map((zone) => (
             <button
               key={zone}
@@ -872,12 +1038,14 @@ function HandTray({
 function InspectorCard({
   players,
   selected,
+  stackCards,
   counterDraft,
   noteDraft,
   onCounterDraftChange,
   onNoteDraftChange,
   onSelectCounter,
   onMoveOwnedCard,
+  onSetStack,
   onToggleTapped,
   onAdjustCounter,
   onSaveNote,
@@ -888,6 +1056,7 @@ function InspectorCard({
 }: {
   players: GamePlayerPublicSnapshot[]
   selected: SelectedCardData | null
+  stackCards: BattlefieldPermanentSnapshot[]
   counterDraft: string
   noteDraft: string
   onCounterDraftChange: (value: string) => void
@@ -899,6 +1068,7 @@ function InspectorCard({
     cardId: string,
     position?: PermanentPosition,
   ) => void
+  onSetStack: (cardId: string, stackWithCardId: string | null) => void
   onToggleTapped: (cardId: string, tapped: boolean) => void
   onAdjustCounter: (cardId: string, counterKind: string, delta: number) => void
   onSaveNote: (cardId: string, note: string) => void
@@ -911,9 +1081,11 @@ function InspectorCard({
   const selectedActions = selected
     ? renderSelectedActions({
         selected,
+        stackCards,
         isLocalOwned,
         isLocallyControlled,
         onMoveOwnedCard,
+        onSetStack,
         onToggleTapped,
       })
     : null
@@ -965,6 +1137,9 @@ function InspectorCard({
                   <InfoChip label={formatTypeLine(selected.card.card.typeLine)} tone="info" />
                   <InfoChip label={selected.player?.name ?? 'Unknown owner'} />
                   {selectedPermanent?.isToken ? <InfoChip label="Token" tone="accent" /> : null}
+                  {selectedPermanent && stackCards.length > 1 ? (
+                    <InfoChip label={`${stackCards.length} card stack`} tone="info" />
+                  ) : null}
                   {selectedPermanent &&
                   selectedPermanent.controllerPlayerId !== selected.card.ownerPlayerId ? (
                     <InfoChip
@@ -978,6 +1153,13 @@ function InspectorCard({
                 </div>
 
                 <div className="grid gap-2 sm:grid-cols-2">{selectedActions}</div>
+
+                {selectedPermanent ? (
+                  <p className="text-xs leading-5 text-ink-400">
+                    Drag this permanent onto another permanent in the same lane to stack them.
+                    Dragging any card in a stack moves the whole stack.
+                  </p>
+                ) : null}
               </div>
             </div>
 
@@ -1107,7 +1289,7 @@ function InspectorCard({
           <OverviewStat
             icon={<Hand className="h-4 w-4" />}
             title="Direct interaction"
-            body="Drag from hand, command zone, graveyard, or exile onto your lane. Double-click your permanents to tap or untap."
+            body="Drag from hand, library, command zone, graveyard, or exile onto your lane. Drop a permanent onto another one to build stacks."
           />
           <OverviewStat
             icon={<ShieldPlus className="h-4 w-4" />}
@@ -1129,6 +1311,7 @@ function ZoneBrowser({
   players,
   localPlayerId,
   focusedPlayer,
+  privateState,
   activeZone,
   cards,
   selectedCard,
@@ -1136,30 +1319,47 @@ function ZoneBrowser({
   onZoneChange,
   onOpenZone,
   onSelectCard,
+  onSelectLibraryCard,
   onQuickCast,
 }: {
   players: GamePlayerPublicSnapshot[]
   localPlayerId: string
   focusedPlayer: GamePlayerPublicSnapshot | null
-  activeZone: PublicZone
+  privateState: GamePrivatePlayerState | null
+  activeZone: BrowseableZone
   cards: TableCardSnapshot[]
   selectedCard: TableSelection | null
   onFocusPlayer: (playerId: string) => void
-  onZoneChange: (zone: PublicZone) => void
-  onOpenZone: (playerId: string, zone: PublicZone) => void
+  onZoneChange: (zone: BrowseableZone) => void
+  onOpenZone: (playerId: string, zone: BrowseableZone) => void
   onSelectCard: (playerId: string, zone: PublicZone, cardId: string) => void
-  onQuickCast: (zone: PublicZone, cardId: string) => void
+  onSelectLibraryCard: (cardId: string) => void
+  onQuickCast: (zone: OwnedZone, cardId: string) => void
 }) {
+  const [librarySearch, setLibrarySearch] = useState('')
+  const hasLibraryAccess = focusedPlayer?.id === localPlayerId && Boolean(privateState)
+  const visibleZones = hasLibraryAccess ? LOCAL_ZONE_ORDER : PUBLIC_ZONE_ORDER
+  const normalizedLibrarySearch = librarySearch.trim().toLowerCase()
+  const visibleCards =
+    activeZone === 'library' && normalizedLibrarySearch
+      ? cards.filter((card) => {
+          const haystack = [card.card.name, card.card.typeLine, card.card.oracleText]
+            .join(' ')
+            .toLowerCase()
+          return haystack.includes(normalizedLibrarySearch)
+        })
+      : cards
+
   return (
     <section className="rounded-[1.9rem] border border-white/10 bg-ink-900/90 p-4 shadow-panel">
       <div className="flex items-center gap-2">
         <BookOpen className="h-4 w-4 text-tide-200" />
         <div>
           <p className="text-xs font-semibold uppercase tracking-[0.2em] text-ink-400">
-            Public zones
+            Zone access
           </p>
           <h2 className="mt-1 text-xl font-semibold text-ink-50">
-            {focusedPlayer ? focusedPlayer.name : 'No player selected'}
+            {activeZone === 'library' ? 'Your library' : focusedPlayer ? focusedPlayer.name : 'No player selected'}
           </h2>
         </div>
       </div>
@@ -1169,7 +1369,14 @@ function ZoneBrowser({
           <button
             key={player.id}
             type="button"
-            onClick={() => onFocusPlayer(player.id)}
+            onClick={() => {
+              onFocusPlayer(player.id)
+
+              if (activeZone === 'library' && player.id !== localPlayerId) {
+                onZoneChange('graveyard')
+                onOpenZone(player.id, 'graveyard')
+              }
+            }}
             className={`rounded-full border px-3 py-1.5 text-xs font-semibold transition ${
               focusedPlayer?.id === player.id
                 ? 'border-tide-400/35 bg-tide-500/12 text-tide-100'
@@ -1182,12 +1389,19 @@ function ZoneBrowser({
       </div>
 
       <div className="mt-4 flex flex-wrap gap-2">
-        {PUBLIC_ZONE_ORDER.map((zone) => (
+        {visibleZones.map((zone) => (
           <button
             key={zone}
             type="button"
             onClick={() => {
               onZoneChange(zone)
+              if (zone === 'library') {
+                if (focusedPlayer) {
+                  onOpenZone(focusedPlayer.id, zone)
+                }
+                return
+              }
+
               if (focusedPlayer) {
                 onOpenZone(focusedPlayer.id, zone)
               }
@@ -1198,19 +1412,44 @@ function ZoneBrowser({
                 : 'border-white/10 bg-white/6 text-ink-100 hover:border-white/20'
             }`}
           >
-            {zoneLabel(zone)} {focusedPlayer ? focusedPlayer.zoneCounts[zone] : 0}
+            {zoneLabel(zone)}{' '}
+            {zone === 'library'
+              ? privateState?.library.length ?? 0
+              : focusedPlayer
+                ? focusedPlayer.zoneCounts[zone]
+                : 0}
           </button>
         ))}
       </div>
 
-      {cards.length > 0 ? (
+      {activeZone === 'library' ? (
+        <label className="mt-4 block">
+          <span className="sr-only">Search library</span>
+          <div className="flex items-center gap-3 rounded-2xl border border-white/10 bg-ink-950/80 px-4 py-3 focus-within:border-tide-400/35">
+            <Search className="h-4 w-4 text-ink-400" />
+            <input
+              value={librarySearch}
+              onChange={(event) => setLibrarySearch(event.target.value)}
+              placeholder="Search library by name, type, or rules text"
+              className="w-full border-none bg-transparent text-sm text-ink-100 outline-none placeholder:text-ink-500"
+            />
+            <span className="text-[0.65rem] font-semibold uppercase tracking-[0.16em] text-ink-500">
+              {visibleCards.length}/{privateState?.library.length ?? 0}
+            </span>
+          </div>
+        </label>
+      ) : null}
+
+      {visibleCards.length > 0 ? (
         <div className="mt-4 grid max-h-[18rem] grid-cols-2 gap-3 overflow-y-auto pr-1">
-          {cards.map((card) => {
+          {visibleCards.map((card) => {
             const isSelected =
-              selectedCard?.zone === activeZone &&
-              'playerId' in selectedCard &&
-              selectedCard.playerId === focusedPlayer?.id &&
-              selectedCard.cardId === card.instanceId
+              activeZone === 'library'
+                ? selectedCard?.zone === 'library' && selectedCard.cardId === card.instanceId
+                : selectedCard?.zone === activeZone &&
+                  'playerId' in selectedCard &&
+                  selectedCard.playerId === focusedPlayer?.id &&
+                  selectedCard.cardId === card.instanceId
             const canDrag = card.ownerPlayerId === localPlayerId
 
             return (
@@ -1230,14 +1469,18 @@ function ZoneBrowser({
                       )
                     : undefined
                 }
-                onClick={() => focusedPlayer && onSelectCard(focusedPlayer.id, activeZone, card.instanceId)}
+                onClick={() =>
+                  activeZone === 'library'
+                    ? onSelectLibraryCard(card.instanceId)
+                    : focusedPlayer && onSelectCard(focusedPlayer.id, activeZone, card.instanceId)
+                }
                 onDoubleClick={() => (canDrag ? onQuickCast(activeZone, card.instanceId) : undefined)}
               >
                 <TableCard
                   card={card.card}
                   variant="zone"
                   selected={isSelected}
-                  badge={canDrag ? 'Drag' : 'Public'}
+                  badge={activeZone === 'library' ? 'Private' : canDrag ? 'Drag' : 'Public'}
                 />
               </button>
             )
@@ -1245,7 +1488,9 @@ function ZoneBrowser({
         </div>
       ) : (
         <div className="mt-4 rounded-[1.5rem] border border-white/10 bg-white/5 px-4 py-5 text-sm text-ink-300">
-          No cards in this zone right now.
+          {activeZone === 'library' && normalizedLibrarySearch
+            ? 'No library cards matched that search.'
+            : 'No cards in this zone right now.'}
         </div>
       )}
     </section>
@@ -1693,6 +1938,8 @@ function ClockPip() {
 
 function zoneLabel(zone: PublicZone | OwnedZone) {
   switch (zone) {
+    case 'library':
+      return 'Library'
     case 'command':
       return 'Command'
     case 'graveyard':
@@ -1704,6 +1951,69 @@ function zoneLabel(zone: PublicZone | OwnedZone) {
     case 'hand':
       return 'Hand'
   }
+}
+
+function compareBattlefieldPermanents(
+  left: BattlefieldPermanentSnapshot,
+  right: BattlefieldPermanentSnapshot,
+) {
+  if (left.position.y !== right.position.y) {
+    return left.position.y - right.position.y
+  }
+
+  if (left.position.x !== right.position.x) {
+    return left.position.x - right.position.x
+  }
+
+  if (left.stackIndex !== right.stackIndex) {
+    return left.stackIndex - right.stackIndex
+  }
+
+  return left.enteredAt.localeCompare(right.enteredAt)
+}
+
+function buildBattlefieldStackGroups(permanents: BattlefieldPermanentSnapshot[]): BattlefieldStackGroup[] {
+  const groups = new Map<string, BattlefieldPermanentSnapshot[]>()
+
+  permanents.forEach((permanent) => {
+    const groupId = permanent.stackId ?? permanent.instanceId
+    const currentGroup = groups.get(groupId) ?? []
+    currentGroup.push(permanent)
+    groups.set(groupId, currentGroup)
+  })
+
+  return Array.from(groups.entries())
+    .map(([id, cards]) => {
+      const sortedCards = [...cards].sort(compareBattlefieldPermanents)
+      return {
+        id,
+        cards: sortedCards,
+        position: sortedCards[0]?.position ?? { x: 50, y: 50 },
+      }
+    })
+    .sort((left, right) => {
+      if (left.position.y !== right.position.y) {
+        return left.position.y - right.position.y
+      }
+
+      return left.position.x - right.position.x
+    })
+}
+
+function getPermanentStackCards(
+  permanents: BattlefieldPermanentSnapshot[],
+  permanentId: string,
+) {
+  const permanent = permanents.find((card) => card.instanceId === permanentId)
+
+  if (!permanent) {
+    return []
+  }
+
+  const stackKey = permanent.stackId ?? permanent.instanceId
+  return permanents
+    .filter((card) => (card.stackId ?? card.instanceId) === stackKey)
+    .sort(compareBattlefieldPermanents)
 }
 
 function parseDragPayload(rawValue: string) {
@@ -1765,6 +2075,25 @@ function findSelectedCardData(
     }
   }
 
+  if (selection.zone === 'library') {
+    const card = privateState?.library.find((entry) => entry.instanceId === selection.cardId)
+
+    if (!card) {
+      return null
+    }
+
+    return {
+      zone: 'library',
+      card,
+      player: players.find((player) => player.id === card.ownerPlayerId) ?? null,
+      permanent: null,
+    }
+  }
+
+  if (!('playerId' in selection)) {
+    return null
+  }
+
   const zoneOwner = players.find((player) => player.id === selection.playerId) ?? null
   const zoneCards = zoneOwner?.[selection.zone] ?? []
   const card = zoneCards.find((entry) => entry.instanceId === selection.cardId) ?? null
@@ -1783,12 +2112,15 @@ function findSelectedCardData(
 
 function renderSelectedActions({
   selected,
+  stackCards,
   isLocalOwned,
   isLocallyControlled,
   onMoveOwnedCard,
+  onSetStack,
   onToggleTapped,
 }: {
   selected: SelectedCardData
+  stackCards: BattlefieldPermanentSnapshot[]
   isLocalOwned: boolean
   isLocallyControlled: boolean
   onMoveOwnedCard: (
@@ -1797,43 +2129,55 @@ function renderSelectedActions({
     cardId: string,
     position?: PermanentPosition,
   ) => void
+  onSetStack: (cardId: string, stackWithCardId: string | null) => void
   onToggleTapped: (cardId: string, tapped: boolean) => void
 }) {
-  if (selected.zone === 'battlefield' && selected.permanent) {
+  const selectedPermanent = selected.zone === 'battlefield' ? selected.permanent : null
+
+  if (selected.zone === 'battlefield' && selectedPermanent) {
     return (
       <>
         {isLocallyControlled ? (
           <InspectorButton
-            onClick={() => onToggleTapped(selected.permanent!.instanceId, !selected.permanent!.tapped)}
+            onClick={() => onToggleTapped(selectedPermanent.instanceId, !selectedPermanent.tapped)}
             tone="primary"
           >
-            {selected.permanent.tapped ? <RefreshCcw className="h-3.5 w-3.5" /> : <Hand className="h-3.5 w-3.5" />}
-            {selected.permanent.tapped ? 'Untap' : 'Tap'}
+            {selectedPermanent.tapped ? <RefreshCcw className="h-3.5 w-3.5" /> : <Hand className="h-3.5 w-3.5" />}
+            {selectedPermanent.tapped ? 'Untap' : 'Tap'}
           </InspectorButton>
         ) : null}
 
         {isLocallyControlled || isLocalOwned ? (
           <>
+            {stackCards.length > 1 ? (
+              <InspectorButton
+                onClick={() => onSetStack(selectedPermanent.instanceId, null)}
+                tone="primary"
+              >
+                <Layers3 className="h-3.5 w-3.5" />
+                Unstack
+              </InspectorButton>
+            ) : null}
             <InspectorButton
-              onClick={() => onMoveOwnedCard('battlefield', 'graveyard', selected.permanent!.instanceId)}
+              onClick={() => onMoveOwnedCard('battlefield', 'graveyard', selectedPermanent.instanceId)}
             >
               <ScrollText className="h-3.5 w-3.5" />
               Graveyard
             </InspectorButton>
             <InspectorButton
-              onClick={() => onMoveOwnedCard('battlefield', 'command', selected.permanent!.instanceId)}
+              onClick={() => onMoveOwnedCard('battlefield', 'command', selectedPermanent.instanceId)}
             >
               <Crown className="h-3.5 w-3.5" />
               Command
             </InspectorButton>
             <InspectorButton
-              onClick={() => onMoveOwnedCard('battlefield', 'hand', selected.permanent!.instanceId)}
+              onClick={() => onMoveOwnedCard('battlefield', 'hand', selectedPermanent.instanceId)}
             >
               <Hand className="h-3.5 w-3.5" />
               Hand
             </InspectorButton>
             <InspectorButton
-              onClick={() => onMoveOwnedCard('battlefield', 'exile', selected.permanent!.instanceId)}
+              onClick={() => onMoveOwnedCard('battlefield', 'exile', selectedPermanent.instanceId)}
               tone="danger"
             >
               <Sparkles className="h-3.5 w-3.5" />
@@ -1898,6 +2242,12 @@ function renderSelectedActions({
       {selected.zone === 'hand' ? (
         <div className="rounded-[1.2rem] border border-white/10 bg-white/5 px-3 py-3 text-sm text-ink-300">
           Drag onto your lane or double-click from the hand tray for a fast battlefield move.
+        </div>
+      ) : null}
+      {selected.zone === 'library' ? (
+        <div className="rounded-[1.2rem] border border-white/10 bg-white/5 px-3 py-3 text-sm text-ink-300">
+          Search by name, type, or rules text, then move the card directly to the zone you need.
+          Shuffle when your effect calls for it.
         </div>
       ) : null}
     </>

@@ -63,6 +63,17 @@ const EXCLUDED_SET_TYPES = new Set([
   'vanguard',
 ])
 
+function buildSubtypeQuery(input: string) {
+  return input
+    .split(',')
+    .map((entry) => entry.trim())
+    .filter(Boolean)
+    .map((entry) => {
+      const escapedEntry = entry.replace(/"/g, '')
+      return /\s/.test(escapedEntry) ? `t:"${escapedEntry}"` : `t:${escapedEntry}`
+    })
+}
+
 function buildSearchQuery(filters: CardSearchFilters): string {
   const queryParts = ['game:paper', '-is:token']
 
@@ -93,6 +104,8 @@ function buildSearchQuery(filters: CardSearchFilters): string {
   if (filters.setCode !== 'ANY') {
     queryParts.push(`set:${filters.setCode}`)
   }
+
+  queryParts.push(...buildSubtypeQuery(filters.subtype))
 
   const trimmedQuery = filters.query.trim()
   if (trimmedQuery) {

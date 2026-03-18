@@ -32,6 +32,11 @@ export declare class PlayServer {
     private takeOwnedCard;
     private placeOwnedCard;
     private getControllablePermanent;
+    private getStackMembers;
+    private normalizeStack;
+    private setStackPosition;
+    private setPermanentStack;
+    private unstackPermanent;
     private getAutoBattlefieldPosition;
     private buildInitialCommandZone;
     private emitRoomSnapshots;

@@ -113,3 +113,49 @@ test('parseClientMessage rejects incomplete card payloads before they reach the 
 
   assert.equal(message, null)
 })
+
+test('parseClientMessage accepts library moves and stack actions', () => {
+  const libraryMove = parseClientMessage(
+    JSON.stringify({
+      type: 'game_action',
+      gameId: 'game-1',
+      action: {
+        type: 'move_owned_card',
+        cardId: 'card-1',
+        fromZone: 'library',
+        toZone: 'hand',
+      },
+    }),
+  )
+
+  const stackAction = parseClientMessage(
+    JSON.stringify({
+      type: 'game_action',
+      gameId: 'game-1',
+      action: {
+        type: 'set_permanent_stack',
+        cardId: 'perm-1',
+        stackWithCardId: 'perm-2',
+      },
+    }),
+  )
+
+  assert.ok(libraryMove)
+  assert.ok(stackAction)
+})
+
+test('parseClientMessage rejects malformed stack payloads', () => {
+  const invalidStackAction = parseClientMessage(
+    JSON.stringify({
+      type: 'game_action',
+      gameId: 'game-1',
+      action: {
+        type: 'set_permanent_stack',
+        cardId: 'perm-1',
+        stackWithCardId: 42,
+      },
+    }),
+  )
+
+  assert.equal(invalidStackAction, null)
+})

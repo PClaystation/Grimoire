@@ -12,7 +12,7 @@ export const PLAYER_NAME_MAX_LENGTH = 24
 const ROOM_CODE_ALPHABET = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'
 
 export type RoomPhase = 'lobby' | 'game'
-export type OwnedZone = 'hand' | 'battlefield' | 'graveyard' | 'exile' | 'command'
+export type OwnedZone = 'library' | 'hand' | 'battlefield' | 'graveyard' | 'exile' | 'command'
 
 export interface PermanentPosition {
   x: number
@@ -78,6 +78,8 @@ export interface BattlefieldPermanentSnapshot extends TableCardSnapshot {
   tapped: boolean
   enteredAt: string
   position: PermanentPosition
+  stackId: string | null
+  stackIndex: number
   counters: PermanentCounter[]
   note: string
   isToken: boolean
@@ -97,6 +99,7 @@ export interface GamePlayerPublicSnapshot {
 
 export interface GamePrivatePlayerState {
   playerId: string
+  library: TableCardSnapshot[]
   hand: TableCardSnapshot[]
 }
 
@@ -140,6 +143,7 @@ export type ClientGameAction =
   | { type: 'untap_all' }
   | { type: 'adjust_life'; playerId: string; delta: number }
   | { type: 'set_permanent_position'; cardId: string; position: PermanentPosition }
+  | { type: 'set_permanent_stack'; cardId: string; stackWithCardId: string | null }
   | { type: 'adjust_permanent_counter'; cardId: string; counterKind: string; delta: number }
   | { type: 'set_permanent_note'; cardId: string; note: string }
   | { type: 'change_control'; cardId: string; controllerPlayerId: string }

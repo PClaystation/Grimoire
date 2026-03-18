@@ -37,6 +37,7 @@ export type CardSortOption =
 
 export interface CardSearchFilters {
   query: string
+  subtype: string
   format: DeckFormat
   legalityOnly: boolean
   color: CardColorFilter

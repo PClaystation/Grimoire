@@ -54,7 +54,7 @@ export function FilterBar({
   return (
     <SectionPanel
       title="Search Cards"
-      subtitle="Filter by format, legality, color, type, mana value, rarity, and set. Search runs against Scryfall's public card API."
+      subtitle="Search Scryfall by name, rules text, subtype tags, format, color, type, mana value, rarity, and set."
       actions={
         <div className="inline-flex items-center gap-2 rounded-full border border-ember-400/25 bg-ember-500/10 px-3 py-1 text-xs font-medium text-ember-100">
           <Sparkles className="h-3.5 w-3.5" />
@@ -63,8 +63,8 @@ export function FilterBar({
       }
     >
       <form className="space-y-4" onSubmit={handleSubmit}>
-        <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-[minmax(20rem,2.3fr)_repeat(6,minmax(9rem,1fr))]">
-          <label className="space-y-2">
+        <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4 2xl:grid-cols-8">
+          <label className="space-y-2 md:col-span-2 xl:col-span-2">
             <span className="text-sm font-medium text-ink-200">Card name or advanced query</span>
             <div className="flex items-center gap-3 rounded-2xl border border-white/10 bg-ink-800/80 px-4 py-3 focus-within:border-tide-400 focus-within:ring-2 focus-within:ring-tide-400/30">
               <Search className="h-4 w-4 text-ink-400" />
@@ -73,6 +73,20 @@ export function FilterBar({
                 value={filters.query}
                 onChange={handleSearchChange}
                 placeholder="Try Llanowar Elves, removal, or legendary dragon"
+                className="w-full border-none bg-transparent text-sm text-ink-50 outline-none placeholder:text-ink-400"
+              />
+            </div>
+          </label>
+
+          <label className="space-y-2">
+            <span className="text-sm font-medium text-ink-200">Subtype or tag</span>
+            <div className="flex items-center gap-3 rounded-2xl border border-white/10 bg-ink-800/80 px-4 py-3 focus-within:border-tide-400 focus-within:ring-2 focus-within:ring-tide-400/30">
+              <Sparkles className="h-4 w-4 text-ink-400" />
+              <input
+                type="text"
+                value={filters.subtype}
+                onChange={(event) => updateFilter('subtype', event.target.value)}
+                placeholder="Wizard, Aura, Equipment"
                 className="w-full border-none bg-transparent text-sm text-ink-50 outline-none placeholder:text-ink-400"
               />
             </div>

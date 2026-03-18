@@ -52,6 +52,10 @@ function buildResultDescription(filters: CardSearchFilters): string {
     detailParts.push(filters.setCode.toUpperCase())
   }
 
+  if (filters.subtype.trim()) {
+    detailParts.push(`subtypes "${filters.subtype.trim()}"`)
+  }
+
   if (filters.query.trim()) {
     detailParts.push(`matching "${filters.query.trim()}"`)
   }
@@ -81,6 +85,9 @@ function buildActiveChips(filters: CardSearchFilters): string[] {
   }
   if (filters.setCode !== 'ANY') {
     chips.push(filters.setCode.toUpperCase())
+  }
+  if (filters.subtype.trim()) {
+    chips.push(`Subtype ${filters.subtype.trim()}`)
   }
 
   return chips

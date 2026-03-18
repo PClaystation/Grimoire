@@ -3,6 +3,7 @@ import test from 'node:test'
 
 import { PlayServer } from '../server/playServer.ts'
 import type {
+  GameSnapshot,
   RoomSnapshot,
   ServerMessage,
 } from '../src/shared/play.ts'
@@ -38,6 +39,18 @@ function createHarness() {
       assert.ok(latestMessage, `Expected a room snapshot for ${sessionId}.`)
       return latestMessage.room
     },
+    latestGameSnapshot(sessionId: string) {
+      const gameMessages =
+        sentMessages
+          .get(sessionId)
+          ?.filter((message): message is Extract<ServerMessage, { type: 'game_snapshot' }> => {
+            return message.type === 'game_snapshot'
+          }) ?? []
+
+      const latestMessage = gameMessages.at(-1)
+      assert.ok(latestMessage, `Expected a game snapshot for ${sessionId}.`)
+      return latestMessage.game
+    },
     pendingTimeoutCount() {
       return scheduledTimeouts.size
     },
@@ -67,6 +80,86 @@ function findPlayer(room: RoomSnapshot, playerName: string) {
   const player = room.players.find((entry) => entry.name === playerName)
   assert.ok(player, `Expected ${playerName} to exist in the room snapshot.`)
   return player
+}
+
+const sampleCard = {
+  id: 'card-1',
+  oracleId: 'oracle-1',
+  name: 'Island',
+  manaCost: '',
+  manaValue: 0,
+  releasedAt: '2024-01-01',
+  typeLine: 'Basic Land — Island',
+  oracleText: '({T}: Add {U}.)',
+  colors: [],
+  colorIdentity: ['U'],
+  setCode: 'fdn',
+  setName: 'Foundations',
+  collectorNumber: '257',
+  rarity: 'common',
+  legalities: {
+    standard: 'legal',
+  },
+  imageUrl: 'https://cards.scryfall.io/normal/front/example.jpg',
+  largeImageUrl: 'https://cards.scryfall.io/large/front/example.jpg',
+  prices: {
+    usd: 0.12,
+    usdFoil: 0.2,
+    eur: 0.1,
+    eurFoil: 0.15,
+    tix: null,
+  },
+}
+
+function createDeck(id: string, name: string) {
+  return {
+    id,
+    name,
+    format: 'standard' as const,
+    mainboardCount: 12,
+    sideboardCount: 0,
+    mainboard: [
+      {
+        quantity: 12,
+        card: sampleCard,
+      },
+    ],
+    sideboard: [],
+  }
+}
+
+function createStartedGame(harness: ReturnType<typeof createHarness>) {
+  const playServer = new PlayServer({
+    sendToSession: harness.sendToSession,
+    disconnectGracePeriodMs: 5_000,
+    setTimeout: harness.setTimeout,
+    clearTimeout: harness.clearTimeout,
+  })
+
+  playServer.handleHello('session-alice', 'Alice')
+  playServer.handleMessage('session-alice', { type: 'create_room' })
+  const roomId = harness.latestRoomSnapshot('session-alice').roomId
+
+  playServer.handleHello('session-bob', 'Bob')
+  playServer.handleMessage('session-bob', { type: 'join_room', roomId })
+  playServer.handleMessage('session-alice', {
+    type: 'select_deck',
+    roomId,
+    deck: createDeck('deck-alice', 'Alice Deck'),
+  })
+  playServer.handleMessage('session-bob', {
+    type: 'select_deck',
+    roomId,
+    deck: createDeck('deck-bob', 'Bob Deck'),
+  })
+  playServer.handleMessage('session-alice', { type: 'start_game', roomId })
+
+  const aliceGame = harness.latestGameSnapshot('session-alice')
+  return {
+    playServer,
+    roomId,
+    gameId: aliceGame.gameId,
+  }
 }
 
 test('PlayServer keeps a player connected when they reconnect before the grace timeout', () => {
@@ -120,4 +213,105 @@ test('PlayServer marks a player disconnected after the grace timeout expires', (
   assert.equal(harness.pendingTimeoutCount(), 1)
   assert.equal(harness.runNextTimeout(), 5_000)
   assert.equal(findPlayer(harness.latestRoomSnapshot('session-alice'), 'Bob').isConnected, false)
+})
+
+test('PlayServer exposes the local library privately and can move cards out of it', () => {
+  const harness = createHarness()
+  const { playServer, gameId } = createStartedGame(harness)
+
+  const initialSnapshot = harness.latestGameSnapshot('session-alice')
+  const libraryCardId = initialSnapshot.privateState?.library[0]?.instanceId
+
+  assert.ok(libraryCardId, 'Expected a private library card to exist for Alice.')
+  assert.equal(initialSnapshot.privateState?.library.length, 5)
+  assert.equal(initialSnapshot.privateState?.hand.length, 7)
+
+  playServer.handleMessage('session-alice', {
+    type: 'game_action',
+    gameId,
+    action: {
+      type: 'move_owned_card',
+      cardId: libraryCardId,
+      fromZone: 'library',
+      toZone: 'hand',
+    },
+  })
+
+  const nextSnapshot = harness.latestGameSnapshot('session-alice')
+  assert.equal(nextSnapshot.privateState?.library.length, 4)
+  assert.equal(nextSnapshot.privateState?.hand.length, 8)
+})
+
+test('PlayServer stacks permanents and can unstack them again', () => {
+  const harness = createHarness()
+  const { playServer, gameId } = createStartedGame(harness)
+
+  const initialSnapshot = harness.latestGameSnapshot('session-alice')
+  const firstHandCard = initialSnapshot.privateState?.hand[0]?.instanceId
+  const secondHandCard = initialSnapshot.privateState?.hand[1]?.instanceId
+
+  assert.ok(firstHandCard, 'Expected a first hand card for Alice.')
+  assert.ok(secondHandCard, 'Expected a second hand card for Alice.')
+
+  playServer.handleMessage('session-alice', {
+    type: 'game_action',
+    gameId,
+    action: {
+      type: 'move_owned_card',
+      cardId: firstHandCard,
+      fromZone: 'hand',
+      toZone: 'battlefield',
+      position: { x: 24, y: 40 },
+    },
+  })
+  playServer.handleMessage('session-alice', {
+    type: 'game_action',
+    gameId,
+    action: {
+      type: 'move_owned_card',
+      cardId: secondHandCard,
+      fromZone: 'hand',
+      toZone: 'battlefield',
+      position: { x: 42, y: 40 },
+    },
+  })
+
+  let stackedSnapshot: GameSnapshot = harness.latestGameSnapshot('session-alice')
+  const [firstPermanent, secondPermanent] = stackedSnapshot.publicState.battlefield
+
+  assert.ok(firstPermanent, 'Expected the first permanent on the battlefield.')
+  assert.ok(secondPermanent, 'Expected the second permanent on the battlefield.')
+
+  playServer.handleMessage('session-alice', {
+    type: 'game_action',
+    gameId,
+    action: {
+      type: 'set_permanent_stack',
+      cardId: secondPermanent.instanceId,
+      stackWithCardId: firstPermanent.instanceId,
+    },
+  })
+
+  stackedSnapshot = harness.latestGameSnapshot('session-alice')
+  const stackedCards = stackedSnapshot.publicState.battlefield
+  const sharedStackId = stackedCards[0]?.stackId
+
+  assert.ok(sharedStackId, 'Expected stacked permanents to share a stack id.')
+  assert.equal(stackedCards[0]?.stackId, stackedCards[1]?.stackId)
+
+  playServer.handleMessage('session-alice', {
+    type: 'game_action',
+    gameId,
+    action: {
+      type: 'set_permanent_stack',
+      cardId: stackedCards[1].instanceId,
+      stackWithCardId: null,
+    },
+  })
+
+  const unstackedSnapshot = harness.latestGameSnapshot('session-alice')
+  const unstackedCards = unstackedSnapshot.publicState.battlefield
+
+  assert.equal(unstackedCards[0]?.stackId, null)
+  assert.equal(unstackedCards[1]?.stackId, null)
 })

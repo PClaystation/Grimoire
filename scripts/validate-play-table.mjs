@@ -262,14 +262,28 @@ async function main() {
   await aliceHandCards.nth(1).dragTo(alicePage.getByTestId('lane-board-local'), {
     targetPosition: { x: 360, y: 120 },
   })
+  const aliceBoardCards = alicePage.getByTestId('lane-board-local').locator('button[data-card-name]')
+  await aliceBoardCards.nth(1).waitFor({ timeout: 15000 })
+  await aliceBoardCards.nth(1).dragTo(aliceBoardCards.first())
 
-  const aliceZonePanel = alicePage.locator('section').filter({ hasText: 'Public zones' })
+  const aliceZonePanel = alicePage.locator('section').filter({ hasText: 'Zone access' })
   await aliceZonePanel.getByRole('button', { name: /Command/i }).click()
   await aliceZonePanel.locator('button[data-card-name]').first().dblclick()
 
-  await alicePage.getByTestId('lane-board-local').locator('button[data-card-name]').first().click()
-  await alicePage.getByRole('button', { name: /^Add$/i }).click()
-  await alicePage.locator('summary').filter({ hasText: 'Table note' }).click()
+  await alicePage.getByTestId('hand-tray').getByRole('button', { name: /Library/i }).click()
+  await aliceZonePanel
+    .getByPlaceholder('Search library by name, type, or rules text')
+    .fill('Azure Estate')
+  await aliceZonePanel.locator('button[data-card-name]').first().dblclick()
+
+  await aliceBoardCards.last().click({ force: true })
+  const aliceInspector = alicePage.locator('section').filter({ hasText: 'Inspector' })
+  await aliceInspector.getByRole('button', { name: /^Add$/i }).click()
+  await aliceInspector.getByRole('button', { name: /^Graveyard$/i }).click()
+  await aliceZonePanel.getByRole('button', { name: /^Graveyard/i }).click()
+  await aliceZonePanel.locator('button[data-card-name]').first().dblclick()
+  await aliceBoardCards.last().click({ force: true })
+  await aliceInspector.locator('summary').filter({ hasText: 'Table note' }).click()
   await alicePage.getByPlaceholder('Status, chosen mode, remembered trigger...').fill('Marked for alpha swing')
   await alicePage.getByRole('button', { name: /Save note/i }).click()
   await alicePage.getByRole('button', { name: /^Tokens$/i }).click()

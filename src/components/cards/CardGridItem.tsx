@@ -26,45 +26,48 @@ export function CardGridItem({
         onClick={() => onPreview(card)}
         className="flex flex-1 flex-col text-left"
       >
-        <div className="relative aspect-[5/7] overflow-hidden">
-          <img
-            src={card.imageUrl}
-            alt={card.name}
-            loading="lazy"
-            className="h-full w-full object-cover transition duration-300 group-hover:scale-[1.03]"
-          />
-          <div className="absolute inset-x-0 top-0 flex items-center justify-between bg-gradient-to-b from-ink-900/70 via-ink-900/30 to-transparent p-3 text-white">
-            <span className="rounded-full bg-white/15 px-2.5 py-1 text-[11px] font-semibold uppercase tracking-[0.14em]">
-              {card.setCode.toUpperCase()}
-            </span>
-            <span className="rounded-full bg-white/15 px-2.5 py-1 text-[11px] font-semibold uppercase tracking-[0.14em]">
-              {card.rarity}
-            </span>
-          </div>
-        </div>
-
-        <div className="flex flex-1 flex-col gap-3 p-4">
+        <div className="flex flex-1 flex-col gap-4 p-4">
           <div>
             <div className="flex items-start justify-between gap-3">
-              <h3 className="text-base font-semibold leading-tight text-ink-50">{card.name}</h3>
+              <div className="min-w-0">
+                <h3 className="text-base font-semibold leading-tight text-ink-50">{card.name}</h3>
+                <p className="mt-2 text-sm text-ink-400">{formatTypeLine(card.typeLine)}</p>
+              </div>
               <span className="shrink-0 rounded-full bg-white/10 px-2 py-1 text-xs font-medium text-ink-200">
                 {formatManaCost(card.manaCost)}
               </span>
             </div>
-            <p className="mt-2 text-sm text-ink-400">{formatTypeLine(card.typeLine)}</p>
-            <div className="mt-3 inline-flex items-center rounded-full bg-emerald-500/10 px-2.5 py-1 text-xs font-semibold text-emerald-200 ring-1 ring-emerald-500/20">
-              Market: {formatMarketPriceLabel(card)}
+
+            <div className="mt-3 flex flex-wrap gap-2">
+              <span className="rounded-full bg-white/10 px-2.5 py-1 text-[11px] font-semibold uppercase tracking-[0.14em] text-ink-100">
+                {card.setCode.toUpperCase()}
+              </span>
+              <span className="rounded-full bg-white/10 px-2.5 py-1 text-[11px] font-semibold uppercase tracking-[0.14em] text-ink-100">
+                {card.rarity}
+              </span>
+              <span
+                className={`inline-flex items-center rounded-full px-2.5 py-1 text-xs font-semibold ring-1 ${
+                  COLOR_SWATCHES[colorTag]
+                }`}
+              >
+                {COLOR_LABELS[colorTag]}
+              </span>
             </div>
           </div>
 
+          <div className="relative aspect-[5/7] overflow-hidden rounded-[1.3rem] border border-white/10 bg-[radial-gradient(circle_at_top,rgba(29,150,167,0.12),transparent_45%),rgba(9,17,23,0.96)] p-3">
+            <img
+              src={card.imageUrl}
+              alt={card.name}
+              loading="lazy"
+              className="h-full w-full object-contain transition duration-300 group-hover:scale-[1.02]"
+            />
+          </div>
+
           <div className="mt-auto flex items-center justify-between gap-2">
-            <span
-              className={`inline-flex items-center rounded-full px-2.5 py-1 text-xs font-semibold ring-1 ${
-                COLOR_SWATCHES[colorTag]
-              }`}
-            >
-              {COLOR_LABELS[colorTag]}
-            </span>
+            <div className="inline-flex items-center rounded-full bg-emerald-500/10 px-2.5 py-1 text-xs font-semibold text-emerald-200 ring-1 ring-emerald-500/20">
+              Market: {formatMarketPriceLabel(card)}
+            </div>
 
             <span className="inline-flex items-center gap-1 text-xs font-medium text-tide-200">
               <Eye className="h-3.5 w-3.5" />

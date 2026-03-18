@@ -7,6 +7,7 @@ export type CardRarityFilter = 'ANY' | 'common' | 'uncommon' | 'rare' | 'mythic'
 export type CardSortOption = 'RELEVANCE' | 'NAME' | 'MANA_VALUE' | 'PRICE_LOW' | 'PRICE_HIGH' | 'NEWEST';
 export interface CardSearchFilters {
     query: string;
+    subtype: string;
     format: DeckFormat;
     legalityOnly: boolean;
     color: CardColorFilter;

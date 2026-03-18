@@ -8,7 +8,7 @@ export declare const PLAY_OPENING_HAND_SIZE = 7;
 export declare const ROOM_CODE_LENGTH = 6;
 export declare const PLAYER_NAME_MAX_LENGTH = 24;
 export type RoomPhase = 'lobby' | 'game';
-export type OwnedZone = 'hand' | 'battlefield' | 'graveyard' | 'exile' | 'command';
+export type OwnedZone = 'library' | 'hand' | 'battlefield' | 'graveyard' | 'exile' | 'command';
 export interface PermanentPosition {
     x: number;
     y: number;
@@ -65,6 +65,8 @@ export interface BattlefieldPermanentSnapshot extends TableCardSnapshot {
     tapped: boolean;
     enteredAt: string;
     position: PermanentPosition;
+    stackId: string | null;
+    stackIndex: number;
     counters: PermanentCounter[];
     note: string;
     isToken: boolean;
@@ -82,6 +84,7 @@ export interface GamePlayerPublicSnapshot {
 }
 export interface GamePrivatePlayerState {
     playerId: string;
+    library: TableCardSnapshot[];
     hand: TableCardSnapshot[];
 }
 export interface GameActionEvent {
@@ -132,6 +135,10 @@ export type ClientGameAction = {
     type: 'set_permanent_position';
     cardId: string;
     position: PermanentPosition;
+} | {
+    type: 'set_permanent_stack';
+    cardId: string;
+    stackWithCardId: string | null;
 } | {
     type: 'adjust_permanent_counter';
     cardId: string;

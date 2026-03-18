@@ -404,7 +404,7 @@ function App() {
                   : 'text-ink-300 hover:bg-white/5 hover:text-ink-50'
               }`}
             >
-              Card Browser
+              Search
             </button>
             <button
               type="button"
@@ -415,14 +415,14 @@ function App() {
                   : 'text-ink-300 hover:bg-white/5 hover:text-ink-50'
               }`}
             >
-              Deck View
+              Gallery
             </button>
           </div>
 
           <p className="text-sm text-ink-300">
             {activeWorkspaceTab === 'browser'
-              ? 'Browse and search the card pool.'
-              : 'See your built deck as full card art in the main workspace.'}
+              ? 'Search the card pool and add cards without scrolling past the full deck panel first.'
+              : 'Review the finished list as full-card previews.'}
           </p>
         </div>
 
@@ -441,7 +441,7 @@ function App() {
 
         <div className="grid gap-6 xl:grid-cols-[minmax(0,1.15fr)_28rem] 2xl:grid-cols-[minmax(0,1.2fr)_30rem]">
           <DeckPanel
-            className="order-1 xl:order-2"
+            className="order-2 xl:order-2"
             deckName={deckName}
             format={format}
             notes={notes}
@@ -479,7 +479,7 @@ function App() {
 
           {activeWorkspaceTab === 'browser' ? (
             <CardGrid
-              className="order-2 xl:order-1"
+              className="order-1 xl:order-1"
               cards={sortedCards}
               totalCards={totalCards}
               filters={appliedFilters}
@@ -497,7 +497,7 @@ function App() {
             />
           ) : (
             <DeckGalleryView
-              className="order-2 xl:order-1"
+              className="order-1 xl:order-1"
               deckName={deckName}
               format={format}
               mainboard={mainboard}

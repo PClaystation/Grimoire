@@ -29,6 +29,7 @@ function isNullableNumber(value: unknown): value is number | null {
 
 function isOwnedZone(value: unknown): value is OwnedZone {
   return (
+    value === 'library' ||
     value === 'hand' ||
     value === 'battlefield' ||
     value === 'graveyard' ||
@@ -136,6 +137,11 @@ function isClientGameActionPayload(value: unknown): value is ClientGameAction {
       return isNonEmptyString(value.playerId) && typeof value.delta === 'number'
     case 'set_permanent_position':
       return isNonEmptyString(value.cardId) && isPermanentPosition(value.position)
+    case 'set_permanent_stack':
+      return (
+        isNonEmptyString(value.cardId) &&
+        (value.stackWithCardId === null || isNonEmptyString(value.stackWithCardId))
+      )
     case 'adjust_permanent_counter':
       return (
         isNonEmptyString(value.cardId) &&

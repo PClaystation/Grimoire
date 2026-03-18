@@ -96,3 +96,22 @@ Original prompt: You are extending an existing MTG deckbuilder web app into an o
   - Ran `node scripts/validate-play-table.mjs http://127.0.0.1:8787` against the built preview server and visually reviewed the refreshed live-table screenshot in `artifacts/playwright/revamp/alice-table.png`.
   - Ran the required `develop-web-game` Playwright smoke client against `http://127.0.0.1:8787/` and `http://127.0.0.1:8787/play`, then captured cleaner top-of-page verification screenshots in `artifacts/playwright/public-home-top.png` and `artifacts/playwright/public-play-top.png`.
   - Confirmed preview HTTP headers with `curl -I` for `/`, `/health`, and the hashed frontend asset route under `/assets/`.
+
+2026-03-18
+- Feedback fix pass:
+  - Deck builder:
+    - Added a dedicated subtype/tag search field and wired it into the Scryfall query builder.
+    - Reworked search and gallery card previews so the actual card frame stays visible with `object-contain` instead of cropped/overlaid art.
+    - Compressed the deck-builder hero/header copy and moved the main workspace ahead of the deck panel on smaller screens to reduce top-of-page fluff and improve mobile flow.
+  - Tabletop:
+    - Extended the shared play protocol, server snapshots, and validation to expose each player’s library privately to its owner.
+    - Added a searchable local library browser, visible library/graveyard access in the table UI, and direct library-to-zone movement for tutor-style play.
+    - Added server-authoritative battlefield stacks with stack/unstack actions and stack-aware board rendering so crowded boards can be compressed without losing interaction.
+- Verification:
+  - `npm run build` passed.
+  - `npm run lint` passed.
+  - `npm test` passed with new coverage for library moves and stacking.
+  - Ran `node scripts/validate-play-table.mjs http://127.0.0.1:8787` successfully and refreshed `artifacts/playwright/revamp/alice-table.png` and `artifacts/playwright/revamp/bob-table.png`.
+  - Ran the required `develop-web-game` Playwright smoke client against `http://127.0.0.1:8787/play` and visually reviewed `output/web-game/shot-0.png`.
+- Follow-up:
+  - Stacked cards remain easiest to select from the top visible card; the inspector’s unstack action is the escape hatch when a pile gets too dense.

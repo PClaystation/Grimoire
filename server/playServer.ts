@@ -48,6 +48,8 @@ interface BattlefieldPermanentState extends CardInstance {
   tapped: boolean
   enteredAt: string
   position: PermanentPosition
+  stackId: string | null
+  stackIndex: number
   counters: PermanentCounter[]
   note: string
   isToken: boolean
@@ -106,6 +108,14 @@ function removeCardFromZone(cards: CardInstance[], cardId: string) {
 
   const [card] = cards.splice(cardIndex, 1)
   return card
+}
+
+function compareStackMembers(left: BattlefieldPermanentState, right: BattlefieldPermanentState) {
+  if (left.stackIndex !== right.stackIndex) {
+    return left.stackIndex - right.stackIndex
+  }
+
+  return left.enteredAt.localeCompare(right.enteredAt)
 }
 
 function sanitizePermanentNote(value: string | undefined) {
@@ -732,7 +742,54 @@ export class PlayServer {
           return
         }
 
-        permanent.position = clampPermanentPosition(action.position)
+        this.setStackPosition(game, permanent, action.position)
+        break
+      }
+
+      case 'set_permanent_stack': {
+        const permanent = this.getControllablePermanent(game, actor, action.cardId)
+
+        if (!permanent) {
+          this.emitError(sessionId, 'Permanent not found on your battlefield.')
+          return
+        }
+
+        if (action.stackWithCardId === null) {
+          if (!this.unstackPermanent(game, permanent)) {
+            return
+          }
+
+          this.recordEvent(
+            game,
+            actor.id,
+            action.type,
+            `${actor.name} split ${permanent.card.name} out of its stack.`,
+          )
+          break
+        }
+
+        const targetPermanent = this.getControllablePermanent(game, actor, action.stackWithCardId)
+
+        if (!targetPermanent) {
+          this.emitError(sessionId, 'Stack target not found on your battlefield.')
+          return
+        }
+
+        if (targetPermanent.controllerPlayerId !== permanent.controllerPlayerId) {
+          this.emitError(sessionId, 'Cards can only stack within the same lane.')
+          return
+        }
+
+        if (!this.setPermanentStack(game, permanent, targetPermanent)) {
+          return
+        }
+
+        this.recordEvent(
+          game,
+          actor.id,
+          action.type,
+          `${actor.name} stacked ${permanent.card.name} with ${targetPermanent.card.name}.`,
+        )
         break
       }
 
@@ -812,6 +869,7 @@ export class PlayServer {
           return
         }
 
+        this.unstackPermanent(game, permanent)
         permanent.controllerPlayerId = targetPlayer.id
         permanent.position = this.getAutoBattlefieldPosition(game, targetPlayer.id, permanent.card.typeLine)
         this.recordEvent(
@@ -853,6 +911,8 @@ export class PlayServer {
           position: action.position
             ? clampPermanentPosition(action.position)
             : this.getAutoBattlefieldPosition(game, actor.id, tokenType),
+          stackId: null,
+          stackIndex: 0,
           counters: [],
           note: tokenNote,
           isToken: true,
@@ -878,6 +938,8 @@ export class PlayServer {
     cardId: string,
   ) {
     switch (fromZone) {
+      case 'library':
+        return removeCardFromZone(player.library, cardId)
       case 'hand':
         return removeCardFromZone(player.hand, cardId)
       case 'graveyard':
@@ -898,6 +960,7 @@ export class PlayServer {
         }
 
         const [permanent] = game.battlefield.splice(permanentIndex, 1)
+        this.normalizeStack(game, permanent.stackId)
         return {
           instanceId: permanent.instanceId,
           ownerPlayerId: permanent.ownerPlayerId,
@@ -917,6 +980,9 @@ export class PlayServer {
     const owner = game.players.find((candidate) => candidate.id === card.ownerPlayerId) ?? player
 
     switch (toZone) {
+      case 'library':
+        owner.library.unshift(card)
+        break
       case 'hand':
         owner.hand.push(card)
         break
@@ -938,6 +1004,8 @@ export class PlayServer {
           position: position
             ? clampPermanentPosition(position)
             : this.getAutoBattlefieldPosition(game, player.id, card.card.typeLine),
+          stackId: null,
+          stackIndex: 0,
           counters: [],
           note: '',
           isToken: isVirtualTokenCard(card.card.id),
@@ -952,6 +1020,109 @@ export class PlayServer {
         card.instanceId === cardId &&
         (card.ownerPlayerId === actor.id || card.controllerPlayerId === actor.id),
     )
+  }
+
+  private getStackMembers(
+    game: GameState,
+    permanent: Pick<BattlefieldPermanentState, 'instanceId' | 'stackId'>,
+  ) {
+    const stackKey = permanent.stackId ?? permanent.instanceId
+
+    return game.battlefield
+      .filter((card) => (card.stackId ?? card.instanceId) === stackKey)
+      .sort(compareStackMembers)
+  }
+
+  private normalizeStack(game: GameState, stackId: string | null) {
+    if (!stackId) {
+      return
+    }
+
+    const members = game.battlefield
+      .filter((card) => card.stackId === stackId)
+      .sort(compareStackMembers)
+
+    if (members.length <= 1) {
+      members.forEach((card) => {
+        card.stackId = null
+        card.stackIndex = 0
+      })
+      return
+    }
+
+    members.forEach((card, index) => {
+      card.stackId = stackId
+      card.stackIndex = index
+    })
+  }
+
+  private setStackPosition(
+    game: GameState,
+    permanent: BattlefieldPermanentState,
+    position: PermanentPosition,
+  ) {
+    const normalizedPosition = clampPermanentPosition(position)
+    const stackMembers = this.getStackMembers(game, permanent)
+
+    stackMembers.forEach((card) => {
+      card.position = normalizedPosition
+    })
+  }
+
+  private setPermanentStack(
+    game: GameState,
+    source: BattlefieldPermanentState,
+    target: BattlefieldPermanentState,
+  ) {
+    if (source.instanceId === target.instanceId) {
+      return false
+    }
+
+    const sourceStackMembers = this.getStackMembers(game, source)
+    const targetStackMembers = this.getStackMembers(game, target)
+    const previousSourceStackId = source.stackId
+    const sourceStackKey = source.stackId ?? source.instanceId
+    const targetStackKey = target.stackId ?? target.instanceId
+
+    if (sourceStackKey === targetStackKey) {
+      return false
+    }
+
+    const nextPosition = clampPermanentPosition(target.position)
+
+    targetStackMembers.forEach((card, index) => {
+      card.stackId = targetStackKey
+      card.stackIndex = index
+      card.position = nextPosition
+    })
+
+    sourceStackMembers.forEach((card, index) => {
+      card.stackId = targetStackKey
+      card.stackIndex = targetStackMembers.length + index
+      card.position = nextPosition
+    })
+
+    this.normalizeStack(game, previousSourceStackId)
+    this.normalizeStack(game, targetStackKey)
+    return true
+  }
+
+  private unstackPermanent(game: GameState, permanent: BattlefieldPermanentState) {
+    if (!permanent.stackId) {
+      return false
+    }
+
+    const previousStackId = permanent.stackId
+    const detachedPosition = clampPermanentPosition({
+      x: permanent.position.x + 7,
+      y: permanent.position.y + 6,
+    })
+
+    permanent.stackId = null
+    permanent.stackIndex = 0
+    permanent.position = detachedPosition
+    this.normalizeStack(game, previousStackId)
+    return true
   }
 
   private getAutoBattlefieldPosition(
@@ -1097,6 +1268,8 @@ export class PlayServer {
           tapped: card.tapped,
           enteredAt: card.enteredAt,
           position: card.position,
+          stackId: card.stackId,
+          stackIndex: card.stackIndex,
           counters: card.counters,
           note: card.note,
           isToken: card.isToken,
@@ -1107,6 +1280,7 @@ export class PlayServer {
       privateState: localPlayer
         ? {
             playerId: localPlayer.id,
+            library: localPlayer.library.map((card) => this.toTableCardSnapshot(card)),
             hand: localPlayer.hand.map((card) => this.toTableCardSnapshot(card)),
           }
         : null,
@@ -1248,6 +1422,8 @@ export class PlayServer {
     switch (zone) {
       case 'battlefield':
         return 'the battlefield'
+      case 'library':
+        return 'their library'
       case 'graveyard':
         return 'the graveyard'
       case 'exile':

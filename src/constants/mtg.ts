@@ -10,6 +10,7 @@ import type { DeckFormat, DeckTypeStatKey } from '@/types/deck'
 
 export const DEFAULT_FILTERS: CardSearchFilters = {
   query: '',
+  subtype: '',
   format: 'standard',
   legalityOnly: true,
   color: 'ANY',
