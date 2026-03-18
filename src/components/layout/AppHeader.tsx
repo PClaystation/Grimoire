@@ -47,10 +47,10 @@ export function AppHeader({ mainboardCards, sideboardCards, savedDecks }: AppHea
           <div className="rounded-[1.5rem] border border-white/10 bg-white/5 px-4 py-3">
             <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.18em] text-ink-400">
               <Sparkles className="h-4 w-4 text-tide-300" />
-              Local Saves
+              Deck Saves
             </div>
             <div className="mt-2 text-3xl font-semibold text-ink-50">{savedDecks}</div>
-            <p className="mt-1 text-sm text-ink-400">browser snapshots</p>
+            <p className="mt-1 text-sm text-ink-400">currently stored in this browser</p>
           </div>
         </div>
       </div>

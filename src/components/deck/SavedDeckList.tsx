@@ -6,6 +6,8 @@ import { countDeckEntries, formatSavedDeckDate } from '@/utils/format'
 
 interface SavedDeckListProps {
   decks: SavedDeck[]
+  isLoading?: boolean
+  emptyDescription?: string
   activeDeckId: string | null
   onLoad: (deckId: string) => void
   onDelete: (deckId: string) => void
@@ -13,15 +15,26 @@ interface SavedDeckListProps {
 
 export function SavedDeckList({
   decks,
+  isLoading = false,
+  emptyDescription = 'Use Save Deck to keep local snapshots with both mainboard and sideboard state.',
   activeDeckId,
   onLoad,
   onDelete,
 }: SavedDeckListProps) {
+  if (isLoading) {
+    return (
+      <EmptyState
+        title="Loading saved decks"
+        description="Reading the current deck repository for this browser session."
+      />
+    )
+  }
+
   if (decks.length === 0) {
     return (
       <EmptyState
         title="No saved decks yet"
-        description="Use Save Deck to keep local snapshots with both mainboard and sideboard state."
+        description={emptyDescription}
       />
     )
   }

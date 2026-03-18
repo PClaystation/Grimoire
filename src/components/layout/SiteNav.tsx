@@ -1,6 +1,7 @@
-import { BookOpenText, Swords } from 'lucide-react'
+import { BookOpenText, LogIn, LogOut, Swords } from 'lucide-react'
 import { NavLink } from 'react-router-dom'
 
+import { useAuth } from '@/auth/useAuth'
 import { ContinentalBranding } from '@/components/layout/ContinentalBranding'
 
 type ConnectionStatus = 'connecting' | 'connected' | 'disconnected'
@@ -17,6 +18,15 @@ const STATUS_STYLES: Record<ConnectionStatus, string> = {
 }
 
 export function SiteNav({ connectionStatus, compact = false }: SiteNavProps) {
+  const { status: authStatus, user, errorMessage, isBusy, signIn, signOut } = useAuth()
+  const accountUser = authStatus === 'authenticated' ? user : null
+  const isAuthenticated = accountUser !== null
+  const authLabel = isAuthenticated
+    ? accountUser.displayName
+    : authStatus === 'loading'
+      ? 'Checking session'
+      : 'Continental ID'
+
   return (
     <nav
       className={`relative overflow-hidden rounded-[2rem] border border-white/10 bg-ink-900/78 shadow-panel backdrop-blur-xl ${
@@ -79,6 +89,48 @@ export function SiteNav({ connectionStatus, compact = false }: SiteNavProps) {
               {connectionStatus}
             </div>
           ) : null}
+
+          <div
+            title={errorMessage ?? undefined}
+            className={`inline-flex items-center gap-2 rounded-[1.2rem] border border-white/10 bg-white/5 ${
+              compact ? 'px-2 py-1.5' : 'px-2.5 py-2'
+            }`}
+          >
+            <div className="hidden min-w-0 sm:block">
+              <p className="truncate text-xs font-semibold uppercase tracking-[0.18em] text-ink-400">
+                {authLabel}
+              </p>
+              <p className="truncate text-[11px] text-ink-300">
+                {isAuthenticated ? accountUser.continentalId : errorMessage ? 'Auth issue' : 'Login ready'}
+              </p>
+            </div>
+
+            {isAuthenticated ? (
+              <button
+                type="button"
+                onClick={() => void signOut()}
+                disabled={isBusy}
+                className={`inline-flex items-center gap-2 rounded-[0.9rem] border border-white/10 bg-white/6 font-semibold text-ink-100 transition hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-60 ${
+                  compact ? 'px-3 py-2 text-xs' : 'px-3.5 py-2.5 text-sm'
+                }`}
+              >
+                <LogOut className="h-4 w-4" />
+                Sign out
+              </button>
+            ) : (
+              <button
+                type="button"
+                onClick={signIn}
+                disabled={isBusy || authStatus === 'loading'}
+                className={`inline-flex items-center gap-2 rounded-[0.9rem] bg-tide-500 font-semibold text-white transition hover:bg-tide-400 disabled:cursor-not-allowed disabled:opacity-60 ${
+                  compact ? 'px-3 py-2 text-xs' : 'px-3.5 py-2.5 text-sm'
+                }`}
+              >
+                <LogIn className="h-4 w-4" />
+                {authStatus === 'loading' ? 'Checking...' : 'Sign in'}
+              </button>
+            )}
+          </div>
         </div>
       </div>
     </nav>

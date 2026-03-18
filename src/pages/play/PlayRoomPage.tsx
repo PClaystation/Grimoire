@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { ArrowRight, Copy, LogOut, RadioTower, Swords } from 'lucide-react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 
+import { useDeckRepository } from '@/decks/useDeckRepository'
 import { PlayFrame } from '@/play/components/PlayFrame'
 import { usePlay } from '@/play/usePlay'
 import { createDeckSelectionSnapshot, PLAY_MIN_PLAYERS } from '@/shared/play'
@@ -11,7 +12,8 @@ import { copyTextToClipboard } from '@/utils/clipboard'
 export function PlayRoomPage() {
   const navigate = useNavigate()
   const { roomId = '' } = useParams()
-  const { savedDecks } = useSavedDecks()
+  const deckRepository = useDeckRepository()
+  const { savedDecks, isLoading: isSavedDecksLoading } = useSavedDecks(deckRepository)
   const [statusMessage, setStatusMessage] = useState<string | null>(null)
   const {
     connectionStatus,
@@ -227,7 +229,13 @@ export function PlayRoomPage() {
             <RadioTower className="h-5 w-5 text-tide-200" />
           </div>
 
-          {savedDecks.length > 0 ? (
+          {isSavedDecksLoading ? (
+            <div className="mt-5 rounded-[1.6rem] border border-white/10 bg-white/5 p-5">
+              <p className="text-sm text-ink-300">
+                Loading the current deck repository for this browser session.
+              </p>
+            </div>
+          ) : savedDecks.length > 0 ? (
             <div className="mt-5 grid gap-3">
               {savedDecks.map((deck) => {
                 const isSelected = localPlayer?.selectedDeck?.id === deck.id
@@ -274,7 +282,8 @@ export function PlayRoomPage() {
             <div className="mt-5 rounded-[1.6rem] border border-white/10 bg-white/5 p-5">
               <p className="text-sm text-ink-300">
                 This browser does not have any saved decks yet. Build one in the deckbuilder first,
-                then come back and select it here.
+                then come back and select it here. Continental ID sign-in does not sync decks into
+                the play lobby yet.
               </p>
               <Link
                 to="/"

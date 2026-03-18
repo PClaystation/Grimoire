@@ -1,6 +1,8 @@
 import { useEffect, useRef, useState } from 'react'
 
+import { useAuth } from '@/auth/useAuth'
 import { lookupDeckCards } from '@/api/scryfall'
+import { ContinentalAccountPanel } from '@/components/auth/ContinentalAccountPanel'
 import { CardDetailsModal } from '@/components/cards/CardDetailsModal'
 import { CardGrid } from '@/components/cards/CardGrid'
 import { DeckGalleryView } from '@/components/deck/DeckGalleryView'
@@ -11,6 +13,7 @@ import { FilterBar } from '@/components/filters/FilterBar'
 import { AppHeader } from '@/components/layout/AppHeader'
 import { SiteNav } from '@/components/layout/SiteNav'
 import { DEFAULT_FILTERS } from '@/constants/mtg'
+import { useDeckRepository } from '@/decks/useDeckRepository'
 import { useCardSearch } from '@/hooks/useCardSearch'
 import { useCardSets } from '@/hooks/useCardSets'
 import { useDeckBuilder } from '@/state/useDeckBuilder'
@@ -46,6 +49,15 @@ function App() {
   const [isPlaytestOpen, setIsPlaytestOpen] = useState(false)
   const [activeWorkspaceTab, setActiveWorkspaceTab] = useState<'browser' | 'deck'>('browser')
   const hasProcessedSharedDeckRef = useRef(false)
+  const {
+    status: authStatus,
+    user: authUser,
+    errorMessage: authErrorMessage,
+    isBusy: isAuthBusy,
+    signIn,
+    signOut,
+  } = useAuth()
+  const deckRepository = useDeckRepository()
 
   const {
     mainboard,
@@ -76,7 +88,13 @@ function App() {
     canUndo,
     canRedo,
   } = useDeckBuilder()
-  const { savedDecks, saveDeck, deleteDeck } = useSavedDecks()
+  const {
+    savedDecks,
+    isLoading: isSavedDecksLoading,
+    presentation: savedDecksPresentation,
+    saveDeck,
+    deleteDeck,
+  } = useSavedDecks(deckRepository)
   const {
     cards,
     totalCards,
@@ -201,17 +219,19 @@ function App() {
       return
     }
 
-    try {
-      const savedDeck = saveDeck(deckDraft)
-      syncSavedDeck(savedDeck)
-      setStatusMessage(`Saved "${savedDeck.name}" to local storage.`)
-    } catch (saveError) {
-      setStatusMessage(
-        saveError instanceof Error
-          ? saveError.message
-          : 'Unable to save this deck in local storage.',
-      )
-    }
+    void (async () => {
+      try {
+        const savedDeck = await saveDeck(deckDraft)
+        syncSavedDeck(savedDeck)
+        setStatusMessage(`Saved "${savedDeck.name}" to local browser storage.`)
+      } catch (saveError) {
+        setStatusMessage(
+          saveError instanceof Error
+            ? saveError.message
+            : 'Unable to save this deck in local browser storage.',
+        )
+      }
+    })()
   }
 
   async function handleCopyDecklist() {
@@ -341,23 +361,25 @@ function App() {
   function handleDeleteSavedDeck(deckId: string) {
     const deckToDelete = savedDecks.find((deck) => deck.id === deckId)
 
-    try {
-      deleteDeck(deckId)
+    void (async () => {
+      try {
+        await deleteDeck(deckId)
 
-      if (activeDeckId === deckId) {
-        detachSavedDeck()
-      }
+        if (activeDeckId === deckId) {
+          detachSavedDeck()
+        }
 
-      if (deckToDelete) {
-        setStatusMessage(`Deleted "${deckToDelete.name}".`)
+        if (deckToDelete) {
+          setStatusMessage(`Deleted "${deckToDelete.name}".`)
+        }
+      } catch (deleteError) {
+        setStatusMessage(
+          deleteError instanceof Error
+            ? deleteError.message
+            : 'Unable to delete that saved deck right now.',
+        )
       }
-    } catch (deleteError) {
-      setStatusMessage(
-        deleteError instanceof Error
-          ? deleteError.message
-          : 'Unable to delete that saved deck right now.',
-      )
-    }
+    })()
   }
 
   function handleStartNewDeck() {
@@ -391,6 +413,15 @@ function App() {
           mainboardCards={deckStats.mainboard.totalCards}
           sideboardCards={deckStats.sideboard.totalCards}
           savedDecks={savedDecks.length}
+        />
+
+        <ContinentalAccountPanel
+          status={authStatus}
+          user={authUser}
+          errorMessage={authErrorMessage}
+          isBusy={isAuthBusy}
+          onSignIn={signIn}
+          onSignOut={signOut}
         />
 
         <div className="flex flex-wrap items-center gap-3">
@@ -451,6 +482,10 @@ function App() {
             sideboard={sideboard}
             activeDeckId={activeDeckId}
             savedDecks={savedDecks}
+            isSavedDecksLoading={isSavedDecksLoading}
+            savedDecksLabel={savedDecksPresentation.badgeLabel}
+            savedDecksSubtitle={savedDecksPresentation.subtitle}
+            savedDecksEmptyDescription={savedDecksPresentation.emptyStateDescription}
             statusMessage={statusMessage}
             canUndo={canUndo}
             canRedo={canRedo}

@@ -33,6 +33,10 @@ interface DeckPanelProps {
   sideboard: DeckCardEntry[]
   activeDeckId: string | null
   savedDecks: SavedDeck[]
+  isSavedDecksLoading: boolean
+  savedDecksLabel: string
+  savedDecksSubtitle: string
+  savedDecksEmptyDescription: string
   statusMessage: string | null
   canUndo: boolean
   canRedo: boolean
@@ -70,6 +74,10 @@ export function DeckPanel({
   sideboard,
   activeDeckId,
   savedDecks,
+  isSavedDecksLoading,
+  savedDecksLabel,
+  savedDecksSubtitle,
+  savedDecksEmptyDescription,
   statusMessage,
   canUndo,
   canRedo,
@@ -307,10 +315,17 @@ export function DeckPanel({
 
         <SectionPanel
           title="Saved Decks"
-          subtitle="Deck snapshots are stored in localStorage with format, notes, budget, and both sections."
+          subtitle={savedDecksSubtitle}
+          actions={
+            <span className="inline-flex items-center rounded-full border border-white/10 bg-white/5 px-3 py-1 text-xs font-semibold uppercase tracking-[0.18em] text-ink-300">
+              {savedDecksLabel}
+            </span>
+          }
         >
           <SavedDeckList
             decks={savedDecks}
+            isLoading={isSavedDecksLoading}
+            emptyDescription={savedDecksEmptyDescription}
             activeDeckId={activeDeckId}
             onLoad={onLoadDeck}
             onDelete={onDeleteSavedDeck}
