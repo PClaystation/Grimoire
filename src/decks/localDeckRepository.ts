@@ -22,6 +22,12 @@ export function createLocalDeckRepository(
       return {
         decks: readLocalSavedDecks(),
         syncedAt: null,
+        syncState: {
+          mode: 'local',
+          health: 'ready',
+          pendingDeckCount: 0,
+          message: null,
+        },
       }
     },
     async saveDeck(draft, currentDecks) {
@@ -34,6 +40,12 @@ export function createLocalDeckRepository(
         savedDeck,
         decks,
         syncedAt: null,
+        syncState: {
+          mode: 'local',
+          health: 'ready',
+          pendingDeckCount: 0,
+          message: null,
+        },
       }
 
       return result
@@ -46,6 +58,12 @@ export function createLocalDeckRepository(
       const result: DeckDeleteResult = {
         decks,
         syncedAt: null,
+        syncState: {
+          mode: 'local',
+          health: 'ready',
+          pendingDeckCount: 0,
+          message: null,
+        },
       }
 
       return result

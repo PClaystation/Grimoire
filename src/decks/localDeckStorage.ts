@@ -4,6 +4,7 @@ import type { MagicCard } from '@/types/scryfall'
 const LEGACY_STORAGE_KEY = 'grimoire.saved-decks.v1'
 const LOCAL_STORAGE_KEY = 'grimoire.saved-decks.local.v1'
 const CLOUD_STORAGE_KEY_PREFIX = 'grimoire.saved-decks.cloud.v1'
+const PENDING_IMPORT_STORAGE_KEY_PREFIX = 'grimoire.saved-decks.pending.v1'
 const SYNC_STATUS_KEY = 'grimoire.saved-decks.sync-status.v1'
 
 interface SyncStatusState {
@@ -215,6 +216,10 @@ function buildCloudStorageKey(continentalId: string) {
   return `${CLOUD_STORAGE_KEY_PREFIX}:${encodeURIComponent(continentalId.trim())}`
 }
 
+function buildPendingImportStorageKey(continentalId: string) {
+  return `${PENDING_IMPORT_STORAGE_KEY_PREFIX}:${encodeURIComponent(continentalId.trim())}`
+}
+
 function getSyncedAccountIds() {
   return Object.keys(readSyncStatusState())
     .map((value) => value.trim())
@@ -283,6 +288,36 @@ export function persistCloudCachedDecks(
   try {
     writeStorageValue(
       buildCloudStorageKey(normalizedId),
+      JSON.stringify(savedDecks),
+      options?.strict === true,
+    )
+  } catch {
+    throw new Error('Unable to update local storage in this browser.')
+  }
+}
+
+export function readPendingDeckImports(continentalId: string) {
+  const normalizedId = continentalId.trim()
+  if (!normalizedId) {
+    return []
+  }
+
+  return parseSavedDecks(readStorageValue(buildPendingImportStorageKey(normalizedId))) ?? []
+}
+
+export function persistPendingDeckImports(
+  continentalId: string,
+  savedDecks: SavedDeck[],
+  options?: { strict?: boolean },
+) {
+  const normalizedId = continentalId.trim()
+  if (!normalizedId) {
+    return
+  }
+
+  try {
+    writeStorageValue(
+      buildPendingImportStorageKey(normalizedId),
       JSON.stringify(savedDecks),
       options?.strict === true,
     )

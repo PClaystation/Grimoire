@@ -6,20 +6,30 @@ export interface DeckRepositoryPresentation {
   emptyStateDescription: string
 }
 
+export interface DeckSyncState {
+  mode: 'local' | 'cloud'
+  health: 'ready' | 'pending' | 'offline'
+  pendingDeckCount: number
+  message: string | null
+}
+
 export interface DeckLoadResult {
   decks: SavedDeck[]
   syncedAt: string | null
+  syncState: DeckSyncState
 }
 
 export interface DeckSaveResult {
   savedDeck: SavedDeck
   decks: SavedDeck[]
   syncedAt: string | null
+  syncState: DeckSyncState
 }
 
 export interface DeckDeleteResult {
   decks: SavedDeck[]
   syncedAt: string | null
+  syncState: DeckSyncState
 }
 
 export interface DeckRepository {

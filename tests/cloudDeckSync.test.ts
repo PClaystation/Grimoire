@@ -2,13 +2,16 @@ import test from 'node:test'
 import assert from 'node:assert/strict'
 
 import {
+  createCloudDeckRepository,
   mergeDeckCollections,
   selectLocalDecksForImport,
 } from '@/decks/cloudDeckRepository'
 import {
   persistDeckSyncStatus,
+  persistPendingDeckImports,
   readCloudCachedDecks,
   readLocalSavedDecks,
+  readPendingDeckImports,
 } from '@/decks/localDeckStorage'
 import type { SavedDeck } from '@/types/deck'
 
@@ -56,6 +59,41 @@ function createDeck(id: string, updatedAt: string, name = id): SavedDeck {
     notes: '',
     matchupNotes: '',
     budgetTargetUsd: null,
+  }
+}
+
+async function withMockLocalStorage(fn: (storage: Map<string, string>) => Promise<void> | void) {
+  const storage = new Map<string, string>()
+  const originalWindow = (globalThis as typeof globalThis & { window?: unknown }).window
+
+  Object.defineProperty(globalThis, 'window', {
+    configurable: true,
+    value: {
+      localStorage: {
+        getItem(key: string) {
+          return storage.has(key) ? storage.get(key) ?? null : null
+        },
+        setItem(key: string, value: string) {
+          storage.set(key, value)
+        },
+        removeItem(key: string) {
+          storage.delete(key)
+        },
+      },
+    },
+  })
+
+  try {
+    await fn(storage)
+  } finally {
+    if (originalWindow === undefined) {
+      delete (globalThis as typeof globalThis & { window?: unknown }).window
+    } else {
+      Object.defineProperty(globalThis, 'window', {
+        configurable: true,
+        value: originalWindow,
+      })
+    }
   }
 }
 
@@ -114,27 +152,7 @@ test('mergeDeckCollections keeps the newest version of each deck id', () => {
 })
 
 test('legacy shared storage migrates only into the matching cloud cache and not anonymous local decks', () => {
-  const storage = new Map<string, string>()
-  const originalWindow = (globalThis as typeof globalThis & { window?: unknown }).window
-
-  Object.defineProperty(globalThis, 'window', {
-    configurable: true,
-    value: {
-      localStorage: {
-        getItem(key: string) {
-          return storage.has(key) ? storage.get(key) ?? null : null
-        },
-        setItem(key: string, value: string) {
-          storage.set(key, value)
-        },
-        removeItem(key: string) {
-          storage.delete(key)
-        },
-      },
-    },
-  })
-
-  try {
+  return withMockLocalStorage((storage) => {
     storage.set(
       'grimoire.saved-decks.v1',
       JSON.stringify([createDeck('legacy-cloud', '2026-03-18T12:00:00.000Z')]),
@@ -147,14 +165,49 @@ test('legacy shared storage migrates only into the matching cloud cache and not 
       ['legacy-cloud'],
     )
     assert.deepEqual(readCloudCachedDecks('account-b'), [])
-  } finally {
-    if (originalWindow === undefined) {
-      delete (globalThis as typeof globalThis & { window?: unknown }).window
-    } else {
-      Object.defineProperty(globalThis, 'window', {
-        configurable: true,
-        value: originalWindow,
-      })
-    }
-  }
+  })
+})
+
+test('pending deck imports still upload after later sync activity advances lastSyncedAt', async () => {
+  await withMockLocalStorage(async () => {
+    const pendingDeck = createDeck('pending-after-failure', '2026-03-18T10:30:00.000Z')
+    persistPendingDeckImports('account-a', [pendingDeck])
+    persistDeckSyncStatus('account-a', '2026-03-18T11:00:00.000Z')
+
+    const requestLog: string[] = []
+    const repository = createCloudDeckRepository({
+      continentalId: 'account-a',
+      async requestJson(input, init) {
+        const url = String(input)
+        requestLog.push(`${init?.method ?? 'GET'} ${url}`)
+
+        if (url.endsWith('/decks') && !init?.method) {
+          return {
+            decks: [],
+            syncedAt: '2026-03-18T11:05:00.000Z',
+          }
+        }
+
+        if (url.endsWith('/decks/import') && init?.method === 'POST') {
+          return {
+            decks: [pendingDeck],
+            syncedAt: '2026-03-18T11:06:00.000Z',
+          }
+        }
+
+        throw new Error(`Unexpected request: ${init?.method ?? 'GET'} ${url}`)
+      },
+    })
+
+    const result = await repository.loadDecks()
+
+    assert.deepEqual(requestLog, ['GET https://mpmc.ddns.net:5000/api/grimoire/decks', 'POST https://mpmc.ddns.net:5000/api/grimoire/decks/import'])
+    assert.equal(result.syncState.health, 'ready')
+    assert.deepEqual(result.decks.map((deck) => deck.id), ['pending-after-failure'])
+    assert.deepEqual(readPendingDeckImports('account-a'), [])
+    assert.deepEqual(
+      readCloudCachedDecks('account-a').map((deck) => deck.id),
+      ['pending-after-failure'],
+    )
+  })
 })

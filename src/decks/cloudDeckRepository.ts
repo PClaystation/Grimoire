@@ -5,15 +5,18 @@ import type {
   DeckLoadResult,
   DeckRepository,
   DeckSaveResult,
+  DeckSyncState,
 } from '@/decks/deckRepository'
 import {
   buildSavedDeckFromDraft,
   persistCloudCachedDecks,
   persistDeckSyncStatus,
   persistLocalSavedDecks,
+  persistPendingDeckImports,
   readCloudCachedDecks,
   readDeckSyncStatus,
   readLocalSavedDecks,
+  readPendingDeckImports,
   removeSavedDeck,
   sortSavedDecks,
   upsertSavedDeck,
@@ -92,8 +95,40 @@ function persistCloudSnapshot(continentalId: string, decks: SavedDeck[], syncedA
   persistDeckSyncStatus(continentalId, syncedAt)
 }
 
+function buildPendingSyncMessage(pendingDeckCount: number, fallback = 'Cloud sync will retry automatically.') {
+  if (pendingDeckCount <= 0) {
+    return fallback
+  }
+
+  return pendingDeckCount === 1
+    ? '1 deck is waiting to sync to Continental ID. Grimoire will retry automatically.'
+    : `${pendingDeckCount} decks are waiting to sync to Continental ID. Grimoire will retry automatically.`
+}
+
+function buildCloudSyncState(
+  health: DeckSyncState['health'],
+  pendingDecks: SavedDeck[],
+  message: string | null,
+): DeckSyncState {
+  return {
+    mode: 'cloud',
+    health,
+    pendingDeckCount: pendingDecks.length,
+    message,
+  }
+}
+
 function resolveDeckList(payload: { decks?: SavedDeck[] }) {
   return Array.isArray(payload.decks) ? sortSavedDecks(payload.decks) : []
+}
+
+function removeDeckIds(decks: SavedDeck[], deckIds: string[]) {
+  const normalizedIds = new Set(deckIds.map((deckId) => deckId.trim()).filter(Boolean))
+  if (normalizedIds.size === 0) {
+    return sortSavedDecks(decks)
+  }
+
+  return sortSavedDecks(decks.filter((deck) => !normalizedIds.has(deck.id)))
 }
 
 function removeLocalDeckCopies(deckIds: string[]) {
@@ -108,6 +143,27 @@ function removeLocalDeckCopies(deckIds: string[]) {
   if (nextLocalDecks.length !== localDecks.length) {
     persistLocalSavedDecks(nextLocalDecks)
   }
+}
+
+function stageLocalDecksForPendingImport(continentalId: string, decksToStage: SavedDeck[]) {
+  if (decksToStage.length === 0) {
+    return readPendingDeckImports(continentalId)
+  }
+
+  const nextPendingDecks = mergeDeckCollections(readPendingDeckImports(continentalId), decksToStage)
+  persistPendingDeckImports(continentalId, nextPendingDecks)
+  removeLocalDeckCopies(decksToStage.map((deck) => deck.id))
+  return nextPendingDecks
+}
+
+function persistPendingDecks(continentalId: string, pendingDecks: SavedDeck[]) {
+  persistPendingDeckImports(continentalId, sortSavedDecks(pendingDecks))
+}
+
+function removePendingDeckCopies(continentalId: string, deckIds: string[]) {
+  const nextPendingDecks = removeDeckIds(readPendingDeckImports(continentalId), deckIds)
+  persistPendingDecks(continentalId, nextPendingDecks)
+  return nextPendingDecks
 }
 
 export function createCloudDeckRepository(options: {
@@ -128,6 +184,7 @@ export function createCloudDeckRepository(options: {
     async loadDecks() {
       const localDecks = readLocalSavedDecks()
       const cachedCloudDecks = readCloudCachedDecks(continentalId)
+      let pendingDecks = readPendingDeckImports(continentalId)
       const syncStatus = readDeckSyncStatus(continentalId)
 
       let cloudResponse: RemoteDeckListResponse
@@ -135,17 +192,30 @@ export function createCloudDeckRepository(options: {
       try {
         cloudResponse = await requestJson<RemoteDeckListResponse>(`${GRIMOIRE_API_BASE}/decks`)
       } catch {
+        const visibleDecks = mergeDeckCollections(localDecks, mergeDeckCollections(pendingDecks, cachedCloudDecks))
+
         return {
-          decks: mergeDeckCollections(localDecks, cachedCloudDecks),
+          decks: visibleDecks,
           syncedAt: syncStatus.lastSyncedAt,
+          syncState: buildCloudSyncState(
+            pendingDecks.length > 0 ? 'pending' : 'offline',
+            pendingDecks,
+            pendingDecks.length > 0
+              ? buildPendingSyncMessage(pendingDecks.length)
+              : 'Continental ID is temporarily unavailable. Showing the latest deck data cached in this browser.',
+          ),
         } satisfies DeckLoadResult
       }
 
       let cloudDecks = resolveDeckList(cloudResponse)
       let syncedAt = normalizeSyncedAt(cloudResponse.syncedAt)
-      const decksToImport = selectLocalDecksForImport(localDecks, cloudDecks, syncStatus.lastSyncedAt)
+      const localDecksToStage = selectLocalDecksForImport(localDecks, cloudDecks, syncStatus.lastSyncedAt)
 
-      if (decksToImport.length > 0) {
+      pendingDecks = stageLocalDecksForPendingImport(continentalId, localDecksToStage)
+      pendingDecks = selectLocalDecksForImport(pendingDecks, cloudDecks, null)
+      persistPendingDecks(continentalId, pendingDecks)
+
+      if (pendingDecks.length > 0) {
         try {
           const importResponse = await requestJson<RemoteDeckImportResponse>(
             `${GRIMOIRE_API_BASE}/decks/import`,
@@ -155,21 +225,29 @@ export function createCloudDeckRepository(options: {
                 'Content-Type': 'application/json',
               },
               body: JSON.stringify({
-                decks: decksToImport,
+                decks: pendingDecks,
               }),
             },
           )
 
           cloudDecks = resolveDeckList(importResponse)
           syncedAt = normalizeSyncedAt(importResponse.syncedAt) ?? syncedAt
-          removeLocalDeckCopies(decksToImport.map((deck) => deck.id))
+          pendingDecks = removePendingDeckCopies(
+            continentalId,
+            pendingDecks.map((deck) => deck.id),
+          )
         } catch {
-          const mergedDecks = mergeDeckCollections(localDecks, cloudDecks)
+          const mergedDecks = mergeDeckCollections(pendingDecks, cloudDecks)
           persistCloudCachedDecks(continentalId, cloudDecks)
 
           return {
             decks: mergedDecks,
             syncedAt: syncStatus.lastSyncedAt,
+            syncState: buildCloudSyncState(
+              'pending',
+              pendingDecks,
+              buildPendingSyncMessage(pendingDecks.length),
+            ),
           } satisfies DeckLoadResult
         }
       }
@@ -177,8 +255,13 @@ export function createCloudDeckRepository(options: {
       persistCloudSnapshot(continentalId, cloudDecks, syncedAt)
 
       return {
-        decks: cloudDecks,
+        decks: pendingDecks.length > 0 ? mergeDeckCollections(pendingDecks, cloudDecks) : cloudDecks,
         syncedAt,
+        syncState: buildCloudSyncState(
+          pendingDecks.length > 0 ? 'pending' : 'ready',
+          pendingDecks,
+          pendingDecks.length > 0 ? buildPendingSyncMessage(pendingDecks.length) : null,
+        ),
       } satisfies DeckLoadResult
     },
     async saveDeck(draft, currentDecks) {
@@ -195,19 +278,27 @@ export function createCloudDeckRepository(options: {
       )
 
       const savedDeck = response.deck ?? nextSavedDeck
-      const decks = upsertSavedDeck(savedDeck, currentDecks)
+      const cloudDecks = upsertSavedDeck(savedDeck, readCloudCachedDecks(continentalId))
       const syncedAt = normalizeSyncedAt(response.syncedAt)
 
       removeLocalDeckCopies([savedDeck.id])
-      persistCloudSnapshot(continentalId, decks, syncedAt)
+      const pendingDecks = removePendingDeckCopies(continentalId, [savedDeck.id])
+      persistCloudSnapshot(continentalId, cloudDecks, syncedAt)
+      const visibleDecks =
+        pendingDecks.length > 0 ? mergeDeckCollections(pendingDecks, cloudDecks) : cloudDecks
 
       return {
         savedDeck,
-        decks,
+        decks: visibleDecks,
         syncedAt,
+        syncState: buildCloudSyncState(
+          pendingDecks.length > 0 ? 'pending' : 'ready',
+          pendingDecks,
+          pendingDecks.length > 0 ? buildPendingSyncMessage(pendingDecks.length) : null,
+        ),
       } satisfies DeckSaveResult
     },
-    async deleteDeck(deckId, currentDecks) {
+    async deleteDeck(deckId) {
       const response = await requestJson<RemoteDeckDeleteResponse>(
         `${GRIMOIRE_API_BASE}/decks/${encodeURIComponent(deckId)}`,
         {
@@ -215,15 +306,23 @@ export function createCloudDeckRepository(options: {
         },
       )
 
-      const decks = removeSavedDeck(deckId, currentDecks)
+      const cloudDecks = removeSavedDeck(deckId, readCloudCachedDecks(continentalId))
       const syncedAt = normalizeSyncedAt(response.syncedAt)
 
       removeLocalDeckCopies([deckId])
-      persistCloudSnapshot(continentalId, decks, syncedAt)
+      const pendingDecks = removePendingDeckCopies(continentalId, [deckId])
+      persistCloudSnapshot(continentalId, cloudDecks, syncedAt)
+      const visibleDecks =
+        pendingDecks.length > 0 ? mergeDeckCollections(pendingDecks, cloudDecks) : cloudDecks
 
       return {
-        decks,
+        decks: visibleDecks,
         syncedAt,
+        syncState: buildCloudSyncState(
+          pendingDecks.length > 0 ? 'pending' : 'ready',
+          pendingDecks,
+          pendingDecks.length > 0 ? buildPendingSyncMessage(pendingDecks.length) : null,
+        ),
       } satisfies DeckDeleteResult
     },
   }

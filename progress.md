@@ -115,3 +115,19 @@ Original prompt: You are extending an existing MTG deckbuilder web app into an o
   - Ran the required `develop-web-game` Playwright smoke client against `http://127.0.0.1:8787/play` and visually reviewed `output/web-game/shot-0.png`.
 - Follow-up:
   - Stacked cards remain easiest to select from the top visible card; the inspector’s unstack action is the escape hatch when a pile gets too dense.
+
+2026-03-19
+- Continental ID cloud-sync hardening pass:
+  - Reviewed the authenticated deck sync path end-to-end and tightened the storage model so anonymous local decks, per-account cloud caches, and retryable pending imports are kept in separate local-storage buckets.
+  - Fixed the retry path for failed cloud imports: pending deck uploads are now tracked per Continental ID account and still upload later even if newer cloud activity advances the account-wide `lastSyncedAt`.
+  - Extended the deck repository result model to expose sync health (`ready`, `pending`, `offline`) plus user-facing sync messaging, then surfaced that state in the deckbuilder/account UI so public users can tell when decks are fully synced versus queued locally for retry.
+  - Tightened local preview auth defaults so loopback preview on `127.0.0.1` talks to `127.0.0.1:5000` instead of hardcoding `localhost:5000`.
+  - Updated the Dashboard auth backend `refresh_token` endpoint to return a non-error “no active session” payload when the visitor is anonymous or the refresh cookie is invalid, which removes noisy console errors on public first-load while keeping the existing popup/refresh flow intact.
+- Verification:
+  - `npm run lint` passed in Grimoire.
+  - `npm test` passed in Grimoire with added coverage for legacy storage migration and pending import retry behavior.
+  - `npm run build` passed in Grimoire.
+  - `npm run check` passed in `Dashboard/backend`.
+  - Ran the required Playwright smoke client against `http://127.0.0.1:8787/` after starting a local preview server and a loopback auth stub. Visually reviewed `output/web-game-production-clean/shot-0.png`; the page rendered correctly and no browser-console error file was produced.
+- Follow-up:
+  - Full live login/sync testing against the real Continental ID service still requires the deployed auth backend, popup page, and a browser that permits the cross-site refresh cookie.

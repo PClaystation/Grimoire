@@ -1,0 +1,10 @@
+[
+  {
+    "type": "console.error",
+    "text": "Access to fetch at 'http://localhost:5000/api/auth/refresh_token' from origin 'http://127.0.0.1:8787' has been blocked by CORS policy: No 'Access-Control-Allow-Origin' header is present on the requested resource."
+  },
+  {
+    "type": "console.error",
+    "text": "Failed to load resource: net::ERR_FAILED"
+  }
+]

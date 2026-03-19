@@ -21,7 +21,7 @@ export function getDefaultApiBaseUrl() {
   }
 
   if (LOCAL_HOSTS.has(runtimeWindow.location.hostname)) {
-    return 'http://localhost:5000'
+    return `http://${runtimeWindow.location.hostname}:5000`
   }
 
   if (

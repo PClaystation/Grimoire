@@ -92,6 +92,7 @@ function App() {
     savedDecks,
     isLoading: isSavedDecksLoading,
     lastSyncedAt,
+    syncState,
     presentation: savedDecksPresentation,
     saveDeck,
     deleteDeck,
@@ -107,10 +108,15 @@ function App() {
 
   const sortedCards = sortCards(cards, sortBy)
   const deckStats = getDeckStats(mainboard, sideboard, format, budgetTargetUsd)
-  const isCloudSyncEnabled = savedDecksPresentation.badgeLabel === 'Cloud sync'
-  const savedDecksSubtitle = isCloudSyncEnabled && lastSyncedAt
-    ? `${savedDecksPresentation.subtitle} Last synced ${formatDateTimeLabel(lastSyncedAt)}.`
-    : savedDecksPresentation.subtitle
+  const isCloudSyncEnabled = syncState.mode === 'cloud'
+  const savedDecksSubtitleParts = [savedDecksPresentation.subtitle]
+  if (isCloudSyncEnabled && lastSyncedAt) {
+    savedDecksSubtitleParts.push(`Last synced ${formatDateTimeLabel(lastSyncedAt)}.`)
+  }
+  if (isCloudSyncEnabled && syncState.message) {
+    savedDecksSubtitleParts.push(syncState.message)
+  }
+  const savedDecksSubtitle = savedDecksSubtitleParts.join(' ')
 
   function syncFiltersToFormat(nextFormat: DeckFormat) {
     setDraftFilters((currentFilters) => ({
@@ -226,12 +232,14 @@ function App() {
 
     void (async () => {
       try {
-        const savedDeck = await saveDeck(deckDraft)
-        syncSavedDeck(savedDeck)
+        const result = await saveDeck(deckDraft)
+        syncSavedDeck(result.savedDeck)
         setStatusMessage(
-          isCloudSyncEnabled
-            ? `Saved and synced "${savedDeck.name}" to your Continental ID account.`
-            : `Saved "${savedDeck.name}" to local browser storage.`,
+          result.syncState.mode === 'cloud'
+            ? result.syncState.health === 'ready'
+              ? `Saved and synced "${result.savedDeck.name}" to your Continental ID account.`
+              : `Saved "${result.savedDeck.name}". ${result.syncState.message ?? 'Cloud sync will retry automatically.'}`
+            : `Saved "${result.savedDeck.name}" to local browser storage.`,
         )
       } catch (saveError) {
         setStatusMessage(
@@ -372,7 +380,7 @@ function App() {
 
     void (async () => {
       try {
-        await deleteDeck(deckId)
+        const result = await deleteDeck(deckId)
 
         if (activeDeckId === deckId) {
           detachSavedDeck()
@@ -380,8 +388,10 @@ function App() {
 
         if (deckToDelete) {
           setStatusMessage(
-            isCloudSyncEnabled
-              ? `Deleted and synced "${deckToDelete.name}" across your Continental ID deck list.`
+            result.syncState.mode === 'cloud'
+              ? result.syncState.health === 'ready'
+                ? `Deleted and synced "${deckToDelete.name}" across your Continental ID deck list.`
+                : `Deleted "${deckToDelete.name}". ${result.syncState.message ?? 'Cloud sync will retry automatically.'}`
               : `Deleted "${deckToDelete.name}".`,
           )
         }
@@ -433,7 +443,7 @@ function App() {
           user={authUser}
           errorMessage={authErrorMessage}
           isBusy={isAuthBusy}
-          syncMode={isCloudSyncEnabled ? 'cloud' : 'local'}
+          syncState={syncState}
           lastSyncedAt={lastSyncedAt}
           onSignIn={signIn}
           onSignOut={signOut}
