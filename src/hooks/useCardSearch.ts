@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 
 import { searchCards } from '@/api/scryfall'
-import type { CardSearchFilters } from '@/types/filters'
+import type { CardSearchFilters, CardSortOption } from '@/types/filters'
 import type { MagicCard } from '@/types/scryfall'
 
 interface UseCardSearchState {
@@ -12,7 +12,11 @@ interface UseCardSearchState {
   error: string | null
 }
 
-export function useCardSearch(filters: CardSearchFilters, page: number): UseCardSearchState {
+export function useCardSearch(
+  filters: CardSearchFilters,
+  sortBy: CardSortOption,
+  page: number,
+): UseCardSearchState {
   const [cards, setCards] = useState<MagicCard[]>([])
   const [totalCards, setTotalCards] = useState(0)
   const [hasMore, setHasMore] = useState(false)
@@ -27,7 +31,7 @@ export function useCardSearch(filters: CardSearchFilters, page: number): UseCard
       setError(null)
 
       try {
-        const result = await searchCards(filters, page, controller.signal)
+        const result = await searchCards(filters, sortBy, page, controller.signal)
         setCards(result.cards)
         setTotalCards(result.totalCards)
         setHasMore(result.hasMore)
@@ -56,7 +60,7 @@ export function useCardSearch(filters: CardSearchFilters, page: number): UseCard
     return () => {
       controller.abort()
     }
-  }, [filters, page])
+  }, [filters, sortBy, page])
 
   return {
     cards,

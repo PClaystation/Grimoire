@@ -26,53 +26,90 @@ interface CardGridProps {
 }
 
 function buildResultDescription(filters: CardSearchFilters): string {
-  const detailParts: string[] = [filters.format]
+  const detailParts: string[] = [`${filters.format[0].toUpperCase()}${filters.format.slice(1)} paper cards`]
 
   if (filters.legalityOnly) {
-    detailParts.push('legal-only')
+    detailParts.push('legal only')
   }
 
-  if (filters.color !== 'ANY') {
-    detailParts.push(filters.color === 'MULTI' ? 'multicolor' : filters.color.toLowerCase())
+  const hasActiveTextSearch =
+    filters.query.trim() ||
+    filters.exactName.trim() ||
+    filters.oracleText.trim() ||
+    filters.flavorText.trim() ||
+    filters.keyword.trim() ||
+    filters.artist.trim() ||
+    filters.collectorNumber.trim()
+
+  if (hasActiveTextSearch) {
+    detailParts.push('text-filtered')
   }
 
-  if (filters.type !== 'ANY') {
-    detailParts.push(filters.type.toLowerCase())
-  }
-
-  if (filters.manaValue !== 'ANY') {
-    detailParts.push(`mv ${filters.manaValue}`)
-  }
-
-  if (filters.rarity !== 'ANY') {
-    detailParts.push(filters.rarity)
-  }
-
-  if (filters.setCode !== 'ANY') {
-    detailParts.push(filters.setCode.toUpperCase())
-  }
-
-  if (filters.subtype.trim()) {
-    detailParts.push(`subtypes "${filters.subtype.trim()}"`)
-  }
-
-  if (filters.query.trim()) {
-    detailParts.push(`matching "${filters.query.trim()}"`)
-  }
-
-  return detailParts.length > 0 ? detailParts.join(' • ') : 'All paper cards'
+  return detailParts.join(' • ')
 }
 
 function buildActiveChips(filters: CardSearchFilters): string[] {
   const chips: string[] = []
+  const formatLabel = filters.format[0].toUpperCase() + filters.format.slice(1)
 
-  chips.push(filters.format[0].toUpperCase() + filters.format.slice(1))
+  function pushRangeChip(label: string, minValue: string, maxValue: string) {
+    if (minValue.trim() && maxValue.trim()) {
+      chips.push(`${label} ${minValue.trim()}-${maxValue.trim()}`)
+      return
+    }
+
+    if (minValue.trim()) {
+      chips.push(`${label} >= ${minValue.trim()}`)
+    }
+
+    if (maxValue.trim()) {
+      chips.push(`${label} <= ${maxValue.trim()}`)
+    }
+  }
+
+  chips.push(formatLabel)
 
   if (filters.legalityOnly) {
     chips.push('Legal only')
   }
+  if (filters.query.trim()) {
+    chips.push(`Query ${filters.query.trim()}`)
+  }
+  if (filters.exactName.trim()) {
+    chips.push(`Exact ${filters.exactName.trim()}`)
+  }
+  if (filters.subtype.trim()) {
+    chips.push(`Subtype ${filters.subtype.trim()}`)
+  }
+  if (filters.oracleText.trim()) {
+    chips.push(`Rules ${filters.oracleText.trim()}`)
+  }
+  if (filters.flavorText.trim()) {
+    chips.push(`Flavor ${filters.flavorText.trim()}`)
+  }
+  if (filters.keyword.trim()) {
+    chips.push(`Keyword ${filters.keyword.trim()}`)
+  }
+  if (filters.artist.trim()) {
+    chips.push(`Artist ${filters.artist.trim()}`)
+  }
+  if (filters.collectorNumber.trim()) {
+    chips.push(`No. ${filters.collectorNumber.trim()}`)
+  }
   if (filters.color !== 'ANY') {
     chips.push(filters.color === 'MULTI' ? 'Multicolor' : filters.color)
+  }
+  if (filters.colorIdentity !== 'ANY') {
+    chips.push(
+      filters.colorIdentity === 'MULTI'
+        ? 'Identity multicolor'
+        : filters.colorIdentity === 'COLORLESS'
+          ? 'Identity colorless'
+          : `Identity ${filters.colorIdentity}`,
+    )
+  }
+  if (filters.colorCount !== 'ANY') {
+    chips.push(`Colors ${filters.colorCount}`)
   }
   if (filters.type !== 'ANY') {
     chips.push(filters.type)
@@ -80,14 +117,44 @@ function buildActiveChips(filters: CardSearchFilters): string[] {
   if (filters.manaValue !== 'ANY') {
     chips.push(`MV ${filters.manaValue}`)
   }
+  pushRangeChip('MV', filters.manaValueMin, filters.manaValueMax)
   if (filters.rarity !== 'ANY') {
     chips.push(filters.rarity)
   }
   if (filters.setCode !== 'ANY') {
     chips.push(filters.setCode.toUpperCase())
   }
-  if (filters.subtype.trim()) {
-    chips.push(`Subtype ${filters.subtype.trim()}`)
+  if (filters.setType !== 'ANY') {
+    chips.push(`Set type ${filters.setType.replace(/_/g, ' ')}`)
+  }
+  if (filters.layout !== 'ANY') {
+    chips.push(filters.layout.replace(/_/g, ' '))
+  }
+  if (filters.manaProduced !== 'ANY') {
+    chips.push(`Produces ${filters.manaProduced}`)
+  }
+  pushRangeChip('Year', filters.releaseYearStart, filters.releaseYearEnd)
+  pushRangeChip('$', filters.priceUsdMin, filters.priceUsdMax)
+  pushRangeChip('Pow', filters.powerMin, filters.powerMax)
+  pushRangeChip('Tou', filters.toughnessMin, filters.toughnessMax)
+  pushRangeChip('Loy', filters.loyaltyMin, filters.loyaltyMax)
+  if (filters.legendaryOnly) {
+    chips.push('Legendary')
+  }
+  if (filters.basicOnly) {
+    chips.push('Basic')
+  }
+  if (filters.fullArtOnly) {
+    chips.push('Full art')
+  }
+  if (filters.borderlessOnly) {
+    chips.push('Borderless')
+  }
+  if (filters.showcaseOnly) {
+    chips.push('Showcase')
+  }
+  if (filters.retroFrameOnly) {
+    chips.push('Retro frame')
   }
 
   return chips

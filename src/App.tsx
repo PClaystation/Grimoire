@@ -21,7 +21,6 @@ import { useSavedDecks } from '@/state/useSavedDecks'
 import type { DeckFormat } from '@/types/deck'
 import type { CardSearchFilters, CardSortOption } from '@/types/filters'
 import type { MagicCard } from '@/types/scryfall'
-import { sortCards } from '@/utils/cardSort'
 import { copyTextToClipboard } from '@/utils/clipboard'
 import { getDeckImportIdentifiers, parseDeckImport, buildImportedDeck } from '@/utils/deckImport'
 import { buildDeckExportJson, buildDecklistText, buildPortableDeckPayload } from '@/utils/decklist'
@@ -53,9 +52,6 @@ function App() {
     status: authStatus,
     user: authUser,
     errorMessage: authErrorMessage,
-    isBusy: isAuthBusy,
-    signIn,
-    signOut,
   } = useAuth()
   const deckRepository = useDeckRepository()
 
@@ -103,10 +99,9 @@ function App() {
     hasMore,
     isLoading: isSearching,
     error: searchError,
-  } = useCardSearch(appliedFilters, currentPage)
+  } = useCardSearch(appliedFilters, sortBy, currentPage)
   const { sets, isLoading: areSetsLoading, error: setsError } = useCardSets()
 
-  const sortedCards = sortCards(cards, sortBy)
   const deckStats = getDeckStats(mainboard, sideboard, format, budgetTargetUsd)
   const isCloudSyncEnabled = syncState.mode === 'cloud'
   const savedDecksSubtitleParts = [savedDecksPresentation.subtitle]
@@ -442,11 +437,7 @@ function App() {
           status={authStatus}
           user={authUser}
           errorMessage={authErrorMessage}
-          isBusy={isAuthBusy}
           syncState={syncState}
-          lastSyncedAt={lastSyncedAt}
-          onSignIn={signIn}
-          onSignOut={signOut}
         />
 
         <div className="flex flex-wrap items-center gap-3">
@@ -540,7 +531,7 @@ function App() {
           {activeWorkspaceTab === 'browser' ? (
             <CardGrid
               className="order-1 xl:order-1"
-              cards={sortedCards}
+              cards={cards}
               totalCards={totalCards}
               filters={appliedFilters}
               sortBy={sortBy}

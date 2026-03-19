@@ -2,6 +2,7 @@ import type { DeckFormat } from './deck.js'
 import type { CardColor } from './scryfall.js'
 
 export type CardColorFilter = 'ANY' | CardColor | 'MULTI' | 'COLORLESS'
+export type CardColorCountFilter = 'ANY' | '0' | '1' | '2' | '3' | '4' | '5'
 
 export type CardTypeFilter =
   | 'ANY'
@@ -27,6 +28,18 @@ export type ManaValueFilterOption =
 
 export type CardRarityFilter = 'ANY' | 'common' | 'uncommon' | 'rare' | 'mythic'
 
+export type CardLayoutFilter = 'ANY' | 'ADVENTURE' | 'MODAL_DFC' | 'SPLIT' | 'TRANSFORM'
+
+export type CardSetTypeFilter =
+  | 'ANY'
+  | 'core'
+  | 'expansion'
+  | 'masters'
+  | 'commander'
+  | 'draft_innovation'
+
+export type ManaProducedFilter = 'ANY' | CardColor | 'C'
+
 export type CardSortOption =
   | 'RELEVANCE'
   | 'NAME'
@@ -37,14 +50,43 @@ export type CardSortOption =
 
 export interface CardSearchFilters {
   query: string
+  exactName: string
   subtype: string
+  oracleText: string
+  flavorText: string
+  keyword: string
+  artist: string
+  collectorNumber: string
   format: DeckFormat
   legalityOnly: boolean
   color: CardColorFilter
+  colorIdentity: CardColorFilter
+  colorCount: CardColorCountFilter
   type: CardTypeFilter
   manaValue: ManaValueFilterOption
+  manaValueMin: string
+  manaValueMax: string
   rarity: CardRarityFilter
   setCode: string
+  setType: CardSetTypeFilter
+  layout: CardLayoutFilter
+  manaProduced: ManaProducedFilter
+  releaseYearStart: string
+  releaseYearEnd: string
+  priceUsdMin: string
+  priceUsdMax: string
+  powerMin: string
+  powerMax: string
+  toughnessMin: string
+  toughnessMax: string
+  loyaltyMin: string
+  loyaltyMax: string
+  legendaryOnly: boolean
+  basicOnly: boolean
+  fullArtOnly: boolean
+  borderlessOnly: boolean
+  showcaseOnly: boolean
+  retroFrameOnly: boolean
 }
 
 export interface CardSetOption {

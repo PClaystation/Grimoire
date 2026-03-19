@@ -1,4 +1,4 @@
-import type { CardSearchFilters, CardSetOption } from '@/types/filters'
+import type { CardSearchFilters, CardSetOption, CardSortOption } from '@/types/filters'
 import type {
   CardColor,
   CardSearchResult,
@@ -10,47 +10,9 @@ import type {
   ScryfallImageUris,
   ScryfallSetsResponse,
 } from '@/types/scryfall'
+import { buildSearchQuery, buildSearchRequestConfig } from '@/utils/cardSearchQuery'
 
 const SCRYFALL_BASE_URL = 'https://api.scryfall.com'
-
-const COLOR_QUERY_MAP: Record<string, string> = {
-  W: 'c:w',
-  U: 'c:u',
-  B: 'c:b',
-  R: 'c:r',
-  G: 'c:g',
-  MULTI: 'c:m',
-  COLORLESS: 'c:c',
-}
-
-const TYPE_QUERY_MAP: Record<string, string> = {
-  Creature: 't:creature',
-  Instant: 't:instant',
-  Sorcery: 't:sorcery',
-  Artifact: 't:artifact',
-  Enchantment: 't:enchantment',
-  Planeswalker: 't:planeswalker',
-  Land: 't:land',
-  Battle: 't:battle',
-}
-
-const MANA_VALUE_QUERY_MAP: Record<string, string> = {
-  '0': 'mv=0',
-  '1': 'mv=1',
-  '2': 'mv=2',
-  '3': 'mv=3',
-  '4': 'mv=4',
-  '5': 'mv=5',
-  '6': 'mv=6',
-  '7+': 'mv>=7',
-}
-
-const RARITY_QUERY_MAP: Record<string, string> = {
-  common: 'r:common',
-  uncommon: 'r:uncommon',
-  rare: 'r:rare',
-  mythic: 'r:mythic',
-}
 
 const EXCLUDED_SET_TYPES = new Set([
   'alchemy',
@@ -62,58 +24,6 @@ const EXCLUDED_SET_TYPES = new Set([
   'treasure_chest',
   'vanguard',
 ])
-
-function buildSubtypeQuery(input: string) {
-  return input
-    .split(',')
-    .map((entry) => entry.trim())
-    .filter(Boolean)
-    .map((entry) => {
-      const escapedEntry = entry.replace(/"/g, '')
-      return /\s/.test(escapedEntry) ? `t:"${escapedEntry}"` : `t:${escapedEntry}`
-    })
-}
-
-function buildSearchQuery(filters: CardSearchFilters): string {
-  const queryParts = ['game:paper', '-is:token']
-
-  if (filters.legalityOnly) {
-    queryParts.push(`legal:${filters.format}`)
-  }
-
-  const colorQuery = COLOR_QUERY_MAP[filters.color]
-  if (colorQuery) {
-    queryParts.push(colorQuery)
-  }
-
-  const typeQuery = TYPE_QUERY_MAP[filters.type]
-  if (typeQuery) {
-    queryParts.push(typeQuery)
-  }
-
-  const manaValueQuery = MANA_VALUE_QUERY_MAP[filters.manaValue]
-  if (manaValueQuery) {
-    queryParts.push(manaValueQuery)
-  }
-
-  const rarityQuery = RARITY_QUERY_MAP[filters.rarity]
-  if (rarityQuery) {
-    queryParts.push(rarityQuery)
-  }
-
-  if (filters.setCode !== 'ANY') {
-    queryParts.push(`set:${filters.setCode}`)
-  }
-
-  queryParts.push(...buildSubtypeQuery(filters.subtype))
-
-  const trimmedQuery = filters.query.trim()
-  if (trimmedQuery) {
-    queryParts.push(trimmedQuery)
-  }
-
-  return queryParts.join(' ')
-}
 
 function uniqueColors(colors: CardColor[]): CardColor[] {
   return [...new Set(colors)]
@@ -222,13 +132,19 @@ function batchItems<T>(items: T[], batchSize: number): T[][] {
 
 export async function searchCards(
   filters: CardSearchFilters,
+  sortBy: CardSortOption,
   page: number,
   signal?: AbortSignal,
 ): Promise<CardSearchResult> {
   const url = new URL('/cards/search', SCRYFALL_BASE_URL)
+  const requestConfig = buildSearchRequestConfig(filters, sortBy)
+
   url.searchParams.set('q', buildSearchQuery(filters))
-  url.searchParams.set('unique', filters.setCode === 'ANY' ? 'cards' : 'prints')
-  url.searchParams.set('order', filters.query.trim() ? 'name' : 'edhrec')
+  url.searchParams.set('unique', requestConfig.unique)
+  url.searchParams.set('order', requestConfig.order)
+  if (requestConfig.dir) {
+    url.searchParams.set('dir', requestConfig.dir)
+  }
   url.searchParams.set('page', String(page))
 
   const response = await fetch(url.toString(), {

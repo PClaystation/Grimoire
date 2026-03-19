@@ -34,6 +34,10 @@ import type {
 } from '@/shared/play'
 import type { CardColor, MagicCard } from '@/types/scryfall'
 import { formatManaCost, formatTypeLine } from '@/utils/format'
+import {
+  filterLibraryCards,
+  type LibraryCardSortOption,
+} from '@/utils/playCardLibrarySearch'
 
 type PublicZone = 'graveyard' | 'exile' | 'command'
 type PrivateZone = 'hand' | 'library'
@@ -75,6 +79,13 @@ interface BattlefieldStackGroup {
 const COUNTER_PRESETS = ['+1/+1', 'loyalty', 'shield', 'stun']
 const PUBLIC_ZONE_ORDER: PublicZone[] = ['command', 'graveyard', 'exile']
 const LOCAL_ZONE_ORDER: BrowseableZone[] = ['library', 'command', 'graveyard', 'exile']
+const LIBRARY_SORT_OPTIONS: Array<{ value: LibraryCardSortOption; label: string }> = [
+  { value: 'DECK_ORDER', label: 'Deck order' },
+  { value: 'NAME', label: 'Name A-Z' },
+  { value: 'MANA_VALUE', label: 'Mana value' },
+  { value: 'TYPE', label: 'Type line' },
+  { value: 'NEWEST', label: 'Newest print' },
+]
 const TOKEN_PRESETS: TokenPreset[] = [
   {
     name: 'Treasure',
@@ -1337,18 +1348,13 @@ function ZoneBrowser({
   onQuickCast: (zone: OwnedZone, cardId: string) => void
 }) {
   const [librarySearch, setLibrarySearch] = useState('')
+  const [librarySortBy, setLibrarySortBy] = useState<LibraryCardSortOption>('DECK_ORDER')
   const hasLibraryAccess = focusedPlayer?.id === localPlayerId && Boolean(privateState)
   const visibleZones = hasLibraryAccess ? LOCAL_ZONE_ORDER : PUBLIC_ZONE_ORDER
-  const normalizedLibrarySearch = librarySearch.trim().toLowerCase()
+  const deferredLibrarySearch = useDeferredValue(librarySearch)
+  const normalizedLibrarySearch = deferredLibrarySearch.trim()
   const visibleCards =
-    activeZone === 'library' && normalizedLibrarySearch
-      ? cards.filter((card) => {
-          const haystack = [card.card.name, card.card.typeLine, card.card.oracleText]
-            .join(' ')
-            .toLowerCase()
-          return haystack.includes(normalizedLibrarySearch)
-        })
-      : cards
+    activeZone === 'library' ? filterLibraryCards(cards, deferredLibrarySearch, librarySortBy) : cards
 
   return (
     <section className="rounded-[1.9rem] border border-white/10 bg-ink-900/90 p-4 shadow-panel">
@@ -1423,21 +1429,48 @@ function ZoneBrowser({
       </div>
 
       {activeZone === 'library' ? (
-        <label className="mt-4 block">
-          <span className="sr-only">Search library</span>
-          <div className="flex items-center gap-3 rounded-2xl border border-white/10 bg-ink-950/80 px-4 py-3 focus-within:border-tide-400/35">
-            <Search className="h-4 w-4 text-ink-400" />
-            <input
-              value={librarySearch}
-              onChange={(event) => setLibrarySearch(event.target.value)}
-              placeholder="Search library by name, type, or rules text"
-              className="w-full border-none bg-transparent text-sm text-ink-100 outline-none placeholder:text-ink-500"
-            />
-            <span className="text-[0.65rem] font-semibold uppercase tracking-[0.16em] text-ink-500">
-              {visibleCards.length}/{privateState?.library.length ?? 0}
-            </span>
+        <div className="mt-4 space-y-3">
+          <div className="grid gap-3 lg:grid-cols-[minmax(0,1fr)_13rem]">
+            <label className="block">
+              <span className="sr-only">Search library</span>
+              <div className="flex items-center gap-3 rounded-2xl border border-white/10 bg-ink-950/80 px-4 py-3 focus-within:border-tide-400/35">
+                <Search className="h-4 w-4 text-ink-400" />
+                <input
+                  value={librarySearch}
+                  onChange={(event) => setLibrarySearch(event.target.value)}
+                  placeholder='Search library or use name:, type:, text:, set:, rarity:, color:, id:, mv>=3'
+                  className="w-full border-none bg-transparent text-sm text-ink-100 outline-none placeholder:text-ink-500"
+                />
+                <span className="text-[0.65rem] font-semibold uppercase tracking-[0.16em] text-ink-500">
+                  {visibleCards.length}/{privateState?.library.length ?? 0}
+                </span>
+              </div>
+            </label>
+
+            <label className="space-y-2">
+              <span className="text-xs font-semibold uppercase tracking-[0.16em] text-ink-500">
+                Result order
+              </span>
+              <select
+                value={librarySortBy}
+                onChange={(event) => setLibrarySortBy(event.target.value as LibraryCardSortOption)}
+                className="w-full rounded-2xl border border-white/10 bg-ink-950/80 px-4 py-3 text-sm text-ink-100 outline-none transition focus:border-tide-400 focus:ring-2 focus:ring-tide-400/30"
+              >
+                {LIBRARY_SORT_OPTIONS.map((option) => (
+                  <option key={option.value} value={option.value}>
+                    {option.label}
+                  </option>
+                ))}
+              </select>
+            </label>
           </div>
-        </label>
+
+          <p className="text-xs leading-5 text-ink-500">
+            Fielded search works here too:{' '}
+            <code>name:sol</code>, <code>type:land</code>, <code>text:&quot;draw a card&quot;</code>,{' '}
+            <code>set:fdn</code>, <code>color:g</code>, <code>id:ug</code>, <code>mv&lt;=3</code>.
+          </p>
+        </div>
       ) : null}
 
       {visibleCards.length > 0 ? (

@@ -1,23 +1,56 @@
 import type {
   CardColorFilter,
+  CardColorCountFilter,
+  CardLayoutFilter,
   CardRarityFilter,
   CardSearchFilters,
+  CardSetTypeFilter,
   CardSortOption,
   CardTypeFilter,
+  ManaProducedFilter,
   ManaValueFilterOption,
 } from '@/types/filters'
 import type { DeckFormat, DeckTypeStatKey } from '@/types/deck'
 
 export const DEFAULT_FILTERS: CardSearchFilters = {
   query: '',
+  exactName: '',
   subtype: '',
+  oracleText: '',
+  flavorText: '',
+  keyword: '',
+  artist: '',
+  collectorNumber: '',
   format: 'standard',
   legalityOnly: true,
   color: 'ANY',
+  colorIdentity: 'ANY',
+  colorCount: 'ANY',
   type: 'ANY',
   manaValue: 'ANY',
+  manaValueMin: '',
+  manaValueMax: '',
   rarity: 'ANY',
   setCode: 'ANY',
+  setType: 'ANY',
+  layout: 'ANY',
+  manaProduced: 'ANY',
+  releaseYearStart: '',
+  releaseYearEnd: '',
+  priceUsdMin: '',
+  priceUsdMax: '',
+  powerMin: '',
+  powerMax: '',
+  toughnessMin: '',
+  toughnessMax: '',
+  loyaltyMin: '',
+  loyaltyMax: '',
+  legendaryOnly: false,
+  basicOnly: false,
+  fullArtOnly: false,
+  borderlessOnly: false,
+  showcaseOnly: false,
+  retroFrameOnly: false,
 }
 
 export const DECK_FORMAT_OPTIONS: Array<{
@@ -125,6 +158,20 @@ export const COLOR_FILTER_OPTIONS: Array<{
   { value: 'COLORLESS', label: 'Colorless' },
 ]
 
+export const COLOR_IDENTITY_FILTER_OPTIONS: Array<{
+  value: CardColorFilter
+  label: string
+}> = [
+  { value: 'ANY', label: 'Any identity' },
+  { value: 'W', label: 'White identity' },
+  { value: 'U', label: 'Blue identity' },
+  { value: 'B', label: 'Black identity' },
+  { value: 'R', label: 'Red identity' },
+  { value: 'G', label: 'Green identity' },
+  { value: 'MULTI', label: 'Multicolor identity' },
+  { value: 'COLORLESS', label: 'Colorless identity' },
+]
+
 export const TYPE_FILTER_OPTIONS: Array<{
   value: CardTypeFilter
   label: string
@@ -155,6 +202,19 @@ export const MANA_VALUE_OPTIONS: Array<{
   { value: '7+', label: '7+' },
 ]
 
+export const COLOR_COUNT_OPTIONS: Array<{
+  value: CardColorCountFilter
+  label: string
+}> = [
+  { value: 'ANY', label: 'Any color count' },
+  { value: '0', label: '0 colors' },
+  { value: '1', label: '1 color' },
+  { value: '2', label: '2 colors' },
+  { value: '3', label: '3 colors' },
+  { value: '4', label: '4 colors' },
+  { value: '5', label: '5 colors' },
+]
+
 export const RARITY_FILTER_OPTIONS: Array<{
   value: CardRarityFilter
   label: string
@@ -164,6 +224,42 @@ export const RARITY_FILTER_OPTIONS: Array<{
   { value: 'uncommon', label: 'Uncommon' },
   { value: 'rare', label: 'Rare' },
   { value: 'mythic', label: 'Mythic' },
+]
+
+export const SET_TYPE_FILTER_OPTIONS: Array<{
+  value: CardSetTypeFilter
+  label: string
+}> = [
+  { value: 'ANY', label: 'Any release line' },
+  { value: 'core', label: 'Core set' },
+  { value: 'expansion', label: 'Expansion set' },
+  { value: 'masters', label: 'Masters set' },
+  { value: 'commander', label: 'Commander release' },
+  { value: 'draft_innovation', label: 'Draft innovation' },
+]
+
+export const LAYOUT_FILTER_OPTIONS: Array<{
+  value: CardLayoutFilter
+  label: string
+}> = [
+  { value: 'ANY', label: 'Any layout' },
+  { value: 'ADVENTURE', label: 'Adventure' },
+  { value: 'MODAL_DFC', label: 'Modal DFC' },
+  { value: 'SPLIT', label: 'Split card' },
+  { value: 'TRANSFORM', label: 'Transform card' },
+]
+
+export const MANA_PRODUCED_OPTIONS: Array<{
+  value: ManaProducedFilter
+  label: string
+}> = [
+  { value: 'ANY', label: 'Any mana output' },
+  { value: 'W', label: 'Produces white' },
+  { value: 'U', label: 'Produces blue' },
+  { value: 'B', label: 'Produces black' },
+  { value: 'R', label: 'Produces red' },
+  { value: 'G', label: 'Produces green' },
+  { value: 'C', label: 'Produces colorless' },
 ]
 
 export const CARD_SORT_OPTIONS: Array<{
