@@ -1,25 +1,27 @@
 import { useMemo } from 'react'
 
 import { useAuth } from '@/auth/useAuth'
+import { createCloudDeckRepository } from '@/decks/cloudDeckRepository'
 import { createLocalDeckRepository } from '@/decks/localDeckRepository'
 
 export function useDeckRepository() {
-  const { status, user } = useAuth()
+  const { status, user, requestJson } = useAuth()
 
   return useMemo(() => {
     const accountUser = status === 'authenticated' ? user : null
-    const isAuthenticated = accountUser !== null
-    const subtitle = isAuthenticated
-      ? `Signed in as ${accountUser.displayName}. Continental ID is connected, but deck sync is not enabled yet, so saves still stay in this browser.`
-      : 'Deck snapshots stay in this browser for now. Continental ID sign-in is ready, and cloud sync can plug into the same deck repository later.'
-    const emptyStateDescription = isAuthenticated
-      ? 'Use Save Deck to keep local snapshots on this browser while cloud sync is still being prepared.'
-      : 'Use Save Deck to keep local snapshots on this browser. Signing in with Continental ID does not sync decks yet.'
+    if (accountUser) {
+      return createCloudDeckRepository({
+        continentalId: accountUser.continentalId,
+        requestJson,
+      })
+    }
 
     return createLocalDeckRepository({
       badgeLabel: 'Local only',
-      subtitle,
-      emptyStateDescription,
+      subtitle:
+        'Deck snapshots stay in this browser until you sign in. Once you connect Continental ID, saved decks sync to the cloud automatically.',
+      emptyStateDescription:
+        'Use Save Deck to keep browser-local snapshots, or sign in with Continental ID to sync decks across devices.',
     })
-  }, [status, user])
+  }, [requestJson, status, user])
 }

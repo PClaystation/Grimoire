@@ -6,6 +6,7 @@ import type { DeckDraft, SavedDeck } from '@/types/deck'
 export function useSavedDecks(repository: DeckRepository) {
   const [savedDecks, setSavedDecks] = useState<SavedDeck[]>([])
   const [isLoading, setIsLoading] = useState(true)
+  const [lastSyncedAt, setLastSyncedAt] = useState<string | null>(null)
   const savedDecksRef = useRef<SavedDeck[]>(savedDecks)
 
   useEffect(() => {
@@ -19,14 +20,15 @@ export function useSavedDecks(repository: DeckRepository) {
 
     void (async () => {
       try {
-        const nextDecks = await repository.loadDecks()
+        const result = await repository.loadDecks()
 
         if (isCancelled) {
           return
         }
 
-        savedDecksRef.current = nextDecks
-        setSavedDecks(nextDecks)
+        savedDecksRef.current = result.decks
+        setSavedDecks(result.decks)
+        setLastSyncedAt(result.syncedAt)
       } finally {
         if (!isCancelled) {
           setIsLoading(false)
@@ -44,20 +46,23 @@ export function useSavedDecks(repository: DeckRepository) {
 
     savedDecksRef.current = result.decks
     setSavedDecks(result.decks)
+    setLastSyncedAt(result.syncedAt)
 
     return result.savedDeck
   }
 
   async function deleteDeck(deckId: string) {
-    const nextDecks = await repository.deleteDeck(deckId, savedDecksRef.current)
+    const result = await repository.deleteDeck(deckId, savedDecksRef.current)
 
-    savedDecksRef.current = nextDecks
-    setSavedDecks(nextDecks)
+    savedDecksRef.current = result.decks
+    setSavedDecks(result.decks)
+    setLastSyncedAt(result.syncedAt)
   }
 
   return {
     savedDecks,
     isLoading,
+    lastSyncedAt,
     presentation: repository.presentation,
     saveDeck,
     deleteDeck,

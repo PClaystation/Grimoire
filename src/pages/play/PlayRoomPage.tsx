@@ -83,7 +83,7 @@ export function PlayRoomPage() {
     <PlayFrame
       eyebrow="Room Lobby"
       title={`Room ${room.code}`}
-      description="Players join from their own browsers, choose one locally saved deck each, and the host starts the shared tabletop once everyone is ready."
+      description="Players join from their own browsers, choose one saved deck each, and the host starts the shared tabletop once everyone is ready. Signed-in browsers can pull from the synced Continental ID deck list."
       connectionStatus={connectionStatus}
       error={error}
       onDismissError={clearError}
@@ -281,9 +281,9 @@ export function PlayRoomPage() {
           ) : (
             <div className="mt-5 rounded-[1.6rem] border border-white/10 bg-white/5 p-5">
               <p className="text-sm text-ink-300">
-                This browser does not have any saved decks yet. Build one in the deckbuilder first,
-                then come back and select it here. Continental ID sign-in does not sync decks into
-                the play lobby yet.
+                This browser does not have any saved decks available yet. Build one in the
+                deckbuilder first, then come back and select it here. If you are signed in, synced
+                Continental ID decks will appear automatically after the next refresh.
               </p>
               <Link
                 to="/"

@@ -34,6 +34,20 @@ export function formatSavedDeckDate(timestamp: string): string {
   return savedDeckDateFormatter.format(date)
 }
 
+export function formatDateTimeLabel(timestamp: string | null): string {
+  if (!timestamp) {
+    return 'Not synced yet'
+  }
+
+  const date = new Date(timestamp)
+
+  if (Number.isNaN(date.getTime())) {
+    return 'Unavailable'
+  }
+
+  return savedDeckDateFormatter.format(date)
+}
+
 export function formatManaCost(manaCost: string): string {
   const formatted = manaCost.replace(/[{}]/g, ' ').trim().replace(/\s+/g, ' ')
   return formatted || 'No mana cost'

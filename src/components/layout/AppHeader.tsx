@@ -50,7 +50,7 @@ export function AppHeader({ mainboardCards, sideboardCards, savedDecks }: AppHea
               Deck Saves
             </div>
             <div className="mt-2 text-3xl font-semibold text-ink-50">{savedDecks}</div>
-            <p className="mt-1 text-sm text-ink-400">currently stored in this browser</p>
+            <p className="mt-1 text-sm text-ink-400">available in this browser right now</p>
           </div>
         </div>
       </div>

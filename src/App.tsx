@@ -26,7 +26,7 @@ import { copyTextToClipboard } from '@/utils/clipboard'
 import { getDeckImportIdentifiers, parseDeckImport, buildImportedDeck } from '@/utils/deckImport'
 import { buildDeckExportJson, buildDecklistText, buildPortableDeckPayload } from '@/utils/decklist'
 import { getDeckStats } from '@/utils/deckStats'
-import { countDeckEntries } from '@/utils/format'
+import { countDeckEntries, formatDateTimeLabel } from '@/utils/format'
 import { decodeDeckSharePayload, encodeDeckSharePayload } from '@/utils/share'
 
 async function resolveImportedDeck(input: string, fallbackFormat: DeckFormat) {
@@ -91,6 +91,7 @@ function App() {
   const {
     savedDecks,
     isLoading: isSavedDecksLoading,
+    lastSyncedAt,
     presentation: savedDecksPresentation,
     saveDeck,
     deleteDeck,
@@ -106,6 +107,10 @@ function App() {
 
   const sortedCards = sortCards(cards, sortBy)
   const deckStats = getDeckStats(mainboard, sideboard, format, budgetTargetUsd)
+  const isCloudSyncEnabled = savedDecksPresentation.badgeLabel === 'Cloud sync'
+  const savedDecksSubtitle = isCloudSyncEnabled && lastSyncedAt
+    ? `${savedDecksPresentation.subtitle} Last synced ${formatDateTimeLabel(lastSyncedAt)}.`
+    : savedDecksPresentation.subtitle
 
   function syncFiltersToFormat(nextFormat: DeckFormat) {
     setDraftFilters((currentFilters) => ({
@@ -223,7 +228,11 @@ function App() {
       try {
         const savedDeck = await saveDeck(deckDraft)
         syncSavedDeck(savedDeck)
-        setStatusMessage(`Saved "${savedDeck.name}" to local browser storage.`)
+        setStatusMessage(
+          isCloudSyncEnabled
+            ? `Saved and synced "${savedDeck.name}" to your Continental ID account.`
+            : `Saved "${savedDeck.name}" to local browser storage.`,
+        )
       } catch (saveError) {
         setStatusMessage(
           saveError instanceof Error
@@ -370,7 +379,11 @@ function App() {
         }
 
         if (deckToDelete) {
-          setStatusMessage(`Deleted "${deckToDelete.name}".`)
+          setStatusMessage(
+            isCloudSyncEnabled
+              ? `Deleted and synced "${deckToDelete.name}" across your Continental ID deck list.`
+              : `Deleted "${deckToDelete.name}".`,
+          )
         }
       } catch (deleteError) {
         setStatusMessage(
@@ -420,6 +433,8 @@ function App() {
           user={authUser}
           errorMessage={authErrorMessage}
           isBusy={isAuthBusy}
+          syncMode={isCloudSyncEnabled ? 'cloud' : 'local'}
+          lastSyncedAt={lastSyncedAt}
           onSignIn={signIn}
           onSignOut={signOut}
         />
@@ -484,7 +499,7 @@ function App() {
             savedDecks={savedDecks}
             isSavedDecksLoading={isSavedDecksLoading}
             savedDecksLabel={savedDecksPresentation.badgeLabel}
-            savedDecksSubtitle={savedDecksPresentation.subtitle}
+            savedDecksSubtitle={savedDecksSubtitle}
             savedDecksEmptyDescription={savedDecksPresentation.emptyStateDescription}
             statusMessage={statusMessage}
             canUndo={canUndo}

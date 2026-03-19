@@ -1,4 +1,5 @@
 import {
+  useCallback,
   useEffect,
   useEffectEvent,
   useRef,
@@ -62,25 +63,28 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [isBusy, setIsBusy] = useState(false)
 
   const accessTokenRef = useRef('')
+  const authorizedFetchRef = useRef<AuthorizedFetch>(async () => {
+    throw new Error('Authorized fetch is not ready yet.')
+  })
   const loginPopupWindowRef = useRef<Window | null>(null)
   const refreshPromiseRef = useRef<Promise<boolean> | null>(null)
 
-  function closeLoginPopup() {
+  const closeLoginPopup = useCallback(() => {
     if (loginPopupWindowRef.current && !loginPopupWindowRef.current.closed) {
       loginPopupWindowRef.current.close()
     }
-  }
+  }, [])
 
-  function clearSessionState() {
+  const clearSessionState = useCallback(() => {
     accessTokenRef.current = ''
     setUser(null)
-  }
+  }, [])
 
-  function storeSession(payload: AuthSessionPayload | null) {
+  const storeSession = useCallback((payload: AuthSessionPayload | null) => {
     accessTokenRef.current = getSessionAccessToken(payload)
-  }
+  }, [])
 
-  async function refreshSessionToken() {
+  const refreshSessionToken = useCallback(async () => {
     if (refreshPromiseRef.current) {
       return refreshPromiseRef.current
     }
@@ -104,57 +108,60 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     } finally {
       refreshPromiseRef.current = null
     }
-  }
+  }, [storeSession])
 
-  const authorizedFetch: AuthorizedFetch = async (
-    input,
-    init = {},
-    options: AuthorizedFetchOptions = {},
-  ) => {
-    const { requiresAuth = true, retryOn401 = true } = options
-    const headers = new Headers(init.headers)
+  const authorizedFetch: AuthorizedFetch = useCallback(
+    async (
+      input: RequestInfo | URL,
+      init: RequestInit = {},
+      options: AuthorizedFetchOptions = {},
+    ): Promise<Response> => {
+      const { requiresAuth = true, retryOn401 = true } = options
+      const headers = new Headers(init.headers)
 
-    if (requiresAuth) {
-      let accessToken = accessTokenRef.current
+      if (requiresAuth) {
+        let accessToken = accessTokenRef.current
 
-      if (!accessToken) {
-        const refreshed = await refreshSessionToken()
-        accessToken = refreshed ? accessTokenRef.current : ''
+        if (!accessToken) {
+          const refreshed = await refreshSessionToken()
+          accessToken = refreshed ? accessTokenRef.current : ''
+        }
+
+        if (accessToken) {
+          headers.set('Authorization', `Bearer ${accessToken}`)
+        }
       }
 
-      if (accessToken) {
-        headers.set('Authorization', `Bearer ${accessToken}`)
-      }
-    }
+      let response: Response
 
-    let response: Response
-
-    try {
-      response = await fetchWithTimeout(input, {
-        ...init,
-        credentials: init.credentials ?? 'include',
-        headers,
-      })
-    } catch (error) {
-      throw toRequestError(error)
-    }
-
-    if (response.status === 401 && requiresAuth && retryOn401) {
-      const refreshed = await refreshSessionToken()
-
-      if (refreshed) {
-        return authorizedFetch(input, init, {
-          requiresAuth,
-          retryOn401: false,
+      try {
+        response = await fetchWithTimeout(input, {
+          ...init,
+          credentials: init.credentials ?? 'include',
+          headers,
         })
+      } catch (error) {
+        throw toRequestError(error)
       }
 
-      clearSessionState()
-      setStatus('unauthenticated')
-    }
+      if (response.status === 401 && requiresAuth && retryOn401) {
+        const refreshed = await refreshSessionToken()
 
-    return response
-  }
+        if (refreshed) {
+          return authorizedFetch(input, init, {
+            requiresAuth,
+            retryOn401: false,
+          })
+        }
+
+        clearSessionState()
+        setStatus('unauthenticated')
+      }
+
+      return response
+    },
+    [clearSessionState, refreshSessionToken],
+  )
 
   async function loadCurrentUser() {
     const payload = await requestJson<unknown>(authorizedFetch, `${AUTH_API_BASE}/me`)
@@ -258,7 +265,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return () => {
       window.removeEventListener('message', handleMessage)
     }
-  }, [])
+  }, [storeSession])
+
+  useEffect(() => {
+    authorizedFetchRef.current = authorizedFetch
+  }, [authorizedFetch])
 
   useEffect(() => {
     return () => {
@@ -296,11 +307,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   }
 
-  const requestJsonValue = <T,>(
-    input: RequestInfo | URL,
-    init?: RequestInit,
-    options?: AuthorizedFetchOptions,
-  ) => requestJson<T>(authorizedFetch, input, init, options)
+  const requestJsonValue = useCallback(
+    <T,>(input: RequestInfo | URL, init?: RequestInit, options?: AuthorizedFetchOptions) =>
+      requestJson<T>(authorizedFetchRef.current, input, init, options),
+    [],
+  )
 
   const value: AuthContextValue = {
     status,

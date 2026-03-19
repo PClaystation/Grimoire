@@ -2,33 +2,15 @@ import { CloudOff, LogIn, LogOut, ShieldCheck, ShieldEllipsis } from 'lucide-rea
 
 import { SectionPanel } from '@/components/ui/SectionPanel'
 import type { AuthStatus, AuthUser } from '@/auth/types'
-
-const lastLoginFormatter = new Intl.DateTimeFormat(undefined, {
-  month: 'short',
-  day: 'numeric',
-  hour: '2-digit',
-  minute: '2-digit',
-})
-
-function formatLastLogin(lastLoginAt: string | null) {
-  if (!lastLoginAt) {
-    return 'No active session'
-  }
-
-  const date = new Date(lastLoginAt)
-
-  if (Number.isNaN(date.getTime())) {
-    return 'Unavailable'
-  }
-
-  return lastLoginFormatter.format(date)
-}
+import { formatDateTimeLabel } from '@/utils/format'
 
 interface ContinentalAccountPanelProps {
   status: AuthStatus
   user: AuthUser | null
   errorMessage: string | null
   isBusy: boolean
+  syncMode: 'local' | 'cloud'
+  lastSyncedAt: string | null
   onSignIn: () => void
   onSignOut: () => void
 }
@@ -38,11 +20,14 @@ export function ContinentalAccountPanel({
   user,
   errorMessage,
   isBusy,
+  syncMode,
+  lastSyncedAt,
   onSignIn,
   onSignOut,
 }: ContinentalAccountPanelProps) {
   const accountUser = status === 'authenticated' ? user : null
   const isAuthenticated = accountUser !== null
+  const isCloudSyncEnabled = syncMode === 'cloud'
   const badgeClassName = isAuthenticated
     ? 'border-emerald-400/25 bg-emerald-500/12 text-emerald-100'
     : status === 'loading'
@@ -52,7 +37,11 @@ export function ContinentalAccountPanel({
   return (
     <SectionPanel
       title="Continental ID"
-      subtitle="The existing Continental popup auth flow is connected now. Sign in works, the logged-in account state is available in the app, and deck saves remain local until cloud sync is added."
+      subtitle={
+        isCloudSyncEnabled
+          ? 'Continental ID is connected and Grimoire decks sync automatically to your account. This browser also keeps a local cache so your deck list reloads quickly.'
+          : 'The existing Continental popup auth flow is connected now. Sign in works, and browser-local deck storage remains available when you are signed out.'
+      }
       actions={
         <span
           className={`inline-flex items-center gap-2 rounded-full border px-3 py-1 text-xs font-semibold uppercase tracking-[0.18em] ${badgeClassName}`}
@@ -75,8 +64,10 @@ export function ContinentalAccountPanel({
             </p>
             <p className="mt-2 text-sm text-ink-300">
               {isAuthenticated
-                ? 'Continental ID account is available to the app.'
-                : 'You can sign in now, but deck sync is still disabled.'}
+                ? isCloudSyncEnabled
+                  ? 'Continental ID account and cloud deck sync are active.'
+                  : 'Continental ID account is available to the app.'
+                : 'You can keep local decks without signing in, or connect Continental ID to sync them.'}
             </p>
           </div>
 
@@ -102,7 +93,7 @@ export function ContinentalAccountPanel({
               {isAuthenticated ? accountUser.continentalId : 'Unavailable until sign-in'}
             </p>
             <p className="mt-2 text-sm text-ink-300">
-              Future cloud deck sync should use this value as the external user identifier.
+              Grimoire deck sync uses this value as the external user identifier.
             </p>
           </div>
 
@@ -112,11 +103,15 @@ export function ContinentalAccountPanel({
             </p>
             <p className="mt-3 text-sm font-medium text-ink-100">
               {isAuthenticated
-                ? `Last login ${formatLastLogin(accountUser.lastLoginAt)}`
+                ? isCloudSyncEnabled
+                  ? `Cloud sync ${formatDateTimeLabel(lastSyncedAt)}`
+                  : `Last login ${formatDateTimeLabel(accountUser.lastLoginAt)}`
                 : 'Deck saves stay local'}
             </p>
             <p className="mt-2 text-sm text-ink-300">
-              The app now keeps the short-lived access token in memory only and is ready for a later sync API.
+              {isCloudSyncEnabled
+                ? 'The short-lived access token stays in memory only, while the refresh cookie keeps the cloud session alive.'
+                : 'The app keeps the short-lived access token in memory only and uses local deck storage while signed out.'}
             </p>
           </div>
         </div>
@@ -146,8 +141,10 @@ export function ContinentalAccountPanel({
 
           <p className="max-w-sm text-sm text-ink-300 xl:text-right">
             {isAuthenticated
-              ? 'Cloud deck sync is intentionally disabled for now. Signing in only establishes account context and the token flow.'
-              : 'This sign-in groundwork uses the same popup and refresh-token architecture as the Dashboard.'}
+              ? isCloudSyncEnabled
+                ? 'Deck saves and deletes now sync through Continental ID automatically, and the browser keeps a cache of the latest deck list.'
+                : 'Continental ID is connected for this browser session.'
+              : 'This sign-in flow uses the same popup and refresh-token architecture as the Dashboard.'}
           </p>
         </div>
       </div>

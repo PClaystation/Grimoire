@@ -50,15 +50,16 @@ export function getDefaultLoginPopupUrl() {
 
 export const API_BASE_URL = trimTrailingSlash(
   getRuntimeWindow()?.__API_BASE_URL__ ||
-    import.meta.env.VITE_CONTINENTAL_AUTH_BASE_URL ||
+    import.meta.env?.VITE_CONTINENTAL_AUTH_BASE_URL ||
     getDefaultApiBaseUrl(),
 )
 
 export const AUTH_API_BASE = `${API_BASE_URL}/api/auth`
+export const GRIMOIRE_API_BASE = `${API_BASE_URL}/api/grimoire`
 
 export const LOGIN_POPUP_URL =
   getRuntimeWindow()?.__LOGIN_POPUP_URL__ ||
-  import.meta.env.VITE_CONTINENTAL_LOGIN_POPUP_URL ||
+  import.meta.env?.VITE_CONTINENTAL_LOGIN_POPUP_URL ||
   getDefaultLoginPopupUrl()
 
 export const loginPopupOrigin = (() => {

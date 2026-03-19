@@ -6,15 +6,26 @@ export interface DeckRepositoryPresentation {
   emptyStateDescription: string
 }
 
+export interface DeckLoadResult {
+  decks: SavedDeck[]
+  syncedAt: string | null
+}
+
 export interface DeckSaveResult {
   savedDeck: SavedDeck
   decks: SavedDeck[]
+  syncedAt: string | null
+}
+
+export interface DeckDeleteResult {
+  decks: SavedDeck[]
+  syncedAt: string | null
 }
 
 export interface DeckRepository {
   id: string
   presentation: DeckRepositoryPresentation
-  loadDecks: () => Promise<SavedDeck[]>
+  loadDecks: () => Promise<DeckLoadResult>
   saveDeck: (draft: DeckDraft, currentDecks: SavedDeck[]) => Promise<DeckSaveResult>
-  deleteDeck: (deckId: string, currentDecks: SavedDeck[]) => Promise<SavedDeck[]>
+  deleteDeck: (deckId: string, currentDecks: SavedDeck[]) => Promise<DeckDeleteResult>
 }
