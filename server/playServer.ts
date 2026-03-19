@@ -6,6 +6,7 @@ import {
   PLAY_MIN_PLAYERS,
   PLAY_OPENING_HAND_SIZE,
   PLAY_STARTING_LIFE_TOTAL,
+  TURN_PHASES,
   buildDeckSelectionSummary,
   buildRandomRoomCode,
   clampPermanentPosition,
@@ -16,17 +17,24 @@ import {
   type BattlefieldPermanentSnapshot,
   type ClientGameAction,
   type ClientMessage,
+  type CommanderDamageEntry,
   type DeckSelectionSnapshot,
   type DeckSelectionSummary,
   type GameActionEvent,
   type GamePlayerPublicSnapshot,
   type GameSnapshot,
   type OwnedZone,
+  type PlayerCounter,
+  type PlayerDesignation,
+  type PlayerDesignations,
   type PermanentCounter,
   type PermanentPosition,
   type RoomSnapshot,
   type ServerMessage,
+  type StackItemSnapshot,
   type TableCardSnapshot,
+  type TurnPhase,
+  type TurnStateSnapshot,
 } from '../src/shared/play.js'
 import {
   expandDeckEntries,
@@ -53,6 +61,20 @@ interface BattlefieldPermanentState extends CardInstance {
   counters: PermanentCounter[]
   note: string
   isToken: boolean
+  faceDown: boolean
+}
+
+interface StackItemState {
+  id: string
+  controllerPlayerId: string
+  itemType: StackItemSnapshot['itemType']
+  label: string
+  sourceZone: OwnedZone | null
+  sourceCard: CardInstance | null
+  note: string
+  targets: string[]
+  createdAt: string
+  faceDown: boolean
 }
 
 interface GamePlayerState {
@@ -68,6 +90,11 @@ interface GamePlayerState {
   graveyard: CardInstance[]
   exile: CardInstance[]
   command: CardInstance[]
+  counters: PlayerCounter[]
+  note: string
+  designations: PlayerDesignations
+  commanderTax: number
+  commanderDamage: CommanderDamageEntry[]
 }
 
 interface GameState {
@@ -75,6 +102,8 @@ interface GameState {
   roomId: string
   createdAt: string
   startedAt: string
+  turn: TurnStateSnapshot
+  stack: StackItemState[]
   players: GamePlayerState[]
   battlefield: BattlefieldPermanentState[]
   actionLog: GameActionEvent[]
@@ -135,6 +164,10 @@ function clampDrawAmount(value: number | undefined) {
   return Math.max(1, Math.min(7, Math.trunc(value ?? 1)))
 }
 
+function clampTurnNumber(value: number | undefined, fallback = 1) {
+  return Math.max(1, Math.min(999, Math.trunc(value ?? fallback)))
+}
+
 function isCommanderCandidate(card: MagicCard) {
   return (
     card.typeLine.includes('Legendary Creature') || card.typeLine.includes('Legendary Planeswalker')
@@ -152,6 +185,71 @@ function hasPartnerText(card: MagicCard) {
 
 function isVirtualTokenCard(cardId: string) {
   return cardId.startsWith('token:')
+}
+
+function buildFaceDownImage() {
+  const svg = `
+    <svg xmlns="http://www.w3.org/2000/svg" width="744" height="1039" viewBox="0 0 744 1039">
+      <defs>
+        <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
+          <stop offset="0%" stop-color="#0f172a"/>
+          <stop offset="100%" stop-color="#1d4ed8"/>
+        </linearGradient>
+      </defs>
+      <rect width="744" height="1039" rx="42" fill="#020617"/>
+      <rect x="28" y="28" width="688" height="983" rx="34" fill="url(#bg)"/>
+      <rect x="76" y="76" width="592" height="887" rx="28" fill="rgba(15,23,42,0.55)" stroke="rgba(255,255,255,0.14)" stroke-width="4"/>
+      <text x="372" y="470" text-anchor="middle" fill="#dbeafe" font-size="60" font-family="Verdana, sans-serif" font-weight="700">FACE-DOWN</text>
+      <text x="372" y="540" text-anchor="middle" fill="rgba(219,234,254,0.75)" font-size="28" font-family="Verdana, sans-serif">Hidden card information</text>
+    </svg>
+  `
+
+  return `data:image/svg+xml;charset=UTF-8,${encodeURIComponent(svg)}`
+}
+
+const FACE_DOWN_IMAGE_URL = buildFaceDownImage()
+
+function sanitizePlayerNote(value: string | undefined) {
+  return (value ?? '').trim().replace(/\s+/g, ' ').slice(0, 160)
+}
+
+function sanitizeLabel(value: string | undefined, fallback: string) {
+  const normalized = (value ?? '').trim().replace(/\s+/g, ' ')
+  return (normalized || fallback).slice(0, 80)
+}
+
+function sanitizeTargets(value: string[] | undefined) {
+  return (value ?? []).map((entry) => entry.trim()).filter(Boolean).slice(0, 6)
+}
+
+function sanitizePlayerCounterKind(value: string) {
+  return sanitizeCounterKind(value)
+}
+
+function buildDefaultPlayerDesignations(): PlayerDesignations {
+  return {
+    monarch: false,
+    initiative: false,
+    citysBlessing: false,
+  }
+}
+
+function buildHiddenCard(card: MagicCard): MagicCard {
+  return {
+    ...card,
+    name: 'Face-down card',
+    manaCost: '',
+    manaValue: 0,
+    typeLine: 'Hidden permanent',
+    oracleText: '',
+    imageUrl: FACE_DOWN_IMAGE_URL,
+    largeImageUrl: FACE_DOWN_IMAGE_URL,
+  }
+}
+
+function getNextTurnPhase(current: TurnPhase): TurnPhase {
+  const currentIndex = TURN_PHASES.indexOf(current)
+  return TURN_PHASES[(currentIndex + 1) % TURN_PHASES.length] ?? 'untap'
 }
 
 function buildTokenImage(name: string, colors: CardColor[], power?: string, toughness?: string) {
@@ -570,6 +668,11 @@ export class PlayServer {
         graveyard: [],
         exile: [],
         command,
+        counters: [],
+        note: '',
+        designations: buildDefaultPlayerDesignations(),
+        commanderTax: 0,
+        commanderDamage: [],
       }
     })
 
@@ -579,6 +682,12 @@ export class PlayServer {
       roomId: room.roomId,
       createdAt: room.createdAt,
       startedAt,
+      turn: {
+        turnNumber: 1,
+        activePlayerId: players[0]?.id ?? hostPlayer.id,
+        phase: 'untap',
+      },
+      stack: [],
       players,
       battlefield: [],
       actionLog: [],
@@ -615,6 +724,76 @@ export class PlayServer {
       case 'shuffle_library': {
         actor.library = shuffleCardInstances(actor.library)
         this.recordEvent(game, actor.id, action.type, `${actor.name} shuffled their library.`)
+        break
+      }
+
+      case 'advance_turn_phase': {
+        const previousPhase = game.turn.phase
+        const nextPhase = getNextTurnPhase(previousPhase)
+        game.turn.phase = nextPhase
+        if (nextPhase === 'untap') {
+          game.turn.turnNumber = clampTurnNumber(game.turn.turnNumber + 1, game.turn.turnNumber + 1)
+        }
+
+        this.recordEvent(
+          game,
+          actor.id,
+          action.type,
+          `${actor.name} advanced the turn from ${previousPhase.replace(/_/g, ' ')} to ${nextPhase.replace(/_/g, ' ')}.`,
+        )
+        break
+      }
+
+      case 'advance_turn': {
+        const nextPlayer =
+          (action.nextPlayerId
+            ? game.players.find((player) => player.id === action.nextPlayerId)
+            : null) ?? this.getNextPlayer(game, game.turn.activePlayerId)
+
+        if (!nextPlayer) {
+          this.emitError(sessionId, 'Next player not found.')
+          return
+        }
+
+        game.turn.activePlayerId = nextPlayer.id
+        game.turn.turnNumber = clampTurnNumber(game.turn.turnNumber + 1, game.turn.turnNumber + 1)
+        game.turn.phase = 'untap'
+        this.recordEvent(
+          game,
+          actor.id,
+          action.type,
+          `${actor.name} passed the turn to ${nextPlayer.name}.`,
+        )
+        break
+      }
+
+      case 'set_turn_phase': {
+        game.turn.phase = action.phase
+        this.recordEvent(
+          game,
+          actor.id,
+          action.type,
+          `${actor.name} set the turn phase to ${action.phase.replace(/_/g, ' ')}.`,
+        )
+        break
+      }
+
+      case 'set_active_player': {
+        const targetPlayer = game.players.find((player) => player.id === action.playerId)
+
+        if (!targetPlayer) {
+          this.emitError(sessionId, 'Target player not found.')
+          return
+        }
+
+        game.turn.activePlayerId = targetPlayer.id
+        game.turn.turnNumber = clampTurnNumber(action.turnNumber, game.turn.turnNumber)
+        this.recordEvent(
+          game,
+          actor.id,
+          action.type,
+          `${actor.name} set ${targetPlayer.name} as the active player.`,
+        )
         break
       }
 
@@ -730,6 +909,158 @@ export class PlayServer {
           actor.id,
           action.type,
           `${actor.name} changed ${targetPlayer.name}'s life by ${normalizedDelta > 0 ? `+${normalizedDelta}` : normalizedDelta}.`,
+        )
+        break
+      }
+
+      case 'adjust_player_counter': {
+        const targetPlayer = game.players.find((player) => player.id === action.playerId)
+
+        if (!targetPlayer) {
+          this.emitError(sessionId, 'Target player not found.')
+          return
+        }
+
+        const counterKind = sanitizePlayerCounterKind(action.counterKind)
+        const normalizedDelta = clampCounterDelta(action.delta)
+
+        if (!counterKind || normalizedDelta === 0) {
+          return
+        }
+
+        const existingCounter = targetPlayer.counters.find((counter) => counter.kind === counterKind)
+
+        if (existingCounter) {
+          existingCounter.amount = Math.max(0, Math.min(999, existingCounter.amount + normalizedDelta))
+        } else if (normalizedDelta > 0) {
+          targetPlayer.counters.push({
+            kind: counterKind,
+            amount: normalizedDelta,
+          })
+        }
+
+        targetPlayer.counters = targetPlayer.counters.filter((counter) => counter.amount > 0)
+        this.recordEvent(
+          game,
+          actor.id,
+          action.type,
+          `${actor.name} adjusted ${targetPlayer.name}'s ${counterKind} counter by ${
+            normalizedDelta > 0 ? `+${normalizedDelta}` : normalizedDelta
+          }.`,
+        )
+        break
+      }
+
+      case 'set_player_note': {
+        const targetPlayer = game.players.find((player) => player.id === action.playerId)
+
+        if (!targetPlayer) {
+          this.emitError(sessionId, 'Target player not found.')
+          return
+        }
+
+        const nextNote = sanitizePlayerNote(action.note)
+
+        if (nextNote === targetPlayer.note) {
+          return
+        }
+
+        targetPlayer.note = nextNote
+        this.recordEvent(
+          game,
+          actor.id,
+          action.type,
+          nextNote
+            ? `${actor.name} updated ${targetPlayer.name}'s player note.`
+            : `${actor.name} cleared ${targetPlayer.name}'s player note.`,
+        )
+        break
+      }
+
+      case 'set_player_designation': {
+        const targetPlayer = game.players.find((player) => player.id === action.playerId)
+
+        if (!targetPlayer) {
+          this.emitError(sessionId, 'Target player not found.')
+          return
+        }
+
+        this.applyPlayerDesignation(game, targetPlayer.id, action.designation, action.value)
+        this.recordEvent(
+          game,
+          actor.id,
+          action.type,
+          `${actor.name} ${action.value ? 'gave' : 'cleared'} ${
+            action.designation === 'citys_blessing'
+              ? "city's blessing"
+              : `the ${action.designation}`
+          } ${action.value ? 'to ' : 'from '}${targetPlayer.name}.`,
+        )
+        break
+      }
+
+      case 'adjust_commander_tax': {
+        const targetPlayer = game.players.find((player) => player.id === action.playerId)
+
+        if (!targetPlayer) {
+          this.emitError(sessionId, 'Target player not found.')
+          return
+        }
+
+        const normalizedDelta = clampCounterDelta(action.delta)
+
+        if (normalizedDelta === 0) {
+          return
+        }
+
+        targetPlayer.commanderTax = Math.max(0, Math.min(99, targetPlayer.commanderTax + normalizedDelta))
+        this.recordEvent(
+          game,
+          actor.id,
+          action.type,
+          `${actor.name} adjusted ${targetPlayer.name}'s commander tax by ${
+            normalizedDelta > 0 ? `+${normalizedDelta}` : normalizedDelta
+          }.`,
+        )
+        break
+      }
+
+      case 'adjust_commander_damage': {
+        const targetPlayer = game.players.find((player) => player.id === action.playerId)
+        const sourcePlayer = game.players.find((player) => player.id === action.sourcePlayerId)
+
+        if (!targetPlayer || !sourcePlayer) {
+          this.emitError(sessionId, 'Commander damage player not found.')
+          return
+        }
+
+        const normalizedDelta = clampCounterDelta(action.delta)
+
+        if (normalizedDelta === 0) {
+          return
+        }
+
+        const existingEntry = targetPlayer.commanderDamage.find(
+          (entry) => entry.sourcePlayerId === sourcePlayer.id,
+        )
+
+        if (existingEntry) {
+          existingEntry.amount = Math.max(0, Math.min(99, existingEntry.amount + normalizedDelta))
+        } else if (normalizedDelta > 0) {
+          targetPlayer.commanderDamage.push({
+            sourcePlayerId: sourcePlayer.id,
+            amount: normalizedDelta,
+          })
+        }
+
+        targetPlayer.commanderDamage = targetPlayer.commanderDamage.filter((entry) => entry.amount > 0)
+        this.recordEvent(
+          game,
+          actor.id,
+          action.type,
+          `${actor.name} adjusted commander damage from ${sourcePlayer.name} to ${targetPlayer.name} by ${
+            normalizedDelta > 0 ? `+${normalizedDelta}` : normalizedDelta
+          }.`,
         )
         break
       }
@@ -855,6 +1186,26 @@ export class PlayServer {
         break
       }
 
+      case 'set_permanent_face_down': {
+        const permanent = this.getControllablePermanent(game, actor, action.cardId)
+
+        if (!permanent) {
+          this.emitError(sessionId, 'Permanent not found on your battlefield.')
+          return
+        }
+
+        permanent.faceDown = action.faceDown
+        this.recordEvent(
+          game,
+          actor.id,
+          action.type,
+          `${actor.name} turned ${action.faceDown ? permanent.card.name : 'a face-down card'} ${
+            action.faceDown ? 'face down' : 'face up'
+          }.`,
+        )
+        break
+      }
+
       case 'change_control': {
         const permanent = this.getControllablePermanent(game, actor, action.cardId)
         const targetPlayer = game.players.find((player) => player.id === action.controllerPlayerId)
@@ -877,6 +1228,91 @@ export class PlayServer {
           actor.id,
           action.type,
           `${actor.name} moved control of ${permanent.card.name} to ${targetPlayer.name}.`,
+        )
+        break
+      }
+
+      case 'create_stack_item': {
+        let sourceCard: CardInstance | null = null
+        let sourceZone: OwnedZone | null = null
+
+        if (action.cardId && action.fromZone) {
+          sourceCard = this.takeOwnedCard(game, actor, action.fromZone, action.cardId)
+
+          if (!sourceCard) {
+            this.emitError(sessionId, 'Card not found in that zone.')
+            return
+          }
+
+          sourceZone = action.fromZone
+        }
+
+        const fallbackLabel =
+          sourceCard?.card.name ??
+          (action.itemType === 'ability'
+            ? 'Ability'
+            : action.itemType === 'trigger'
+              ? 'Triggered ability'
+              : 'Spell')
+
+        game.stack.unshift({
+          id: crypto.randomUUID(),
+          controllerPlayerId: actor.id,
+          itemType: action.itemType,
+          label: sanitizeLabel(action.label, fallbackLabel),
+          sourceZone,
+          sourceCard,
+          note: sanitizePermanentNote(action.note),
+          targets: sanitizeTargets(action.targets),
+          createdAt: new Date().toISOString(),
+          faceDown: Boolean(action.faceDown),
+        })
+
+        this.recordEvent(
+          game,
+          actor.id,
+          action.type,
+          `${actor.name} added ${sanitizeLabel(action.label, fallbackLabel)} to the stack.`,
+        )
+        break
+      }
+
+      case 'resolve_stack_item':
+      case 'remove_stack_item': {
+        const stackIndex = game.stack.findIndex((entry) => entry.id === action.stackItemId)
+
+        if (stackIndex < 0) {
+          this.emitError(sessionId, 'Stack item not found.')
+          return
+        }
+
+        const [stackItem] = game.stack.splice(stackIndex, 1)
+
+        if (stackItem.sourceCard) {
+          const fallbackZone =
+            stackItem.itemType === 'spell' &&
+            /Artifact|Creature|Enchantment|Land|Planeswalker|Battle/i.test(
+              stackItem.sourceCard.card.typeLine,
+            )
+              ? 'battlefield'
+              : 'graveyard'
+
+          this.placeOwnedCard(
+            game,
+            actor,
+            action.toZone ?? fallbackZone,
+            stackItem.sourceCard,
+            action.position,
+          )
+        }
+
+        this.recordEvent(
+          game,
+          actor.id,
+          action.type,
+          `${actor.name} ${
+            action.type === 'resolve_stack_item' ? 'resolved' : 'removed'
+          } ${stackItem.label} from the stack.`,
         )
         break
       }
@@ -916,6 +1352,7 @@ export class PlayServer {
           counters: [],
           note: tokenNote,
           isToken: true,
+          faceDown: false,
         })
 
         this.recordEvent(
@@ -1009,8 +1446,50 @@ export class PlayServer {
           counters: [],
           note: '',
           isToken: isVirtualTokenCard(card.card.id),
+          faceDown: false,
         })
         break
+    }
+  }
+
+  private getNextPlayer(game: GameState, activePlayerId: string) {
+    const activePlayerIndex = game.players.findIndex((player) => player.id === activePlayerId)
+
+    if (activePlayerIndex < 0 || game.players.length === 0) {
+      return game.players[0] ?? null
+    }
+
+    return game.players[(activePlayerIndex + 1) % game.players.length] ?? null
+  }
+
+  private applyPlayerDesignation(
+    game: GameState,
+    targetPlayerId: string,
+    designation: PlayerDesignation,
+    value: boolean,
+  ) {
+    if (designation === 'monarch' || designation === 'initiative') {
+      game.players.forEach((player) => {
+        if (designation === 'monarch') {
+          player.designations.monarch = false
+        } else {
+          player.designations.initiative = false
+        }
+      })
+    }
+
+    const targetPlayer = game.players.find((player) => player.id === targetPlayerId)
+
+    if (!targetPlayer) {
+      return
+    }
+
+    if (designation === 'monarch') {
+      targetPlayer.designations.monarch = value
+    } else if (designation === 'initiative') {
+      targetPlayer.designations.initiative = value
+    } else {
+      targetPlayer.designations.citysBlessing = value
     }
   }
 
@@ -1249,6 +1728,11 @@ export class PlayServer {
       graveyard: player.graveyard.map((card) => this.toTableCardSnapshot(card)),
       exile: player.exile.map((card) => this.toTableCardSnapshot(card)),
       command: player.command.map((card) => this.toTableCardSnapshot(card)),
+      counters: player.counters,
+      note: player.note,
+      designations: player.designations,
+      commanderTax: player.commanderTax,
+      commanderDamage: player.commanderDamage,
     }))
 
     const localPlayer = game.players.find((player) => player.id === localPlayerId) ?? null
@@ -1262,8 +1746,10 @@ export class PlayServer {
         roomId: game.roomId,
         createdAt: game.createdAt,
         startedAt: game.startedAt,
+        turn: game.turn,
+        stack: game.stack.map((item) => this.toStackItemSnapshot(item, localPlayerId)),
         battlefield: game.battlefield.map((card): BattlefieldPermanentSnapshot => ({
-          ...this.toTableCardSnapshot(card),
+          ...this.toBattlefieldCardSnapshot(card, localPlayerId),
           controllerPlayerId: card.controllerPlayerId,
           tapped: card.tapped,
           enteredAt: card.enteredAt,
@@ -1273,6 +1759,7 @@ export class PlayServer {
           counters: card.counters,
           note: card.note,
           isToken: card.isToken,
+          faceDown: card.faceDown,
         })),
         players: publicPlayers,
         actionLog: game.actionLog,
@@ -1292,6 +1779,51 @@ export class PlayServer {
       instanceId: card.instanceId,
       ownerPlayerId: card.ownerPlayerId,
       card: card.card,
+    }
+  }
+
+  private toBattlefieldCardSnapshot(
+    card: BattlefieldPermanentState,
+    viewerPlayerId: string,
+  ): TableCardSnapshot {
+    if (!card.faceDown || viewerPlayerId === card.ownerPlayerId || viewerPlayerId === card.controllerPlayerId) {
+      return this.toTableCardSnapshot(card)
+    }
+
+    return {
+      instanceId: card.instanceId,
+      ownerPlayerId: card.ownerPlayerId,
+      card: buildHiddenCard(card.card),
+    }
+  }
+
+  private toStackItemSnapshot(item: StackItemState, viewerPlayerId: string): StackItemSnapshot {
+    const canViewCard =
+      !item.faceDown ||
+      item.sourceCard === null ||
+      viewerPlayerId === item.sourceCard.ownerPlayerId ||
+      viewerPlayerId === item.controllerPlayerId
+
+    return {
+      id: item.id,
+      controllerPlayerId: item.controllerPlayerId,
+      itemType: item.itemType,
+      label: item.label,
+      sourceZone: item.sourceZone,
+      sourceCard:
+        item.sourceCard === null
+          ? null
+          : canViewCard
+            ? this.toTableCardSnapshot(item.sourceCard)
+            : {
+                instanceId: item.sourceCard.instanceId,
+                ownerPlayerId: item.sourceCard.ownerPlayerId,
+                card: buildHiddenCard(item.sourceCard.card),
+              },
+      note: item.note,
+      targets: item.targets,
+      createdAt: item.createdAt,
+      faceDown: item.faceDown,
     }
   }
 

@@ -1,5 +1,6 @@
 import { useDeferredValue, useEffect, useState, type DragEvent, type ReactNode } from 'react'
 import {
+  ArrowRight,
   BookOpen,
   Crown,
   Hand,
@@ -30,7 +31,9 @@ import type {
   OwnedZone,
   PermanentCounter,
   PermanentPosition,
+  StackItemSnapshot,
   TableCardSnapshot,
+  TurnPhase,
 } from '@/shared/play'
 import type { CardColor, MagicCard } from '@/types/scryfall'
 import { formatManaCost, formatTypeLine } from '@/utils/format'
@@ -77,8 +80,23 @@ interface BattlefieldStackGroup {
 }
 
 const COUNTER_PRESETS = ['+1/+1', 'loyalty', 'shield', 'stun']
+const PLAYER_COUNTER_PRESETS = ['poison', 'energy', 'experience', 'rad']
 const PUBLIC_ZONE_ORDER: PublicZone[] = ['command', 'graveyard', 'exile']
 const LOCAL_ZONE_ORDER: BrowseableZone[] = ['library', 'command', 'graveyard', 'exile']
+const TURN_PHASE_LABELS: Array<{ value: TurnPhase; label: string }> = [
+  { value: 'untap', label: 'Untap' },
+  { value: 'upkeep', label: 'Upkeep' },
+  { value: 'draw', label: 'Draw' },
+  { value: 'main1', label: 'Main 1' },
+  { value: 'begin_combat', label: 'Begin combat' },
+  { value: 'declare_attackers', label: 'Attackers' },
+  { value: 'declare_blockers', label: 'Blockers' },
+  { value: 'combat_damage', label: 'Damage' },
+  { value: 'end_combat', label: 'End combat' },
+  { value: 'main2', label: 'Main 2' },
+  { value: 'end', label: 'End step' },
+  { value: 'cleanup', label: 'Cleanup' },
+]
 const LIBRARY_SORT_OPTIONS: Array<{ value: LibraryCardSortOption; label: string }> = [
   { value: 'DECK_ORDER', label: 'Deck order' },
   { value: 'NAME', label: 'Name A-Z' },
@@ -137,11 +155,23 @@ export function PlayGamePage() {
   const [selectedCard, setSelectedCard] = useState<TableSelection | null>(null)
   const [focusedPlayerId, setFocusedPlayerId] = useState<string | null>(null)
   const [activeZone, setActiveZone] = useState<BrowseableZone>('graveyard')
-  const [utilityPanel, setUtilityPanel] = useState<'zones' | 'tokens' | 'log'>('zones')
+  const [utilityPanel, setUtilityPanel] = useState<'zones' | 'players' | 'stack' | 'tokens' | 'log'>('zones')
   const [counterDraft, setCounterDraft] = useState(COUNTER_PRESETS[0])
+  const [playerCounterDraft, setPlayerCounterDraft] = useState(PLAYER_COUNTER_PRESETS[0])
   const [noteEditor, setNoteEditor] = useState<{ cardId: string | null; value: string }>({
     cardId: null,
     value: '',
+  })
+  const [playerNoteEditor, setPlayerNoteEditor] = useState<{ playerId: string | null; value: string }>({
+    playerId: null,
+    value: '',
+  })
+  const [stackDraft, setStackDraft] = useState({
+    itemType: 'ability' as StackItemSnapshot['itemType'],
+    label: '',
+    note: '',
+    targets: '',
+    faceDown: false,
   })
   const [tokenDraft, setTokenDraft] = useState({
     name: 'Spirit',
@@ -203,6 +233,10 @@ export function PlayGamePage() {
     selectedPermanent !== null &&
     (selectedPermanent.ownerPlayerId === localPlayerId ||
       selectedPermanent.controllerPlayerId === localPlayerId)
+  const focusedPlayerNoteDraft =
+    focusedPlayer && playerNoteEditor.playerId === focusedPlayer.id
+      ? playerNoteEditor.value
+      : focusedPlayer?.note ?? ''
 
   if (!activeGame || activeGame.gameId !== gameId) {
     return (
@@ -277,11 +311,19 @@ export function PlayGamePage() {
           startedAt={activeGame.publicState.startedAt}
           roomCode={room?.code ?? activeGame.roomId}
           battlefieldCount={battlefield.length}
+          turn={activeGame.publicState.turn}
+          players={players}
           localPlayer={localPublicPlayer}
           onDraw={() => sendGameAction(activeGameId, { type: 'draw_card' })}
           onDrawSeven={() => sendGameAction(activeGameId, { type: 'draw_card', amount: 7 })}
           onShuffle={() => sendGameAction(activeGameId, { type: 'shuffle_library' })}
           onUntapAll={() => sendGameAction(activeGameId, { type: 'untap_all' })}
+          onAdvancePhase={() => sendGameAction(activeGameId, { type: 'advance_turn_phase' })}
+          onAdvanceTurn={() => sendGameAction(activeGameId, { type: 'advance_turn' })}
+          onSetPhase={(phase) => sendGameAction(activeGameId, { type: 'set_turn_phase', phase })}
+          onSetActivePlayer={(playerId) =>
+            sendGameAction(activeGameId, { type: 'set_active_player', playerId })
+          }
         />
 
         {error ? (
@@ -475,6 +517,13 @@ export function PlayGamePage() {
                   note,
                 })
               }
+              onSetFaceDown={(cardId, faceDown) =>
+                sendGameAction(activeGameId, {
+                  type: 'set_permanent_face_down',
+                  cardId,
+                  faceDown,
+                })
+              }
               onChangeControl={(cardId, controllerPlayerId) =>
                 sendGameAction(activeGameId, {
                   type: 'change_control',
@@ -490,13 +539,17 @@ export function PlayGamePage() {
               <div className="grid grid-cols-3 gap-2">
                 {[
                   ['zones', 'Zones'],
+                  ['players', 'Players'],
+                  ['stack', 'Stack'],
                   ['tokens', 'Tokens'],
                   ['log', 'Log'],
                 ].map(([value, label]) => (
                   <button
                     key={value}
                     type="button"
-                    onClick={() => setUtilityPanel(value as 'zones' | 'tokens' | 'log')}
+                    onClick={() =>
+                      setUtilityPanel(value as 'zones' | 'players' | 'stack' | 'tokens' | 'log')
+                    }
                     className={`rounded-2xl border px-3 py-2 text-sm font-semibold transition ${
                       utilityPanel === value
                         ? 'border-tide-400/35 bg-tide-500/12 text-tide-100'
@@ -524,6 +577,104 @@ export function PlayGamePage() {
                     onSelectCard={selectZoneCard}
                     onSelectLibraryCard={(cardId) => setSelectedCard({ zone: 'library', cardId })}
                     onQuickCast={(zone, cardId) => moveOwnedCard(zone, 'battlefield', cardId)}
+                  />
+                ) : null}
+
+                {utilityPanel === 'players' ? (
+                  <PlayerStatePanel
+                    players={players}
+                    focusedPlayer={focusedPlayer}
+                    localPlayerId={localPlayerId}
+                    counterDraft={playerCounterDraft}
+                    noteDraft={focusedPlayerNoteDraft}
+                    onCounterDraftChange={setPlayerCounterDraft}
+                    onNoteDraftChange={(value) =>
+                      setPlayerNoteEditor({
+                        playerId: focusedPlayer?.id ?? null,
+                        value,
+                      })
+                    }
+                    onFocusPlayer={(playerId) => setFocusedPlayerId(playerId)}
+                    onAdjustCounter={(playerId, counterKind, delta) =>
+                      sendGameAction(activeGameId, {
+                        type: 'adjust_player_counter',
+                        playerId,
+                        counterKind,
+                        delta,
+                      })
+                    }
+                    onSaveNote={(playerId, note) =>
+                      sendGameAction(activeGameId, {
+                        type: 'set_player_note',
+                        playerId,
+                        note,
+                      })
+                    }
+                    onSetDesignation={(playerId, designation, value) =>
+                      sendGameAction(activeGameId, {
+                        type: 'set_player_designation',
+                        playerId,
+                        designation,
+                        value,
+                      })
+                    }
+                    onAdjustCommanderTax={(playerId, delta) =>
+                      sendGameAction(activeGameId, {
+                        type: 'adjust_commander_tax',
+                        playerId,
+                        delta,
+                      })
+                    }
+                    onAdjustCommanderDamage={(playerId, sourcePlayerId, delta) =>
+                      sendGameAction(activeGameId, {
+                        type: 'adjust_commander_damage',
+                        playerId,
+                        sourcePlayerId,
+                        delta,
+                      })
+                    }
+                  />
+                ) : null}
+
+                {utilityPanel === 'stack' ? (
+                  <StackPanel
+                    stack={activeGame.publicState.stack}
+                    selected={selectedData}
+                    isLocalOwned={Boolean(isSelectedCardLocalOwned)}
+                    draft={stackDraft}
+                    onDraftChange={setStackDraft}
+                    onCreateFromSelected={(itemType, note, faceDown) => {
+                      if (!selectedData || selectedData.zone === 'battlefield' || !isSelectedCardLocalOwned) {
+                        return
+                      }
+
+                      sendGameAction(activeGameId, {
+                        type: 'create_stack_item',
+                        itemType,
+                        cardId: selectedData.card.instanceId,
+                        fromZone: selectedData.zone,
+                        note,
+                        faceDown,
+                      })
+                    }}
+                    onCreateManual={(payload) =>
+                      sendGameAction(activeGameId, {
+                        type: 'create_stack_item',
+                        ...payload,
+                      })
+                    }
+                    onResolve={(stackItemId) =>
+                      sendGameAction(activeGameId, {
+                        type: 'resolve_stack_item',
+                        stackItemId,
+                      })
+                    }
+                    onRemove={(stackItemId) =>
+                      sendGameAction(activeGameId, {
+                        type: 'remove_stack_item',
+                        stackItemId,
+                      })
+                    }
                   />
                 ) : null}
 
@@ -557,22 +708,36 @@ function TableHud({
   roomCode,
   startedAt,
   battlefieldCount,
+  turn,
+  players,
   localPlayer,
   onDraw,
   onDrawSeven,
   onShuffle,
   onUntapAll,
+  onAdvancePhase,
+  onAdvanceTurn,
+  onSetPhase,
+  onSetActivePlayer,
 }: {
   gameId: string
   roomCode: string
   startedAt: string
   battlefieldCount: number
+  turn: { turnNumber: number; activePlayerId: string; phase: TurnPhase }
+  players: GamePlayerPublicSnapshot[]
   localPlayer: GamePlayerPublicSnapshot | null
   onDraw: () => void
   onDrawSeven: () => void
   onShuffle: () => void
   onUntapAll: () => void
+  onAdvancePhase: () => void
+  onAdvanceTurn: () => void
+  onSetPhase: (phase: TurnPhase) => void
+  onSetActivePlayer: (playerId: string) => void
 }) {
+  const activePlayer = players.find((player) => player.id === turn.activePlayerId) ?? null
+
   return (
     <section className="relative overflow-hidden rounded-[2rem] border border-white/10 bg-ink-900/88 px-5 py-5 shadow-panel backdrop-blur-xl">
       <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_left,rgba(29,150,167,0.16),transparent_28%),radial-gradient(circle_at_bottom_right,rgba(223,107,11,0.12),transparent_24%)]" />
@@ -600,6 +765,12 @@ function TableHud({
           <div className="flex flex-wrap gap-2">
             <MetaPill icon={<ClockPip />} label={`Started ${new Date(startedAt).toLocaleTimeString()}`} />
             <MetaPill icon={<Swords className="h-3.5 w-3.5" />} label={`${battlefieldCount} permanents`} />
+            <MetaPill
+              icon={<Crown className="h-3.5 w-3.5" />}
+              label={`Turn ${turn.turnNumber} • ${activePlayer?.name ?? 'Unknown'} • ${
+                TURN_PHASE_LABELS.find((entry) => entry.value === turn.phase)?.label ?? turn.phase
+              }`}
+            />
             {localPlayer ? (
               <>
                 <MetaPill
@@ -629,6 +800,53 @@ function TableHud({
             label="Untap all"
             onClick={onUntapAll}
           />
+        </div>
+
+        <div className="relative flex flex-col gap-3 rounded-[1.4rem] border border-white/10 bg-white/5 p-3 xl:min-w-[24rem]">
+          <div className="flex flex-wrap items-center gap-2">
+            {players.map((player) => (
+              <button
+                key={player.id}
+                type="button"
+                onClick={() => onSetActivePlayer(player.id)}
+                className={`rounded-full border px-3 py-1.5 text-xs font-semibold transition ${
+                  turn.activePlayerId === player.id
+                    ? 'border-ember-400/30 bg-ember-500/12 text-ember-100'
+                    : 'border-white/10 bg-white/6 text-ink-100 hover:border-white/20'
+                }`}
+              >
+                {player.name}
+              </button>
+            ))}
+          </div>
+
+          <div className="flex flex-wrap gap-2">
+            {TURN_PHASE_LABELS.map((phase) => (
+              <button
+                key={phase.value}
+                type="button"
+                onClick={() => onSetPhase(phase.value)}
+                className={`rounded-full border px-2.5 py-1 text-[0.68rem] font-semibold transition ${
+                  turn.phase === phase.value
+                    ? 'border-tide-400/35 bg-tide-500/12 text-tide-100'
+                    : 'border-white/10 bg-white/6 text-ink-200 hover:border-white/20'
+                }`}
+              >
+                {phase.label}
+              </button>
+            ))}
+          </div>
+
+          <div className="flex flex-wrap gap-2">
+            <InspectorButton onClick={onAdvancePhase} tone="primary">
+              <ArrowRight className="h-3.5 w-3.5" />
+              Next phase
+            </InspectorButton>
+            <InspectorButton onClick={onAdvanceTurn}>
+              <ArrowRight className="h-3.5 w-3.5" />
+              Pass turn
+            </InspectorButton>
+          </div>
         </div>
       </div>
     </section>
@@ -1060,6 +1278,7 @@ function InspectorCard({
   onToggleTapped,
   onAdjustCounter,
   onSaveNote,
+  onSetFaceDown,
   onChangeControl,
   onClearSelection,
   isLocallyControlled,
@@ -1083,6 +1302,7 @@ function InspectorCard({
   onToggleTapped: (cardId: string, tapped: boolean) => void
   onAdjustCounter: (cardId: string, counterKind: string, delta: number) => void
   onSaveNote: (cardId: string, note: string) => void
+  onSetFaceDown: (cardId: string, faceDown: boolean) => void
   onChangeControl: (cardId: string, controllerPlayerId: string) => void
   onClearSelection: () => void
   isLocallyControlled: boolean
@@ -1148,6 +1368,7 @@ function InspectorCard({
                   <InfoChip label={formatTypeLine(selected.card.card.typeLine)} tone="info" />
                   <InfoChip label={selected.player?.name ?? 'Unknown owner'} />
                   {selectedPermanent?.isToken ? <InfoChip label="Token" tone="accent" /> : null}
+                  {selectedPermanent?.faceDown ? <InfoChip label="Face-down" tone="warning" /> : null}
                   {selectedPermanent && stackCards.length > 1 ? (
                     <InfoChip label={`${stackCards.length} card stack`} tone="info" />
                   ) : null}
@@ -1164,6 +1385,18 @@ function InspectorCard({
                 </div>
 
                 <div className="grid gap-2 sm:grid-cols-2">{selectedActions}</div>
+
+                {selectedPermanent && isLocallyControlled ? (
+                  <div className="flex flex-wrap gap-2">
+                    <InspectorButton
+                      onClick={() => onSetFaceDown(selectedPermanent.instanceId, !selectedPermanent.faceDown)}
+                      tone="primary"
+                    >
+                      <Layers3 className="h-3.5 w-3.5" />
+                      {selectedPermanent.faceDown ? 'Turn face up' : 'Turn face down'}
+                    </InspectorButton>
+                  </div>
+                ) : null}
 
                 {selectedPermanent ? (
                   <p className="text-xs leading-5 text-ink-400">
@@ -1665,6 +1898,402 @@ function TokenWorkshop({
             <Sparkles className="h-3.5 w-3.5" />
             Create token
           </InspectorButton>
+        </div>
+      </div>
+    </section>
+  )
+}
+
+function PlayerStatePanel({
+  players,
+  focusedPlayer,
+  localPlayerId,
+  counterDraft,
+  noteDraft,
+  onCounterDraftChange,
+  onNoteDraftChange,
+  onFocusPlayer,
+  onAdjustCounter,
+  onSaveNote,
+  onSetDesignation,
+  onAdjustCommanderTax,
+  onAdjustCommanderDamage,
+}: {
+  players: GamePlayerPublicSnapshot[]
+  focusedPlayer: GamePlayerPublicSnapshot | null
+  localPlayerId: string
+  counterDraft: string
+  noteDraft: string
+  onCounterDraftChange: (value: string) => void
+  onNoteDraftChange: (value: string) => void
+  onFocusPlayer: (playerId: string) => void
+  onAdjustCounter: (playerId: string, counterKind: string, delta: number) => void
+  onSaveNote: (playerId: string, note: string) => void
+  onSetDesignation: (
+    playerId: string,
+    designation: 'monarch' | 'initiative' | 'citys_blessing',
+    value: boolean,
+  ) => void
+  onAdjustCommanderTax: (playerId: string, delta: number) => void
+  onAdjustCommanderDamage: (playerId: string, sourcePlayerId: string, delta: number) => void
+}) {
+  return (
+    <section className="rounded-[1.9rem] border border-white/10 bg-ink-900/90 p-4 shadow-panel">
+      <div className="flex flex-wrap gap-2">
+        {players.map((player) => (
+          <button
+            key={player.id}
+            type="button"
+            onClick={() => onFocusPlayer(player.id)}
+            className={`rounded-full border px-3 py-1.5 text-xs font-semibold transition ${
+              focusedPlayer?.id === player.id
+                ? 'border-tide-400/35 bg-tide-500/12 text-tide-100'
+                : 'border-white/10 bg-white/6 text-ink-100 hover:border-white/20'
+            }`}
+          >
+            {player.name}
+            {player.id === localPlayerId ? ' • You' : ''}
+          </button>
+        ))}
+      </div>
+
+      {focusedPlayer ? (
+        <div className="mt-4 grid gap-4">
+          <div className="flex flex-wrap gap-2">
+            {focusedPlayer.counters.map((counter) => (
+              <InfoChip key={counter.kind} label={`${counter.kind} ${counter.amount}`} tone="info" />
+            ))}
+            {focusedPlayer.counters.length === 0 ? (
+              <div className="text-sm text-ink-400">No player counters yet.</div>
+            ) : null}
+          </div>
+
+          <div className="flex flex-wrap gap-2">
+            {PLAYER_COUNTER_PRESETS.map((preset) => (
+              <button
+                key={preset}
+                type="button"
+                onClick={() => onCounterDraftChange(preset)}
+                className={`rounded-full border px-3 py-1.5 text-xs font-semibold transition ${
+                  counterDraft === preset
+                    ? 'border-tide-400/35 bg-tide-500/12 text-tide-100'
+                    : 'border-white/10 bg-white/6 text-ink-100 hover:border-white/20'
+                }`}
+              >
+                {preset}
+              </button>
+            ))}
+          </div>
+
+          <input
+            value={counterDraft}
+            onChange={(event) => onCounterDraftChange(event.target.value)}
+            className="w-full rounded-2xl border border-white/10 bg-ink-950/80 px-3 py-2 text-sm text-ink-100 outline-none transition focus:border-tide-400/35"
+            placeholder="Player counter label"
+          />
+
+          <div className="flex flex-wrap gap-2">
+            <InspectorButton onClick={() => onAdjustCounter(focusedPlayer.id, counterDraft, -1)}>
+              <Minus className="h-3.5 w-3.5" />
+              Counter -1
+            </InspectorButton>
+            <InspectorButton
+              onClick={() => onAdjustCounter(focusedPlayer.id, counterDraft, +1)}
+              tone="primary"
+            >
+              <Plus className="h-3.5 w-3.5" />
+              Counter +1
+            </InspectorButton>
+            <InspectorButton onClick={() => onAdjustCommanderTax(focusedPlayer.id, -2)}>
+              <Minus className="h-3.5 w-3.5" />
+              Tax -2
+            </InspectorButton>
+            <InspectorButton
+              onClick={() => onAdjustCommanderTax(focusedPlayer.id, +2)}
+              tone="primary"
+            >
+              <Plus className="h-3.5 w-3.5" />
+              Tax +2
+            </InspectorButton>
+          </div>
+
+          <div className="flex flex-wrap gap-2">
+            <InfoChip label={`Commander tax ${focusedPlayer.commanderTax}`} tone="warning" />
+            {focusedPlayer.designations.monarch ? <InfoChip label="Monarch" tone="accent" /> : null}
+            {focusedPlayer.designations.initiative ? <InfoChip label="Initiative" tone="accent" /> : null}
+            {focusedPlayer.designations.citysBlessing ? (
+              <InfoChip label="City's blessing" tone="accent" />
+            ) : null}
+          </div>
+
+          <div className="flex flex-wrap gap-2">
+            <InspectorButton
+              onClick={() =>
+                onSetDesignation(
+                  focusedPlayer.id,
+                  'monarch',
+                  !focusedPlayer.designations.monarch,
+                )
+              }
+            >
+              Monarch
+            </InspectorButton>
+            <InspectorButton
+              onClick={() =>
+                onSetDesignation(
+                  focusedPlayer.id,
+                  'initiative',
+                  !focusedPlayer.designations.initiative,
+                )
+              }
+            >
+              Initiative
+            </InspectorButton>
+            <InspectorButton
+              onClick={() =>
+                onSetDesignation(
+                  focusedPlayer.id,
+                  'citys_blessing',
+                  !focusedPlayer.designations.citysBlessing,
+                )
+              }
+            >
+              City's blessing
+            </InspectorButton>
+          </div>
+
+          <div className="grid gap-2">
+            <p className="text-xs font-semibold uppercase tracking-[0.16em] text-ink-400">
+              Commander damage on {focusedPlayer.name}
+            </p>
+            <div className="flex flex-wrap gap-2">
+              {players
+                .filter((player) => player.id !== focusedPlayer.id)
+                .map((player) => {
+                  const amount =
+                    focusedPlayer.commanderDamage.find((entry) => entry.sourcePlayerId === player.id)
+                      ?.amount ?? 0
+
+                  return (
+                    <div
+                      key={player.id}
+                      className="rounded-[1.2rem] border border-white/10 bg-white/5 px-3 py-2"
+                    >
+                      <p className="text-xs font-semibold text-ink-100">{player.name}</p>
+                      <p className="mt-1 text-xs text-ink-400">{amount} damage</p>
+                      <div className="mt-2 flex gap-2">
+                        <button
+                          type="button"
+                          onClick={() => onAdjustCommanderDamage(focusedPlayer.id, player.id, -1)}
+                          className="rounded-full border border-white/10 px-2 py-1 text-xs font-semibold text-ink-100 transition hover:border-white/20"
+                        >
+                          -1
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => onAdjustCommanderDamage(focusedPlayer.id, player.id, +1)}
+                          className="rounded-full border border-tide-400/25 bg-tide-500/12 px-2 py-1 text-xs font-semibold text-tide-100 transition hover:border-tide-400/40"
+                        >
+                          +1
+                        </button>
+                      </div>
+                    </div>
+                  )
+                })}
+            </div>
+          </div>
+
+          <textarea
+            value={noteDraft}
+            onChange={(event) => onNoteDraftChange(event.target.value)}
+            rows={3}
+            className="w-full rounded-2xl border border-white/10 bg-ink-950/80 px-3 py-2 text-sm text-ink-100 outline-none transition focus:border-tide-400/35"
+            placeholder="Player note"
+          />
+          <div className="flex justify-end">
+            <InspectorButton onClick={() => onSaveNote(focusedPlayer.id, noteDraft)} tone="primary">
+              <ScrollText className="h-3.5 w-3.5" />
+              Save player note
+            </InspectorButton>
+          </div>
+        </div>
+      ) : null}
+    </section>
+  )
+}
+
+function StackPanel({
+  stack,
+  selected,
+  isLocalOwned,
+  draft,
+  onDraftChange,
+  onCreateFromSelected,
+  onCreateManual,
+  onResolve,
+  onRemove,
+}: {
+  stack: StackItemSnapshot[]
+  selected: SelectedCardData | null
+  isLocalOwned: boolean
+  draft: {
+    itemType: StackItemSnapshot['itemType']
+    label: string
+    note: string
+    targets: string
+    faceDown: boolean
+  }
+  onDraftChange: (
+    value: {
+      itemType: StackItemSnapshot['itemType']
+      label: string
+      note: string
+      targets: string
+      faceDown: boolean
+    },
+  ) => void
+  onCreateFromSelected: (
+    itemType: StackItemSnapshot['itemType'],
+    note: string,
+    faceDown: boolean,
+  ) => void
+  onCreateManual: (payload: {
+    itemType: StackItemSnapshot['itemType']
+    label?: string
+    note?: string
+    targets?: string[]
+    faceDown?: boolean
+  }) => void
+  onResolve: (stackItemId: string) => void
+  onRemove: (stackItemId: string) => void
+}) {
+  return (
+    <section className="rounded-[1.9rem] border border-white/10 bg-ink-900/90 p-4 shadow-panel">
+      <div className="space-y-3">
+        <div>
+          <p className="text-xs font-semibold uppercase tracking-[0.2em] text-ink-400">Shared stack</p>
+          <h2 className="mt-2 text-xl font-semibold text-ink-50">Spells and abilities</h2>
+        </div>
+
+        {selected && selected.zone !== 'battlefield' && isLocalOwned ? (
+          <InspectorButton
+            onClick={() => onCreateFromSelected(draft.itemType, draft.note, draft.faceDown)}
+            tone="primary"
+          >
+            <WandSparkles className="h-3.5 w-3.5" />
+            Put selected card on stack
+          </InspectorButton>
+        ) : null}
+
+        <div className="grid gap-2">
+          <div className="flex flex-wrap gap-2">
+            {(['spell', 'ability', 'trigger'] as const).map((itemType) => (
+              <button
+                key={itemType}
+                type="button"
+                onClick={() => onDraftChange({ ...draft, itemType })}
+                className={`rounded-full border px-3 py-1.5 text-xs font-semibold transition ${
+                  draft.itemType === itemType
+                    ? 'border-tide-400/35 bg-tide-500/12 text-tide-100'
+                    : 'border-white/10 bg-white/6 text-ink-100 hover:border-white/20'
+                }`}
+              >
+                {itemType}
+              </button>
+            ))}
+          </div>
+
+          <input
+            value={draft.label}
+            onChange={(event) => onDraftChange({ ...draft, label: event.target.value })}
+            className="w-full rounded-2xl border border-white/10 bg-ink-950/80 px-3 py-2 text-sm text-ink-100 outline-none transition focus:border-tide-400/35"
+            placeholder="Manual stack label"
+          />
+          <input
+            value={draft.targets}
+            onChange={(event) => onDraftChange({ ...draft, targets: event.target.value })}
+            className="w-full rounded-2xl border border-white/10 bg-ink-950/80 px-3 py-2 text-sm text-ink-100 outline-none transition focus:border-tide-400/35"
+            placeholder="Targets, comma separated"
+          />
+          <textarea
+            value={draft.note}
+            onChange={(event) => onDraftChange({ ...draft, note: event.target.value })}
+            rows={2}
+            className="w-full rounded-2xl border border-white/10 bg-ink-950/80 px-3 py-2 text-sm text-ink-100 outline-none transition focus:border-tide-400/35"
+            placeholder="Stack note"
+          />
+          <label className="inline-flex items-center gap-2 text-sm text-ink-300">
+            <input
+              type="checkbox"
+              checked={draft.faceDown}
+              onChange={(event) => onDraftChange({ ...draft, faceDown: event.target.checked })}
+            />
+            Face down
+          </label>
+          <div className="flex justify-end">
+            <InspectorButton
+              onClick={() =>
+                onCreateManual({
+                  itemType: draft.itemType,
+                  label: draft.label,
+                  note: draft.note,
+                  targets: draft.targets
+                    .split(',')
+                    .map((entry) => entry.trim())
+                    .filter(Boolean),
+                  faceDown: draft.faceDown,
+                })
+              }
+              tone="primary"
+            >
+              <WandSparkles className="h-3.5 w-3.5" />
+              Add manual stack item
+            </InspectorButton>
+          </div>
+        </div>
+
+        <div className="grid max-h-[24rem] gap-2 overflow-y-auto pr-1">
+          {stack.map((entry, index) => (
+            <article key={entry.id} className="rounded-[1.25rem] border border-white/10 bg-white/5 p-3">
+              <div className="flex items-start justify-between gap-3">
+                <div>
+                  <p className="text-xs font-semibold uppercase tracking-[0.14em] text-ink-400">
+                    {index === 0 ? 'Top of stack' : `Stack ${index + 1}`}
+                  </p>
+                  <h3 className="mt-1 text-sm font-semibold text-ink-50">{entry.label}</h3>
+                  <p className="mt-1 text-xs text-ink-400">
+                    {entry.itemType}
+                    {entry.sourceCard ? ` • ${entry.sourceCard.card.name}` : ''}
+                  </p>
+                </div>
+                <div className="flex gap-2">
+                  <button
+                    type="button"
+                    onClick={() => onResolve(entry.id)}
+                    className="rounded-full border border-tide-400/25 bg-tide-500/12 px-2.5 py-1 text-xs font-semibold text-tide-100 transition hover:border-tide-400/40"
+                  >
+                    Resolve
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => onRemove(entry.id)}
+                    className="rounded-full border border-white/10 px-2.5 py-1 text-xs font-semibold text-ink-100 transition hover:border-white/20"
+                  >
+                    Remove
+                  </button>
+                </div>
+              </div>
+              {entry.targets.length > 0 ? (
+                <p className="mt-2 text-xs text-ink-300">Targets: {entry.targets.join(', ')}</p>
+              ) : null}
+              {entry.note ? <p className="mt-2 text-xs text-ink-300">{entry.note}</p> : null}
+            </article>
+          ))}
+          {stack.length === 0 ? (
+            <div className="rounded-[1.25rem] border border-white/10 bg-white/5 px-4 py-5 text-sm text-ink-300">
+              The stack is empty.
+            </div>
+          ) : null}
         </div>
       </div>
     </section>

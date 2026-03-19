@@ -315,3 +315,132 @@ test('PlayServer stacks permanents and can unstack them again', () => {
   assert.equal(unstackedCards[0]?.stackId, null)
   assert.equal(unstackedCards[1]?.stackId, null)
 })
+
+test('PlayServer tracks turn state, shared stack items, and player tabletop markers', () => {
+  const harness = createHarness()
+  const { playServer, gameId } = createStartedGame(harness)
+  const initialSnapshot = harness.latestGameSnapshot('session-alice')
+  const handCardId = initialSnapshot.privateState?.hand[0]?.instanceId
+  const bobPlayer = initialSnapshot.publicState.players.find((player) => player.name === 'Bob')
+
+  assert.ok(handCardId, 'Expected a hand card for Alice.')
+  assert.ok(bobPlayer, 'Expected Bob in the game.')
+  assert.equal(initialSnapshot.publicState.turn.turnNumber, 1)
+  assert.equal(initialSnapshot.publicState.turn.phase, 'untap')
+
+  playServer.handleMessage('session-alice', {
+    type: 'game_action',
+    gameId,
+    action: {
+      type: 'advance_turn_phase',
+    },
+  })
+  playServer.handleMessage('session-alice', {
+    type: 'game_action',
+    gameId,
+    action: {
+      type: 'adjust_player_counter',
+      playerId: bobPlayer.id,
+      counterKind: 'poison',
+      delta: 3,
+    },
+  })
+  playServer.handleMessage('session-alice', {
+    type: 'game_action',
+    gameId,
+    action: {
+      type: 'adjust_commander_tax',
+      playerId: bobPlayer.id,
+      delta: 2,
+    },
+  })
+  playServer.handleMessage('session-alice', {
+    type: 'game_action',
+    gameId,
+    action: {
+      type: 'set_player_designation',
+      playerId: bobPlayer.id,
+      designation: 'monarch',
+      value: true,
+    },
+  })
+  playServer.handleMessage('session-alice', {
+    type: 'game_action',
+    gameId,
+    action: {
+      type: 'create_stack_item',
+      itemType: 'spell',
+      cardId: handCardId,
+      fromZone: 'hand',
+      note: 'Testing stack sync',
+    },
+  })
+
+  const nextSnapshot = harness.latestGameSnapshot('session-alice')
+  const nextBob = nextSnapshot.publicState.players.find((player) => player.id === bobPlayer.id)
+
+  assert.equal(nextSnapshot.publicState.turn.phase, 'upkeep')
+  assert.ok(nextBob, 'Expected Bob to remain in the game snapshot.')
+  assert.equal(nextBob.counters.find((counter) => counter.kind === 'poison')?.amount, 3)
+  assert.equal(nextBob.commanderTax, 2)
+  assert.equal(nextBob.designations.monarch, true)
+  assert.equal(nextSnapshot.publicState.stack.length, 1)
+  assert.equal(nextSnapshot.privateState?.hand.length, 6)
+
+  playServer.handleMessage('session-alice', {
+    type: 'game_action',
+    gameId,
+    action: {
+      type: 'resolve_stack_item',
+      stackItemId: nextSnapshot.publicState.stack[0].id,
+    },
+  })
+
+  const resolvedSnapshot = harness.latestGameSnapshot('session-alice')
+  assert.equal(resolvedSnapshot.publicState.stack.length, 0)
+  assert.equal(resolvedSnapshot.publicState.battlefield.length, 1)
+})
+
+test('PlayServer hides face-down permanents from opponents', () => {
+  const harness = createHarness()
+  const { playServer, gameId } = createStartedGame(harness)
+  const initialSnapshot = harness.latestGameSnapshot('session-alice')
+  const handCardId = initialSnapshot.privateState?.hand[0]?.instanceId
+
+  assert.ok(handCardId, 'Expected a hand card for Alice.')
+
+  playServer.handleMessage('session-alice', {
+    type: 'game_action',
+    gameId,
+    action: {
+      type: 'move_owned_card',
+      cardId: handCardId,
+      fromZone: 'hand',
+      toZone: 'battlefield',
+    },
+  })
+
+  const battlefieldSnapshot = harness.latestGameSnapshot('session-alice')
+  const permanentId = battlefieldSnapshot.publicState.battlefield[0]?.instanceId
+  const originalName = battlefieldSnapshot.publicState.battlefield[0]?.card.name
+
+  assert.ok(permanentId, 'Expected a battlefield permanent.')
+  assert.ok(originalName, 'Expected the permanent to have a visible name for its owner.')
+
+  playServer.handleMessage('session-alice', {
+    type: 'game_action',
+    gameId,
+    action: {
+      type: 'set_permanent_face_down',
+      cardId: permanentId,
+      faceDown: true,
+    },
+  })
+
+  const aliceSnapshot = harness.latestGameSnapshot('session-alice')
+  const bobSnapshot = harness.latestGameSnapshot('session-bob')
+
+  assert.equal(aliceSnapshot.publicState.battlefield[0]?.card.name, originalName)
+  assert.equal(bobSnapshot.publicState.battlefield[0]?.faceDown, true)
+  assert.equal(bobSnapshot.publicState.battlefield[0]?.card.name, 'Face-down card')
+})

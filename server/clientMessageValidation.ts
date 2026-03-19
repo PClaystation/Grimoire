@@ -5,7 +5,10 @@ import type {
   ClientMessage,
   DeckSelectionSnapshot,
   OwnedZone,
+  PlayerDesignation,
   PermanentPosition,
+  StackItemType,
+  TurnPhase,
 } from '../src/shared/play.js'
 
 const MAX_CLIENT_STRING_LENGTH = 256
@@ -40,6 +43,31 @@ function isOwnedZone(value: unknown): value is OwnedZone {
 
 function isCardColor(value: unknown): value is CardColor {
   return value === 'W' || value === 'U' || value === 'B' || value === 'R' || value === 'G'
+}
+
+function isTurnPhase(value: unknown): value is TurnPhase {
+  return (
+    value === 'untap' ||
+    value === 'upkeep' ||
+    value === 'draw' ||
+    value === 'main1' ||
+    value === 'begin_combat' ||
+    value === 'declare_attackers' ||
+    value === 'declare_blockers' ||
+    value === 'combat_damage' ||
+    value === 'end_combat' ||
+    value === 'main2' ||
+    value === 'end' ||
+    value === 'cleanup'
+  )
+}
+
+function isStackItemType(value: unknown): value is StackItemType {
+  return value === 'spell' || value === 'ability' || value === 'trigger'
+}
+
+function isPlayerDesignation(value: unknown): value is PlayerDesignation {
+  return value === 'monarch' || value === 'initiative' || value === 'citys_blessing'
 }
 
 function isPermanentPosition(value: unknown): value is PermanentPosition {
@@ -122,6 +150,17 @@ function isClientGameActionPayload(value: unknown): value is ClientGameAction {
     case 'shuffle_library':
     case 'untap_all':
       return true
+    case 'advance_turn_phase':
+      return true
+    case 'advance_turn':
+      return value.nextPlayerId === undefined || isNonEmptyString(value.nextPlayerId)
+    case 'set_turn_phase':
+      return isTurnPhase(value.phase)
+    case 'set_active_player':
+      return (
+        isNonEmptyString(value.playerId) &&
+        (value.turnNumber === undefined || typeof value.turnNumber === 'number')
+      )
     case 'draw_card':
       return value.amount === undefined || typeof value.amount === 'number'
     case 'move_owned_card':
@@ -135,6 +174,28 @@ function isClientGameActionPayload(value: unknown): value is ClientGameAction {
       return isNonEmptyString(value.cardId) && typeof value.tapped === 'boolean'
     case 'adjust_life':
       return isNonEmptyString(value.playerId) && typeof value.delta === 'number'
+    case 'adjust_player_counter':
+      return (
+        isNonEmptyString(value.playerId) &&
+        isNonEmptyString(value.counterKind) &&
+        typeof value.delta === 'number'
+      )
+    case 'set_player_note':
+      return isNonEmptyString(value.playerId) && typeof value.note === 'string'
+    case 'set_player_designation':
+      return (
+        isNonEmptyString(value.playerId) &&
+        isPlayerDesignation(value.designation) &&
+        typeof value.value === 'boolean'
+      )
+    case 'adjust_commander_tax':
+      return isNonEmptyString(value.playerId) && typeof value.delta === 'number'
+    case 'adjust_commander_damage':
+      return (
+        isNonEmptyString(value.playerId) &&
+        isNonEmptyString(value.sourcePlayerId) &&
+        typeof value.delta === 'number'
+      )
     case 'set_permanent_position':
       return isNonEmptyString(value.cardId) && isPermanentPosition(value.position)
     case 'set_permanent_stack':
@@ -150,8 +211,28 @@ function isClientGameActionPayload(value: unknown): value is ClientGameAction {
       )
     case 'set_permanent_note':
       return isNonEmptyString(value.cardId) && typeof value.note === 'string'
+    case 'set_permanent_face_down':
+      return isNonEmptyString(value.cardId) && typeof value.faceDown === 'boolean'
     case 'change_control':
       return isNonEmptyString(value.cardId) && isNonEmptyString(value.controllerPlayerId)
+    case 'create_stack_item':
+      return (
+        isStackItemType(value.itemType) &&
+        (value.label === undefined || typeof value.label === 'string') &&
+        (value.cardId === undefined || isNonEmptyString(value.cardId)) &&
+        (value.fromZone === undefined || isOwnedZone(value.fromZone)) &&
+        (value.note === undefined || typeof value.note === 'string') &&
+        (value.targets === undefined ||
+          (Array.isArray(value.targets) && value.targets.every((entry) => isNonEmptyString(entry)))) &&
+        (value.faceDown === undefined || typeof value.faceDown === 'boolean')
+      )
+    case 'resolve_stack_item':
+    case 'remove_stack_item':
+      return (
+        isNonEmptyString(value.stackItemId) &&
+        (value.toZone === undefined || isOwnedZone(value.toZone)) &&
+        (value.position === undefined || isPermanentPosition(value.position))
+      )
     case 'create_token':
       return (
         isNonEmptyString(value.name) &&

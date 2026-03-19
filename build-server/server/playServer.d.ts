@@ -31,6 +31,8 @@ export declare class PlayServer {
     private applyGameAction;
     private takeOwnedCard;
     private placeOwnedCard;
+    private getNextPlayer;
+    private applyPlayerDesignation;
     private getControllablePermanent;
     private getStackMembers;
     private normalizeStack;
@@ -44,6 +46,8 @@ export declare class PlayServer {
     private buildRoomSnapshot;
     private buildGameSnapshot;
     private toTableCardSnapshot;
+    private toBattlefieldCardSnapshot;
+    private toStackItemSnapshot;
     private recordEvent;
     private generateUniqueRoomId;
     private createRoomPlayer;

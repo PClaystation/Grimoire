@@ -13,6 +13,21 @@ const ROOM_CODE_ALPHABET = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'
 
 export type RoomPhase = 'lobby' | 'game'
 export type OwnedZone = 'library' | 'hand' | 'battlefield' | 'graveyard' | 'exile' | 'command'
+export type TurnPhase =
+  | 'untap'
+  | 'upkeep'
+  | 'draw'
+  | 'main1'
+  | 'begin_combat'
+  | 'declare_attackers'
+  | 'declare_blockers'
+  | 'combat_damage'
+  | 'end_combat'
+  | 'main2'
+  | 'end'
+  | 'cleanup'
+export type StackItemType = 'spell' | 'ability' | 'trigger'
+export type PlayerDesignation = 'monarch' | 'initiative' | 'citys_blessing'
 
 export interface PermanentPosition {
   x: number
@@ -22,6 +37,28 @@ export interface PermanentPosition {
 export interface PermanentCounter {
   kind: string
   amount: number
+}
+
+export interface PlayerCounter {
+  kind: string
+  amount: number
+}
+
+export interface CommanderDamageEntry {
+  sourcePlayerId: string
+  amount: number
+}
+
+export interface PlayerDesignations {
+  monarch: boolean
+  initiative: boolean
+  citysBlessing: boolean
+}
+
+export interface TurnStateSnapshot {
+  turnNumber: number
+  activePlayerId: string
+  phase: TurnPhase
 }
 
 export interface DeckSelectionSummary {
@@ -83,6 +120,20 @@ export interface BattlefieldPermanentSnapshot extends TableCardSnapshot {
   counters: PermanentCounter[]
   note: string
   isToken: boolean
+  faceDown: boolean
+}
+
+export interface StackItemSnapshot {
+  id: string
+  controllerPlayerId: string
+  itemType: StackItemType
+  label: string
+  sourceZone: OwnedZone | null
+  sourceCard: TableCardSnapshot | null
+  note: string
+  targets: string[]
+  createdAt: string
+  faceDown: boolean
 }
 
 export interface GamePlayerPublicSnapshot {
@@ -95,6 +146,11 @@ export interface GamePlayerPublicSnapshot {
   graveyard: TableCardSnapshot[]
   exile: TableCardSnapshot[]
   command: TableCardSnapshot[]
+  counters: PlayerCounter[]
+  note: string
+  designations: PlayerDesignations
+  commanderTax: number
+  commanderDamage: CommanderDamageEntry[]
 }
 
 export interface GamePrivatePlayerState {
@@ -116,6 +172,8 @@ export interface GamePublicState {
   roomId: string
   createdAt: string
   startedAt: string
+  turn: TurnStateSnapshot
+  stack: StackItemSnapshot[]
   battlefield: BattlefieldPermanentSnapshot[]
   players: GamePlayerPublicSnapshot[]
   actionLog: GameActionEvent[]
@@ -132,6 +190,10 @@ export interface GameSnapshot {
 export type ClientGameAction =
   | { type: 'shuffle_library' }
   | { type: 'draw_card'; amount?: number }
+  | { type: 'advance_turn_phase' }
+  | { type: 'advance_turn'; nextPlayerId?: string }
+  | { type: 'set_turn_phase'; phase: TurnPhase }
+  | { type: 'set_active_player'; playerId: string; turnNumber?: number }
   | {
       type: 'move_owned_card'
       cardId: string
@@ -142,11 +204,39 @@ export type ClientGameAction =
   | { type: 'tap_card'; cardId: string; tapped: boolean }
   | { type: 'untap_all' }
   | { type: 'adjust_life'; playerId: string; delta: number }
+  | { type: 'adjust_player_counter'; playerId: string; counterKind: string; delta: number }
+  | { type: 'set_player_note'; playerId: string; note: string }
+  | { type: 'set_player_designation'; playerId: string; designation: PlayerDesignation; value: boolean }
+  | { type: 'adjust_commander_tax'; playerId: string; delta: number }
+  | { type: 'adjust_commander_damage'; playerId: string; sourcePlayerId: string; delta: number }
   | { type: 'set_permanent_position'; cardId: string; position: PermanentPosition }
   | { type: 'set_permanent_stack'; cardId: string; stackWithCardId: string | null }
   | { type: 'adjust_permanent_counter'; cardId: string; counterKind: string; delta: number }
   | { type: 'set_permanent_note'; cardId: string; note: string }
+  | { type: 'set_permanent_face_down'; cardId: string; faceDown: boolean }
   | { type: 'change_control'; cardId: string; controllerPlayerId: string }
+  | {
+      type: 'create_stack_item'
+      itemType: StackItemType
+      label?: string
+      cardId?: string
+      fromZone?: OwnedZone
+      note?: string
+      targets?: string[]
+      faceDown?: boolean
+    }
+  | {
+      type: 'resolve_stack_item'
+      stackItemId: string
+      toZone?: OwnedZone
+      position?: PermanentPosition
+    }
+  | {
+      type: 'remove_stack_item'
+      stackItemId: string
+      toZone?: OwnedZone
+      position?: PermanentPosition
+    }
   | {
       type: 'create_token'
       name: string
@@ -250,6 +340,21 @@ export function clampPermanentPosition(
     y: Math.max(8, Math.min(88, Number(nextY.toFixed(1)))),
   }
 }
+
+export const TURN_PHASES: TurnPhase[] = [
+  'untap',
+  'upkeep',
+  'draw',
+  'main1',
+  'begin_combat',
+  'declare_attackers',
+  'declare_blockers',
+  'combat_damage',
+  'end_combat',
+  'main2',
+  'end',
+  'cleanup',
+]
 
 export function normalizeDeckFormat(value: string): DeckFormat {
   switch (value) {
