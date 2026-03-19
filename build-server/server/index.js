@@ -1,6 +1,8 @@
 import { createReadStream, existsSync, statSync } from 'node:fs';
+import { request as httpRequest } from 'node:http';
 import { extname, join, normalize, relative, resolve, sep } from 'node:path';
 import { createServer } from 'node:http';
+import { request as httpsRequest } from 'node:https';
 import { WebSocket, WebSocketServer } from 'ws';
 import { normalizePlayerName } from '../src/shared/play.js';
 import { parseClientMessage } from './clientMessageValidation.js';
@@ -10,6 +12,7 @@ const HOST = process.env.HOST ?? '0.0.0.0';
 const DIST_DIR = resolve(process.cwd(), 'dist');
 const MAX_CLIENT_MESSAGE_BYTES = 256 * 1024;
 const SOCKET_HEARTBEAT_INTERVAL_MS = 25_000;
+const AUTH_BACKEND_ORIGIN = process.env.AUTH_BACKEND_ORIGIN ?? 'http://127.0.0.1:5000';
 const MIME_TYPES = {
     '.css': 'text/css; charset=utf-8',
     '.html': 'text/html; charset=utf-8',
@@ -54,8 +57,64 @@ function resolvePublicFile(pathname) {
     const nextPath = sanitizedPath === '/' ? '/index.html' : sanitizedPath;
     return join(DIST_DIR, nextPath);
 }
+function shouldProxyApiRequest(pathname) {
+    return pathname.startsWith('/api/auth') || pathname.startsWith('/api/grimoire');
+}
+function proxyApiRequest(request, response, url) {
+    let upstream;
+    try {
+        upstream = new URL(url.pathname + url.search, AUTH_BACKEND_ORIGIN);
+    }
+    catch {
+        response.writeHead(502, {
+            ...buildBaseHeaders(),
+            'Cache-Control': 'no-store',
+            'Content-Type': 'application/json; charset=utf-8',
+        });
+        response.end(JSON.stringify({ message: 'Auth backend origin is invalid.' }));
+        return;
+    }
+    const requestUpstream = upstream.protocol === 'https:' ? httpsRequest : httpRequest;
+    const forwardedHeaders = {};
+    for (const [headerName, headerValue] of Object.entries(request.headers)) {
+        if (headerValue === undefined) {
+            continue;
+        }
+        forwardedHeaders[headerName] = headerValue;
+    }
+    forwardedHeaders.host = upstream.host;
+    forwardedHeaders['x-forwarded-host'] = request.headers.host ?? '';
+    forwardedHeaders['x-forwarded-proto'] = 'http';
+    const proxyRequest = requestUpstream(upstream, {
+        method: request.method,
+        headers: forwardedHeaders,
+    }, (proxyResponse) => {
+        response.writeHead(proxyResponse.statusCode ?? 502, {
+            ...buildBaseHeaders(),
+            ...proxyResponse.headers,
+        });
+        proxyResponse.pipe(response);
+    });
+    proxyRequest.on('error', () => {
+        if (response.headersSent) {
+            response.end();
+            return;
+        }
+        response.writeHead(502, {
+            ...buildBaseHeaders(),
+            'Cache-Control': 'no-store',
+            'Content-Type': 'application/json; charset=utf-8',
+        });
+        response.end(JSON.stringify({ message: 'Unable to reach the auth backend.' }));
+    });
+    request.pipe(proxyRequest);
+}
 function handleHttpRequest(request, response) {
     const url = new URL(request.url ?? '/', 'http://localhost');
+    if (shouldProxyApiRequest(url.pathname)) {
+        proxyApiRequest(request, response, url);
+        return;
+    }
     if (url.pathname === '/health') {
         response.writeHead(200, {
             ...buildBaseHeaders(),

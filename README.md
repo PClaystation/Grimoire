@@ -59,6 +59,8 @@ HOST=0.0.0.0 PORT=8787 npm run start:server
 
 The multiplayer client connects to `/ws` by default. If the frontend is hosted on a different origin, set `VITE_PLAY_SERVER_URL` at frontend build time so the browser connects to your backend origin instead.
 
+Auth and deck-sync requests now use same-origin `/api/auth/*` and `/api/grimoire/*` paths by default. Keep those routes behind your reverse proxy on normal HTTPS `443` and forward them server-side to the auth backend instead of exposing browser traffic to `:5000`.
+
 Example backend target:
 
 ```bash
@@ -66,6 +68,8 @@ https://mpmc.ddns.net
 ```
 
 Important: if the frontend is served over HTTPS, the play server must also be reachable over HTTPS/WSS. In practice that means putting the Node server behind a reverse proxy such as Caddy or Nginx and terminating TLS for `mpmc.ddns.net`.
+
+Important: if you want account login to survive restrictive networks, proxy `/api/auth/*` and `/api/grimoire/*` through the same public origin on `443`. Do not make the browser call `https://<host>:5000` directly.
 
 Ready-to-paste deployment files:
 
@@ -105,6 +109,7 @@ GitHub Pages is static hosting, so build the frontend separately from the backen
 
 ```bash
 VITE_PLAY_SERVER_URL=https://mpmc.ddns.net \
+VITE_CONTINENTAL_AUTH_BASE_URL=https://mpmc.ddns.net \
 VITE_ROUTER_MODE=hash \
 VITE_BASE_PATH=/Grimoire/ \
 npm run build:client
@@ -133,6 +138,9 @@ Optional repository variables:
 
 - `VITE_PLAY_SERVER_URL`
   Default: `https://mpmc.ddns.net`
+- `VITE_CONTINENTAL_AUTH_BASE_URL`
+  Default: same-origin `/api/*`
+  For GitHub Pages or any split-origin frontend, set this to your backend origin on `443`, for example `https://mpmc.ddns.net`
 - `PAGES_BASE_PATH`
   Default: `/<repo-name>/`
 - `VITE_ROUTER_MODE`
@@ -141,6 +149,6 @@ Optional repository variables:
 Examples:
 
 - Project Pages site at `https://<user>.github.io/Grimoire/`
-  Leave the defaults alone.
+  Set `VITE_CONTINENTAL_AUTH_BASE_URL=https://mpmc.ddns.net` and make sure that host proxies `/api/auth/*` and `/api/grimoire/*` on `443`.
 - Custom Pages domain at the root
   Set `PAGES_BASE_PATH=/`

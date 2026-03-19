@@ -17,21 +17,10 @@ export function getDefaultApiBaseUrl() {
   const runtimeWindow = getRuntimeWindow()
 
   if (!runtimeWindow) {
-    return 'https://mpmc.ddns.net:5000'
+    return ''
   }
 
-  if (LOCAL_HOSTS.has(runtimeWindow.location.hostname)) {
-    return `http://${runtimeWindow.location.hostname}:5000`
-  }
-
-  if (
-    runtimeWindow.location.hostname === 'mpmc.ddns.net' &&
-    runtimeWindow.location.port === '5000'
-  ) {
-    return runtimeWindow.location.origin
-  }
-
-  return 'https://mpmc.ddns.net:5000'
+  return runtimeWindow.location.origin
 }
 
 export function getDefaultLoginPopupUrl() {

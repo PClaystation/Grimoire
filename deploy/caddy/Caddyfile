@@ -11,6 +11,16 @@ mpmc.ddns.net {
     reverse_proxy 127.0.0.1:8787
   }
 
+  @auth_backend path /api/auth/*
+  handle @auth_backend {
+    reverse_proxy 127.0.0.1:5000
+  }
+
+  @grimoire_api path /api/grimoire/*
+  handle @grimoire_api {
+    reverse_proxy 127.0.0.1:5000
+  }
+
   handle {
     respond "Grimoire multiplayer backend is running.\n" 200
   }

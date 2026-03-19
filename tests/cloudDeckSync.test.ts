@@ -201,7 +201,7 @@ test('pending deck imports still upload after later sync activity advances lastS
 
     const result = await repository.loadDecks()
 
-    assert.deepEqual(requestLog, ['GET https://mpmc.ddns.net:5000/api/grimoire/decks', 'POST https://mpmc.ddns.net:5000/api/grimoire/decks/import'])
+    assert.deepEqual(requestLog, ['GET /api/grimoire/decks', 'POST /api/grimoire/decks/import'])
     assert.equal(result.syncState.health, 'ready')
     assert.deepEqual(result.decks.map((deck) => deck.id), ['pending-after-failure'])
     assert.deepEqual(readPendingDeckImports('account-a'), [])

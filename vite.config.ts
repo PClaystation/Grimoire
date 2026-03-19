@@ -13,6 +13,14 @@ export default defineConfig({
   },
   server: {
     proxy: {
+      '/api/auth': {
+        target: 'http://127.0.0.1:5000',
+        changeOrigin: true,
+      },
+      '/api/grimoire': {
+        target: 'http://127.0.0.1:5000',
+        changeOrigin: true,
+      },
       '/ws': {
         target: 'ws://127.0.0.1:8787',
         ws: true,
