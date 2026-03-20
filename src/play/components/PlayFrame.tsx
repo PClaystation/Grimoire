@@ -26,11 +26,12 @@ export function PlayFrame({
   children,
 }: PlayFrameProps) {
   return (
-    <div className="relative min-h-screen overflow-hidden px-4 py-6 text-ink-50 sm:px-6 lg:px-10 lg:py-8">
+    <div className="relative min-h-screen overflow-hidden bg-[linear-gradient(180deg,rgba(7,19,27,0.98)_0%,rgba(11,24,32,0.98)_48%,rgba(19,32,41,0.98)_100%)] px-4 py-6 text-ink-50 sm:px-6 lg:px-10 lg:py-8">
+      <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top_left,rgba(29,150,167,0.14),transparent_28%),radial-gradient(circle_at_top_right,rgba(223,107,11,0.12),transparent_24%)]" />
       <div className="mx-auto flex w-full max-w-[1520px] flex-col gap-6">
         <SiteNav connectionStatus={connectionStatus} />
 
-        <section className="relative overflow-hidden rounded-[2.6rem] border border-white/10 bg-ink-900/78 px-6 py-8 shadow-panel backdrop-blur-xl sm:px-8 sm:py-10">
+        <section className="relative overflow-hidden rounded-[2.6rem] border border-white/10 bg-ink-900/94 px-6 py-8 shadow-panel sm:px-8 sm:py-10">
           <div className="absolute -left-10 top-0 h-48 w-48 rounded-full bg-ember-500/14 blur-3xl" />
           <div className="absolute right-0 top-0 h-52 w-52 rounded-full bg-tide-500/16 blur-3xl" />
 

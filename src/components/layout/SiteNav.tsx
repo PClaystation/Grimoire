@@ -29,7 +29,7 @@ export function SiteNav({ connectionStatus, compact = false }: SiteNavProps) {
 
   return (
     <nav
-      className={`relative overflow-hidden rounded-[2rem] border border-white/10 bg-ink-900/78 shadow-panel backdrop-blur-xl ${
+      className={`relative overflow-hidden rounded-[2rem] border border-white/10 bg-ink-900/94 shadow-panel ${
         compact ? 'px-4 py-3 sm:px-5' : 'px-4 py-4 sm:px-6'
       }`}
     >
