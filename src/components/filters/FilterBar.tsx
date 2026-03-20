@@ -34,13 +34,19 @@ function hasValue(value: string) {
 function hasAdvancedFilters(filters: CardSearchFilters) {
   return (
     hasValue(filters.exactName) ||
+    hasValue(filters.subtype) ||
     hasValue(filters.oracleText) ||
     hasValue(filters.flavorText) ||
     hasValue(filters.keyword) ||
     hasValue(filters.artist) ||
     hasValue(filters.collectorNumber) ||
+    filters.color !== 'ANY' ||
     filters.colorIdentity !== 'ANY' ||
     filters.colorCount !== 'ANY' ||
+    filters.type !== 'ANY' ||
+    filters.manaValue !== 'ANY' ||
+    filters.rarity !== 'ANY' ||
+    filters.setCode !== 'ANY' ||
     hasValue(filters.manaValueMin) ||
     hasValue(filters.manaValueMax) ||
     filters.setType !== 'ANY' ||
@@ -146,6 +152,7 @@ export function FilterBar({
   onReset,
 }: FilterBarProps) {
   const [isAdvancedOpen, setIsAdvancedOpen] = useState(hasAdvancedFilters(filters))
+  const advancedFiltersApplied = hasAdvancedFilters(filters)
 
   function updateFilter<Key extends keyof CardSearchFilters>(
     key: Key,
@@ -169,7 +176,7 @@ export function FilterBar({
   return (
     <SectionPanel
       title="Search Cards"
-      subtitle="Search Scryfall by name, rules text, subtype tags, commander identity, stats, prices, release windows, and print treatments."
+      subtitle="Start with a fast Scryfall query, then open advanced filters only when you need to narrow the pool further."
       actions={
         <div className="inline-flex items-center gap-2 rounded-full border border-ember-400/25 bg-ember-500/10 px-3 py-1 text-xs font-medium text-ember-100">
           <Sparkles className="h-3.5 w-3.5" />
@@ -177,9 +184,9 @@ export function FilterBar({
         </div>
       }
     >
-      <form className="space-y-4" onSubmit={handleSubmit}>
-        <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4 2xl:grid-cols-10">
-          <label className="space-y-2 md:col-span-2 xl:col-span-2 2xl:col-span-2">
+      <form className="space-y-3" onSubmit={handleSubmit}>
+        <div className="grid gap-3 md:grid-cols-[minmax(0,1.8fr)_minmax(12rem,0.8fr)]">
+          <label className="space-y-2">
             <span className="text-sm font-medium text-ink-200">Card name or advanced query</span>
             <div className="flex items-center gap-3 rounded-2xl border border-white/10 bg-ink-800/80 px-4 py-3 focus-within:border-tide-400 focus-within:ring-2 focus-within:ring-tide-400/30">
               <Search className="h-4 w-4 text-ink-400" />
@@ -188,31 +195,6 @@ export function FilterBar({
                 value={filters.query}
                 onChange={handleSearchChange}
                 placeholder='Try Llanowar Elves, removal, or o:"draw a card"'
-                className="w-full border-none bg-transparent text-sm text-ink-50 outline-none placeholder:text-ink-400"
-              />
-            </div>
-          </label>
-
-          <label className="space-y-2">
-            <span className="text-sm font-medium text-ink-200">Exact name</span>
-            <input
-              type="text"
-              value={filters.exactName}
-              onChange={(event) => updateFilter('exactName', event.target.value)}
-              placeholder="Lightning Bolt"
-              className="w-full rounded-2xl border border-white/10 bg-ink-800/80 px-4 py-3 text-sm text-ink-50 outline-none transition placeholder:text-ink-400 focus:border-tide-400 focus:ring-2 focus:ring-tide-400/30"
-            />
-          </label>
-
-          <label className="space-y-2">
-            <span className="text-sm font-medium text-ink-200">Subtype or tag</span>
-            <div className="flex items-center gap-3 rounded-2xl border border-white/10 bg-ink-800/80 px-4 py-3 focus-within:border-tide-400 focus-within:ring-2 focus-within:ring-tide-400/30">
-              <Sparkles className="h-4 w-4 text-ink-400" />
-              <input
-                type="text"
-                value={filters.subtype}
-                onChange={(event) => updateFilter('subtype', event.target.value)}
-                placeholder="Wizard, Aura, Equipment"
                 className="w-full border-none bg-transparent text-sm text-ink-50 outline-none placeholder:text-ink-400"
               />
             </div>
@@ -232,103 +214,38 @@ export function FilterBar({
               ))}
             </select>
           </label>
+        </div>
 
-          <label className="space-y-2">
-            <span className="text-sm font-medium text-ink-200">Card color</span>
-            <select
-              value={filters.color}
-              onChange={(event) => updateFilter('color', event.target.value as CardSearchFilters['color'])}
-              className="w-full rounded-2xl border border-white/10 bg-ink-800/80 px-4 py-3 text-sm text-ink-50 outline-none transition focus:border-tide-400 focus:ring-2 focus:ring-tide-400/30"
-            >
-              {COLOR_FILTER_OPTIONS.map((option) => (
-                <option key={option.value} value={option.value}>
-                  {option.label}
-                </option>
-              ))}
-            </select>
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <label className="inline-flex items-center gap-3 rounded-2xl border border-white/10 bg-ink-800/55 px-4 py-3 text-sm text-ink-200">
+            <input
+              type="checkbox"
+              checked={filters.legalityOnly}
+              onChange={(event) => updateFilter('legalityOnly', event.target.checked)}
+              className="h-4 w-4 rounded border-white/20 bg-ink-900 text-tide-500 focus:ring-tide-400/30"
+            />
+            Legal in selected format only
           </label>
 
-          <label className="space-y-2">
-            <span className="text-sm font-medium text-ink-200">Color identity</span>
-            <select
-              value={filters.colorIdentity}
-              onChange={(event) =>
-                updateFilter('colorIdentity', event.target.value as CardSearchFilters['colorIdentity'])
-              }
-              className="w-full rounded-2xl border border-white/10 bg-ink-800/80 px-4 py-3 text-sm text-ink-50 outline-none transition focus:border-tide-400 focus:ring-2 focus:ring-tide-400/30"
+          <div className="flex flex-wrap items-center gap-3">
+            <button
+              type="button"
+              onClick={onReset}
+              className="inline-flex items-center gap-2 rounded-2xl border border-white/10 bg-ink-800 px-4 py-3 text-sm font-medium text-ink-200 transition hover:border-white/20 hover:bg-ink-700"
             >
-              {COLOR_IDENTITY_FILTER_OPTIONS.map((option) => (
-                <option key={option.value} value={option.value}>
-                  {option.label}
-                </option>
-              ))}
-            </select>
-          </label>
+              <RefreshCw className="h-4 w-4" />
+              Reset
+            </button>
 
-          <label className="space-y-2">
-            <span className="text-sm font-medium text-ink-200">Type</span>
-            <select
-              value={filters.type}
-              onChange={(event) => updateFilter('type', event.target.value as CardSearchFilters['type'])}
-              className="w-full rounded-2xl border border-white/10 bg-ink-800/80 px-4 py-3 text-sm text-ink-50 outline-none transition focus:border-tide-400 focus:ring-2 focus:ring-tide-400/30"
+            <button
+              type="submit"
+              disabled={isSearching}
+              className="inline-flex items-center gap-2 rounded-2xl bg-tide-500 px-5 py-3 text-sm font-semibold text-white transition hover:bg-tide-400 disabled:cursor-not-allowed disabled:opacity-60"
             >
-              {TYPE_FILTER_OPTIONS.map((option) => (
-                <option key={option.value} value={option.value}>
-                  {option.label}
-                </option>
-              ))}
-            </select>
-          </label>
-
-          <label className="space-y-2">
-            <span className="text-sm font-medium text-ink-200">Mana value</span>
-            <select
-              value={filters.manaValue}
-              onChange={(event) =>
-                updateFilter('manaValue', event.target.value as CardSearchFilters['manaValue'])
-              }
-              className="w-full rounded-2xl border border-white/10 bg-ink-800/80 px-4 py-3 text-sm text-ink-50 outline-none transition focus:border-tide-400 focus:ring-2 focus:ring-tide-400/30"
-            >
-              {MANA_VALUE_OPTIONS.map((option) => (
-                <option key={option.value} value={option.value}>
-                  {option.label}
-                </option>
-              ))}
-            </select>
-          </label>
-
-          <label className="space-y-2">
-            <span className="text-sm font-medium text-ink-200">Rarity</span>
-            <select
-              value={filters.rarity}
-              onChange={(event) =>
-                updateFilter('rarity', event.target.value as CardSearchFilters['rarity'])
-              }
-              className="w-full rounded-2xl border border-white/10 bg-ink-800/80 px-4 py-3 text-sm text-ink-50 outline-none transition focus:border-tide-400 focus:ring-2 focus:ring-tide-400/30"
-            >
-              {RARITY_FILTER_OPTIONS.map((option) => (
-                <option key={option.value} value={option.value}>
-                  {option.label}
-                </option>
-              ))}
-            </select>
-          </label>
-
-          <label className="space-y-2">
-            <span className="text-sm font-medium text-ink-200">Set</span>
-            <select
-              value={filters.setCode}
-              onChange={(event) => updateFilter('setCode', event.target.value)}
-              className="w-full rounded-2xl border border-white/10 bg-ink-800/80 px-4 py-3 text-sm text-ink-50 outline-none transition focus:border-tide-400 focus:ring-2 focus:ring-tide-400/30"
-            >
-              <option value="ANY">{areSetsLoading ? 'Loading sets...' : 'Any set'}</option>
-              {sets.map((set) => (
-                <option key={set.code} value={set.code}>
-                  {set.name}
-                </option>
-              ))}
-            </select>
-          </label>
+              <Search className="h-4 w-4" />
+              {isSearching ? 'Searching...' : 'Search Cards'}
+            </button>
+          </div>
         </div>
 
         <div className="rounded-[1.6rem] border border-white/10 bg-ink-900/55 p-4">
@@ -336,8 +253,8 @@ export function FilterBar({
             <div>
               <p className="text-sm font-semibold text-ink-100">Advanced Search</p>
               <p className="mt-1 max-w-3xl text-sm leading-6 text-ink-400">
-                Add exact-name, rules-text, artist, stat, price, release-year, mana-output, set-line,
-                and print-treatment filters. The main query box still accepts raw Scryfall syntax too.
+                Use this when you need exact text, subtype tags, color, set filters, prices,
+                release windows, and print treatments.
               </p>
             </div>
 
@@ -348,7 +265,7 @@ export function FilterBar({
               aria-expanded={isAdvancedOpen}
             >
               <SlidersHorizontal className="h-4 w-4" />
-              {isAdvancedOpen ? 'Hide filters' : 'More filters'}
+              {isAdvancedOpen ? 'Hide filters' : advancedFiltersApplied ? 'Show active filters' : 'More filters'}
               <ChevronDown
                 className={`h-4 w-4 transition ${isAdvancedOpen ? 'rotate-180' : ''}`.trim()}
               />
@@ -362,6 +279,31 @@ export function FilterBar({
                   Text Match
                 </p>
                 <div className="mt-3 grid gap-4 md:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-5">
+                  <label className="space-y-2">
+                    <span className="text-sm font-medium text-ink-200">Exact name</span>
+                    <input
+                      type="text"
+                      value={filters.exactName}
+                      onChange={(event) => updateFilter('exactName', event.target.value)}
+                      placeholder="Lightning Bolt"
+                      className="w-full rounded-2xl border border-white/10 bg-ink-800/80 px-4 py-3 text-sm text-ink-50 outline-none transition placeholder:text-ink-400 focus:border-tide-400 focus:ring-2 focus:ring-tide-400/30"
+                    />
+                  </label>
+
+                  <label className="space-y-2">
+                    <span className="text-sm font-medium text-ink-200">Subtype or tag</span>
+                    <div className="flex items-center gap-3 rounded-2xl border border-white/10 bg-ink-800/80 px-4 py-3 focus-within:border-tide-400 focus-within:ring-2 focus-within:ring-tide-400/30">
+                      <Sparkles className="h-4 w-4 text-ink-400" />
+                      <input
+                        type="text"
+                        value={filters.subtype}
+                        onChange={(event) => updateFilter('subtype', event.target.value)}
+                        placeholder="Wizard, Aura, Equipment"
+                        className="w-full border-none bg-transparent text-sm text-ink-50 outline-none placeholder:text-ink-400"
+                      />
+                    </div>
+                  </label>
+
                   <label className="space-y-2">
                     <span className="text-sm font-medium text-ink-200">Rules text</span>
                     <input
@@ -424,6 +366,103 @@ export function FilterBar({
                   Card Attributes
                 </p>
                 <div className="mt-3 grid gap-4 md:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-5">
+                  <label className="space-y-2">
+                    <span className="text-sm font-medium text-ink-200">Card color</span>
+                    <select
+                      value={filters.color}
+                      onChange={(event) => updateFilter('color', event.target.value as CardSearchFilters['color'])}
+                      className="w-full rounded-2xl border border-white/10 bg-ink-800/80 px-4 py-3 text-sm text-ink-50 outline-none transition focus:border-tide-400 focus:ring-2 focus:ring-tide-400/30"
+                    >
+                      {COLOR_FILTER_OPTIONS.map((option) => (
+                        <option key={option.value} value={option.value}>
+                          {option.label}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+
+                  <label className="space-y-2">
+                    <span className="text-sm font-medium text-ink-200">Color identity</span>
+                    <select
+                      value={filters.colorIdentity}
+                      onChange={(event) =>
+                        updateFilter('colorIdentity', event.target.value as CardSearchFilters['colorIdentity'])
+                      }
+                      className="w-full rounded-2xl border border-white/10 bg-ink-800/80 px-4 py-3 text-sm text-ink-50 outline-none transition focus:border-tide-400 focus:ring-2 focus:ring-tide-400/30"
+                    >
+                      {COLOR_IDENTITY_FILTER_OPTIONS.map((option) => (
+                        <option key={option.value} value={option.value}>
+                          {option.label}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+
+                  <label className="space-y-2">
+                    <span className="text-sm font-medium text-ink-200">Type</span>
+                    <select
+                      value={filters.type}
+                      onChange={(event) => updateFilter('type', event.target.value as CardSearchFilters['type'])}
+                      className="w-full rounded-2xl border border-white/10 bg-ink-800/80 px-4 py-3 text-sm text-ink-50 outline-none transition focus:border-tide-400 focus:ring-2 focus:ring-tide-400/30"
+                    >
+                      {TYPE_FILTER_OPTIONS.map((option) => (
+                        <option key={option.value} value={option.value}>
+                          {option.label}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+
+                  <label className="space-y-2">
+                    <span className="text-sm font-medium text-ink-200">Mana value</span>
+                    <select
+                      value={filters.manaValue}
+                      onChange={(event) =>
+                        updateFilter('manaValue', event.target.value as CardSearchFilters['manaValue'])
+                      }
+                      className="w-full rounded-2xl border border-white/10 bg-ink-800/80 px-4 py-3 text-sm text-ink-50 outline-none transition focus:border-tide-400 focus:ring-2 focus:ring-tide-400/30"
+                    >
+                      {MANA_VALUE_OPTIONS.map((option) => (
+                        <option key={option.value} value={option.value}>
+                          {option.label}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+
+                  <label className="space-y-2">
+                    <span className="text-sm font-medium text-ink-200">Rarity</span>
+                    <select
+                      value={filters.rarity}
+                      onChange={(event) =>
+                        updateFilter('rarity', event.target.value as CardSearchFilters['rarity'])
+                      }
+                      className="w-full rounded-2xl border border-white/10 bg-ink-800/80 px-4 py-3 text-sm text-ink-50 outline-none transition focus:border-tide-400 focus:ring-2 focus:ring-tide-400/30"
+                    >
+                      {RARITY_FILTER_OPTIONS.map((option) => (
+                        <option key={option.value} value={option.value}>
+                          {option.label}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+
+                  <label className="space-y-2">
+                    <span className="text-sm font-medium text-ink-200">Set</span>
+                    <select
+                      value={filters.setCode}
+                      onChange={(event) => updateFilter('setCode', event.target.value)}
+                      className="w-full rounded-2xl border border-white/10 bg-ink-800/80 px-4 py-3 text-sm text-ink-50 outline-none transition focus:border-tide-400 focus:ring-2 focus:ring-tide-400/30"
+                    >
+                      <option value="ANY">{areSetsLoading ? 'Loading sets...' : 'Any set'}</option>
+                      {sets.map((set) => (
+                        <option key={set.code} value={set.code}>
+                          {set.name}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+
                   <label className="space-y-2">
                     <span className="text-sm font-medium text-ink-200">Color count</span>
                     <select
@@ -598,17 +637,7 @@ export function FilterBar({
         </div>
 
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-          <label className="inline-flex items-center gap-3 rounded-2xl border border-white/10 bg-ink-800/55 px-4 py-3 text-sm text-ink-200">
-            <input
-              type="checkbox"
-              checked={filters.legalityOnly}
-              onChange={(event) => updateFilter('legalityOnly', event.target.checked)}
-              className="h-4 w-4 rounded border-white/20 bg-ink-900 text-tide-500 focus:ring-tide-400/30"
-            />
-            Legal in selected format only
-          </label>
-
-          <div className="flex flex-wrap items-center gap-3">
+          <div>
             {setsError ? (
               <p className="text-sm text-ember-300">{setsError}</p>
             ) : (
@@ -616,24 +645,6 @@ export function FilterBar({
                 Set data and images are loaded live from Scryfall.
               </p>
             )}
-
-            <button
-              type="button"
-              onClick={onReset}
-              className="inline-flex items-center gap-2 rounded-2xl border border-white/10 bg-ink-800 px-4 py-3 text-sm font-medium text-ink-200 transition hover:border-white/20 hover:bg-ink-700"
-            >
-              <RefreshCw className="h-4 w-4" />
-              Reset
-            </button>
-
-            <button
-              type="submit"
-              disabled={isSearching}
-              className="inline-flex items-center gap-2 rounded-2xl bg-tide-500 px-5 py-3 text-sm font-semibold text-white transition hover:bg-tide-400 disabled:cursor-not-allowed disabled:opacity-60"
-            >
-              <Search className="h-4 w-4" />
-              {isSearching ? 'Searching...' : 'Search Cards'}
-            </button>
           </div>
         </div>
       </form>

@@ -124,10 +124,10 @@ function buildActiveChips(filters: CardSearchFilters): string[] {
   if (filters.setCode !== 'ANY') {
     chips.push(filters.setCode.toUpperCase())
   }
-  if (filters.setType !== 'ANY') {
+  if (filters.setType && filters.setType !== 'ANY') {
     chips.push(`Set type ${filters.setType.replace(/_/g, ' ')}`)
   }
-  if (filters.layout !== 'ANY') {
+  if (filters.layout && filters.layout !== 'ANY') {
     chips.push(filters.layout.replace(/_/g, ' '))
   }
   if (filters.manaProduced !== 'ANY') {

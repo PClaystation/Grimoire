@@ -12,7 +12,7 @@ import { PlaytestModal } from '@/components/deck/PlaytestModal'
 import { FilterBar } from '@/components/filters/FilterBar'
 import { AppHeader } from '@/components/layout/AppHeader'
 import { SiteNav } from '@/components/layout/SiteNav'
-import { DEFAULT_FILTERS } from '@/constants/mtg'
+import { DEFAULT_FILTERS, normalizeCardSearchFilters } from '@/constants/mtg'
 import { useDeckRepository } from '@/decks/useDeckRepository'
 import { useCardSearch } from '@/hooks/useCardSearch'
 import { useCardSets } from '@/hooks/useCardSets'
@@ -36,8 +36,12 @@ async function resolveImportedDeck(input: string, fallbackFormat: DeckFormat) {
 }
 
 function App() {
-  const [draftFilters, setDraftFilters] = useState<CardSearchFilters>(DEFAULT_FILTERS)
-  const [appliedFilters, setAppliedFilters] = useState<CardSearchFilters>(DEFAULT_FILTERS)
+  const [draftFilters, setDraftFilters] = useState<CardSearchFilters>(() =>
+    normalizeCardSearchFilters(DEFAULT_FILTERS),
+  )
+  const [appliedFilters, setAppliedFilters] = useState<CardSearchFilters>(() =>
+    normalizeCardSearchFilters(DEFAULT_FILTERS),
+  )
   const [selectedCard, setSelectedCard] = useState<MagicCard | null>(null)
   const [statusMessage, setStatusMessage] = useState<string | null>(null)
   const [sortBy, setSortBy] = useState<CardSortOption>('RELEVANCE')
@@ -54,6 +58,8 @@ function App() {
     errorMessage: authErrorMessage,
   } = useAuth()
   const deckRepository = useDeckRepository()
+  const normalizedDraftFilters = normalizeCardSearchFilters(draftFilters)
+  const normalizedAppliedFilters = normalizeCardSearchFilters(appliedFilters)
 
   const {
     mainboard,
@@ -99,7 +105,7 @@ function App() {
     hasMore,
     isLoading: isSearching,
     error: searchError,
-  } = useCardSearch(appliedFilters, sortBy, currentPage)
+  } = useCardSearch(normalizedAppliedFilters, sortBy, currentPage)
   const { sets, isLoading: areSetsLoading, error: setsError } = useCardSets()
 
   const deckStats = getDeckStats(mainboard, sideboard, format, budgetTargetUsd)
@@ -115,11 +121,11 @@ function App() {
 
   function syncFiltersToFormat(nextFormat: DeckFormat) {
     setDraftFilters((currentFilters) => ({
-      ...currentFilters,
+      ...normalizeCardSearchFilters(currentFilters),
       format: nextFormat,
     }))
     setAppliedFilters((currentFilters) => ({
-      ...currentFilters,
+      ...normalizeCardSearchFilters(currentFilters),
       format: nextFormat,
     }))
     setCurrentPage(1)
@@ -171,11 +177,11 @@ function App() {
 
         replaceDeck(importedDeck.deck)
         setDraftFilters((currentFilters) => ({
-          ...currentFilters,
+          ...normalizeCardSearchFilters(currentFilters),
           format: importedDeck.deck.format,
         }))
         setAppliedFilters((currentFilters) => ({
-          ...currentFilters,
+          ...normalizeCardSearchFilters(currentFilters),
           format: importedDeck.deck.format,
         }))
         setCurrentPage(1)
@@ -200,12 +206,12 @@ function App() {
 
   function handleApplyFilters() {
     setCurrentPage(1)
-    setAppliedFilters({ ...draftFilters })
+    setAppliedFilters(normalizeCardSearchFilters(normalizedDraftFilters))
   }
 
   function handleResetFilters() {
     const nextFilters: CardSearchFilters = {
-      ...DEFAULT_FILTERS,
+      ...normalizeCardSearchFilters(DEFAULT_FILTERS),
       format,
     }
 
@@ -475,7 +481,7 @@ function App() {
 
         {activeWorkspaceTab === 'browser' ? (
           <FilterBar
-            filters={draftFilters}
+            filters={normalizedDraftFilters}
             onFiltersChange={setDraftFilters}
             onApply={handleApplyFilters}
             onReset={handleResetFilters}
@@ -533,7 +539,7 @@ function App() {
               className="order-1 xl:order-1"
               cards={cards}
               totalCards={totalCards}
-              filters={appliedFilters}
+              filters={normalizedAppliedFilters}
               sortBy={sortBy}
               currentPage={currentPage}
               hasMore={hasMore}

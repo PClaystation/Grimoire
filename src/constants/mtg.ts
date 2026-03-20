@@ -53,6 +53,17 @@ export const DEFAULT_FILTERS: CardSearchFilters = {
   retroFrameOnly: false,
 }
 
+export function normalizeCardSearchFilters(
+  filters: Partial<CardSearchFilters> | null | undefined,
+): CardSearchFilters {
+  return {
+    ...DEFAULT_FILTERS,
+    ...Object.fromEntries(
+      Object.entries(filters ?? {}).filter(([, value]) => value !== undefined),
+    ),
+  } as CardSearchFilters
+}
+
 export const DECK_FORMAT_OPTIONS: Array<{
   value: DeckFormat
   label: string

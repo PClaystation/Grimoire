@@ -250,23 +250,41 @@ export function CardDetailsModal({
               </div>
             </div>
 
-            <div className="grid gap-3 sm:grid-cols-2">
+            <div className="space-y-3">
+              <p className="text-sm text-ink-300">
+                Most cards belong in your deck. Use the smaller sideboard action only for matchup
+                swaps.
+              </p>
               <button
                 type="button"
                 onClick={() => onAddToMainboard(activeCard)}
-                className="inline-flex w-full items-center justify-center gap-2 rounded-2xl bg-tide-500 px-5 py-4 text-sm font-semibold text-white transition hover:bg-tide-400"
+                className="inline-flex w-full items-center justify-between gap-4 rounded-[1.75rem] bg-gradient-to-r from-tide-500 via-cyan-500 to-sky-400 px-5 py-4 text-left text-white shadow-lg shadow-tide-950/30 ring-1 ring-white/15 transition hover:from-tide-400 hover:via-cyan-400 hover:to-sky-300"
               >
-                <Plus className="h-4 w-4" />
-                Add to Mainboard
+                <span className="flex items-center gap-3">
+                  <span className="flex h-11 w-11 items-center justify-center rounded-2xl bg-white/15 ring-1 ring-white/15">
+                    <Plus className="h-5 w-5" />
+                  </span>
+                  <span className="flex flex-col">
+                    <span className="text-base font-semibold">Add to Deck</span>
+                    <span className="text-xs font-medium uppercase tracking-[0.18em] text-white/75">
+                      Mainboard
+                    </span>
+                  </span>
+                </span>
+                <span className="hidden text-xs font-semibold uppercase tracking-[0.18em] text-white/80 sm:block">
+                  Primary action
+                </span>
               </button>
-              <button
-                type="button"
-                onClick={() => onAddToSideboard(activeCard)}
-                className="inline-flex w-full items-center justify-center gap-2 rounded-2xl border border-ember-400/20 bg-ember-500/10 px-5 py-4 text-sm font-semibold text-ember-100 transition hover:border-ember-400/35 hover:bg-ember-500/15"
-              >
-                <Plus className="h-4 w-4" />
-                Add to Sideboard
-              </button>
+              <div className="flex justify-end">
+                <button
+                  type="button"
+                  onClick={() => onAddToSideboard(activeCard)}
+                  className="inline-flex items-center justify-center gap-2 rounded-xl border border-ember-400/25 bg-ember-500/10 px-4 py-2.5 text-xs font-semibold uppercase tracking-[0.14em] text-ember-100 transition hover:border-ember-400/40 hover:bg-ember-500/15"
+                >
+                  <Plus className="h-3.5 w-3.5" />
+                  Add to Sideboard
+                </button>
+              </div>
             </div>
           </div>
         </div>

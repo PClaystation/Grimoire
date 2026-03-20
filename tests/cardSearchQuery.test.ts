@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
 
-import { DEFAULT_FILTERS } from '../src/constants/mtg.ts'
+import { DEFAULT_FILTERS, normalizeCardSearchFilters } from '../src/constants/mtg.ts'
 import type { TableCardSnapshot } from '../src/shared/play.ts'
 import { buildSearchQuery, buildSearchRequestConfig } from '../src/utils/cardSearchQuery.ts'
 import { filterLibraryCards } from '../src/utils/playCardLibrarySearch.ts'
@@ -111,6 +111,20 @@ test('buildSearchRequestConfig switches to print searches for print-specific fil
     dir: 'desc',
     unique: 'prints',
   })
+})
+
+test('normalizeCardSearchFilters restores missing advanced filter keys for treatment searches', () => {
+  const filters = normalizeCardSearchFilters({
+    format: 'standard',
+    legalityOnly: true,
+    fullArtOnly: true,
+    borderlessOnly: true,
+  })
+
+  assert.equal(filters.setType, 'ANY')
+  assert.equal(filters.layout, 'ANY')
+  assert.match(buildSearchQuery(filters), /is:fullart/)
+  assert.match(buildSearchQuery(filters), /is:borderless/)
 })
 
 test('filterLibraryCards supports fielded search tokens and preserves deck order by default', () => {
