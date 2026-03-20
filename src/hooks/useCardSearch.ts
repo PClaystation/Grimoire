@@ -22,16 +22,18 @@ export function useCardSearch(
   const [hasMore, setHasMore] = useState(false)
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const filtersKey = JSON.stringify(filters)
 
   useEffect(() => {
     const controller = new AbortController()
+    const stableFilters = JSON.parse(filtersKey) as CardSearchFilters
 
     async function runSearch() {
       setIsLoading(true)
       setError(null)
 
       try {
-        const result = await searchCards(filters, sortBy, page, controller.signal)
+        const result = await searchCards(stableFilters, sortBy, page, controller.signal)
         setCards(result.cards)
         setTotalCards(result.totalCards)
         setHasMore(result.hasMore)
@@ -60,7 +62,7 @@ export function useCardSearch(
     return () => {
       controller.abort()
     }
-  }, [filters, sortBy, page])
+  }, [filtersKey, sortBy, page])
 
   return {
     cards,

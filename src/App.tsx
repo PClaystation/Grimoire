@@ -58,8 +58,6 @@ function App() {
     errorMessage: authErrorMessage,
   } = useAuth()
   const deckRepository = useDeckRepository()
-  const normalizedDraftFilters = normalizeCardSearchFilters(draftFilters)
-  const normalizedAppliedFilters = normalizeCardSearchFilters(appliedFilters)
 
   const {
     mainboard,
@@ -105,7 +103,7 @@ function App() {
     hasMore,
     isLoading: isSearching,
     error: searchError,
-  } = useCardSearch(normalizedAppliedFilters, sortBy, currentPage)
+  } = useCardSearch(appliedFilters, sortBy, currentPage)
   const { sets, isLoading: areSetsLoading, error: setsError } = useCardSets()
 
   const deckStats = getDeckStats(mainboard, sideboard, format, budgetTargetUsd)
@@ -206,7 +204,7 @@ function App() {
 
   function handleApplyFilters() {
     setCurrentPage(1)
-    setAppliedFilters(normalizeCardSearchFilters(normalizedDraftFilters))
+    setAppliedFilters(normalizeCardSearchFilters(draftFilters))
   }
 
   function handleResetFilters() {
@@ -481,7 +479,7 @@ function App() {
 
         {activeWorkspaceTab === 'browser' ? (
           <FilterBar
-            filters={normalizedDraftFilters}
+            filters={draftFilters}
             onFiltersChange={setDraftFilters}
             onApply={handleApplyFilters}
             onReset={handleResetFilters}
@@ -539,7 +537,7 @@ function App() {
               className="order-1 xl:order-1"
               cards={cards}
               totalCards={totalCards}
-              filters={normalizedAppliedFilters}
+              filters={appliedFilters}
               sortBy={sortBy}
               currentPage={currentPage}
               hasMore={hasMore}

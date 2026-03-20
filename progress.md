@@ -143,3 +143,9 @@ Original prompt: You are extending an existing MTG deckbuilder web app into an o
   - Confirmed by source search that no `backdrop-blur`, `blur-3xl`, `mask-image`, or `body::before` usage remains anywhere under `src/`.
   - Ran the required `develop-web-game` smoke client against `http://127.0.0.1:8787/play`.
   - Captured fresh local screenshots for `/play` and `/play/create` in `tmp-debug/play-home.png` and `tmp-debug/play-create.png` and visually reviewed them.
+- Search-loop fix:
+  - Confirmed an actual render-triggered request loop in the deckbuilder search path: `App` was re-normalizing filters on every render and `useCardSearch` depended on the filter object by identity, so equal filter values could still retrigger the search effect continuously.
+  - Switched `App` to pass the stable filter state directly and updated `useCardSearch` to key its effect off a serialized filter signature instead of raw object identity.
+  - Verification:
+    - `npm run build` passed.
+    - `npm run lint` passed.
