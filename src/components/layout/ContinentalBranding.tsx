@@ -13,7 +13,7 @@ export function ContinentalBranding({
   if (variant === 'nav') {
     return (
       <div className={`flex items-center gap-3 ${className}`.trim()}>
-        <div className="flex h-11 w-11 items-center justify-center rounded-2xl border border-white/10 bg-white/6 p-2 shadow-card">
+        <div className="flex h-11 w-11 items-center justify-center rounded-2xl border border-white/10 bg-[linear-gradient(180deg,rgba(255,255,255,0.08),rgba(255,255,255,0.03))] p-2 shadow-card ring-1 ring-white/5">
           <img src={MARK_SRC} alt="Continental logo" className="h-full w-full object-contain" />
         </div>
 
@@ -27,9 +27,9 @@ export function ContinentalBranding({
 
   return (
     <div
-      className={`mt-6 inline-flex w-full max-w-[23rem] items-center gap-4 rounded-[1.5rem] border border-white/10 bg-ink-900/92 px-4 py-3.5 text-left shadow-card sm:w-auto ${className}`.trim()}
+      className={`mt-6 inline-flex w-full max-w-[23rem] items-center gap-4 rounded-[1.5rem] border border-white/10 bg-[linear-gradient(180deg,rgba(21,39,48,0.96),rgba(11,25,33,0.98))] px-4 py-3.5 text-left shadow-card ring-1 ring-white/5 sm:w-auto ${className}`.trim()}
     >
-      <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl border border-white/10 bg-white/6 p-2">
+      <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl border border-tide-400/20 bg-[linear-gradient(180deg,rgba(29,150,167,0.18),rgba(255,255,255,0.04))] p-2">
         <img src={MARK_SRC} alt="" aria-hidden="true" className="h-full w-full object-contain" />
       </div>
 

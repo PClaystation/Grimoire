@@ -24,11 +24,11 @@ export function ContinentalAccountPanel({
   const hasWarning = Boolean(errorMessage) || isUsingCloudCache || isSyncPending
   const containerClassName = hasWarning
     ? isUsingCloudCache || errorMessage
-      ? 'border-rose-400/20 bg-rose-500/10'
-      : 'border-amber-400/20 bg-amber-500/10'
+      ? 'border-rose-400/20 bg-[linear-gradient(180deg,rgba(244,63,94,0.12),rgba(15,29,37,0.98))]'
+      : 'border-amber-400/20 bg-[linear-gradient(180deg,rgba(245,158,11,0.12),rgba(15,29,37,0.98))]'
     : isAuthenticated
-      ? 'border-emerald-400/20 bg-emerald-500/10'
-      : 'border-white/10 bg-ink-900/72'
+      ? 'border-emerald-400/20 bg-[linear-gradient(180deg,rgba(16,185,129,0.12),rgba(15,29,37,0.98))]'
+      : 'border-white/10 bg-[linear-gradient(180deg,rgba(19,36,45,0.94),rgba(10,22,29,0.98))]'
   const badgeClassName = hasWarning
     ? isUsingCloudCache || errorMessage
       ? 'border-rose-400/25 bg-rose-500/12 text-rose-100'
@@ -70,9 +70,10 @@ export function ContinentalAccountPanel({
 
   return (
     <section
-      className={`rounded-[1.6rem] border px-4 py-3 shadow-panel sm:px-5 ${containerClassName}`}
+      className={`relative isolate overflow-hidden rounded-[1.6rem] border px-4 py-3 shadow-panel ring-1 ring-white/5 sm:px-5 ${containerClassName}`}
     >
-      <div className="flex flex-wrap items-start gap-3">
+      <div className="pointer-events-none absolute inset-x-0 top-0 h-16 bg-[radial-gradient(circle_at_top_left,rgba(255,255,255,0.08),transparent_60%)]" />
+      <div className="relative flex flex-wrap items-start gap-3">
         <span
           className={`inline-flex items-center gap-2 rounded-full border px-3 py-1 text-xs font-semibold uppercase tracking-[0.18em] ${badgeClassName}`}
         >

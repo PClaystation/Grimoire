@@ -149,3 +149,12 @@ Original prompt: You are extending an existing MTG deckbuilder web app into an o
   - Verification:
     - `npm run build` passed.
     - `npm run lint` passed.
+- Visual cleanup and polish pass:
+  - Reworked the global background so the grid texture is softer and the page regains atmospheric depth without the heavy, glitch-prone glass look.
+  - Upgraded the shared shell surfaces (`SiteNav`, `AppHeader`, `SectionPanel`, account banner, play hero frame, branding cards) from flat dark fills to layered gradients and subtle highlight rings, restoring hierarchy after the previous stabilization pass flattened too much of the UI.
+  - Refined the deckbuilder workspace switcher into a proper control band and tuned the play pages so the hero area has a right-hand information rail instead of a large empty slab on simpler routes like create/join.
+  - Updated the main play page cards and forms to match the new surface treatment so the shell and inner content no longer look like they belong to different visual systems.
+  - Verification:
+    - `npm run build` passed.
+    - `npm run lint` passed.
+    - Captured and visually reviewed fresh screenshots for desktop and mobile in `tmp-visual-audit/desktop-home-top.png`, `tmp-visual-audit/desktop-play-home.png`, `tmp-visual-audit/desktop-play-create.png`, `tmp-visual-audit/mobile-home-top.png`, and `tmp-visual-audit/mobile-play-create-top.png`.

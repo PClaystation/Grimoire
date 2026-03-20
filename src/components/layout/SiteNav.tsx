@@ -29,11 +29,13 @@ export function SiteNav({ connectionStatus, compact = false }: SiteNavProps) {
 
   return (
     <nav
-      className={`relative overflow-hidden rounded-[2rem] border border-white/10 bg-ink-900/94 shadow-panel ${
+      className={`relative isolate overflow-hidden rounded-[2rem] border border-white/10 bg-[linear-gradient(180deg,rgba(16,31,39,0.96),rgba(10,22,29,0.96))] shadow-panel ring-1 ring-white/5 ${
         compact ? 'px-4 py-3 sm:px-5' : 'px-4 py-4 sm:px-6'
       }`}
     >
+      <div className="absolute inset-x-0 top-0 h-px bg-white/10" />
       <div className="absolute inset-y-0 left-0 w-40 bg-gradient-to-r from-tide-500/14 via-tide-500/6 to-transparent" />
+      <div className="absolute right-0 top-0 h-20 w-48 bg-[radial-gradient(circle_at_top_right,rgba(223,107,11,0.14),transparent_56%)]" />
 
       <div
         className={`relative flex flex-col md:flex-row md:items-center md:justify-between ${

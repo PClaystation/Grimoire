@@ -52,7 +52,7 @@ export function PlayRoomPage() {
         error={error}
         onDismissError={clearError}
       >
-        <section className="rounded-[2rem] border border-white/10 bg-ink-900/82 p-6 shadow-panel">
+        <section className="rounded-[2rem] border border-white/10 bg-[linear-gradient(180deg,rgba(18,33,41,0.96),rgba(11,24,31,0.99))] p-6 shadow-panel ring-1 ring-white/5">
           <p className="text-sm text-ink-300">No matching room is loaded in this browser right now.</p>
           <div className="mt-4 flex flex-wrap gap-3">
             <Link
@@ -121,7 +121,7 @@ export function PlayRoomPage() {
       }
     >
       <div className="grid gap-6 xl:grid-cols-[minmax(0,1.05fr)_32rem]">
-        <section className="rounded-[2rem] border border-white/10 bg-ink-900/82 p-6 shadow-panel">
+        <section className="rounded-[2rem] border border-white/10 bg-[linear-gradient(180deg,rgba(18,33,41,0.96),rgba(11,24,31,0.99))] p-6 shadow-panel ring-1 ring-white/5">
           <div className="flex flex-wrap items-start justify-between gap-4">
             <div>
               <p className="text-xs font-semibold uppercase tracking-[0.22em] text-ink-400">
@@ -152,7 +152,7 @@ export function PlayRoomPage() {
                 className={`rounded-[1.6rem] border p-5 ${
                   player.id === room.localPlayerId
                     ? 'border-tide-400/20 bg-tide-500/10'
-                    : 'border-white/10 bg-white/5'
+                    : 'border-white/10 bg-white/[0.04]'
                 }`}
               >
                 <div className="flex flex-wrap items-start justify-between gap-3">
@@ -195,7 +195,7 @@ export function PlayRoomPage() {
             ))}
           </div>
 
-          <div className="mt-5 rounded-[1.6rem] border border-white/10 bg-white/5 p-5">
+          <div className="mt-5 rounded-[1.6rem] border border-white/10 bg-white/[0.04] p-5">
             <p className="text-sm text-ink-300">
               {everyoneReady
                 ? isHost
@@ -216,7 +216,7 @@ export function PlayRoomPage() {
           ) : null}
         </section>
 
-        <section className="rounded-[2rem] border border-white/10 bg-ink-900/82 p-6 shadow-panel">
+        <section className="rounded-[2rem] border border-white/10 bg-[linear-gradient(180deg,rgba(18,33,41,0.96),rgba(11,24,31,0.99))] p-6 shadow-panel ring-1 ring-white/5">
           <div className="flex items-start justify-between gap-4">
             <div>
               <p className="text-xs font-semibold uppercase tracking-[0.22em] text-ink-400">
@@ -230,7 +230,7 @@ export function PlayRoomPage() {
           </div>
 
           {isSavedDecksLoading ? (
-            <div className="mt-5 rounded-[1.6rem] border border-white/10 bg-white/5 p-5">
+            <div className="mt-5 rounded-[1.6rem] border border-white/10 bg-white/[0.04] p-5">
               <p className="text-sm text-ink-300">
                 Loading the current deck repository for this browser session.
               </p>
@@ -249,7 +249,7 @@ export function PlayRoomPage() {
                     className={`rounded-[1.5rem] border px-4 py-4 text-left transition ${
                       isSelected
                         ? 'border-tide-400/30 bg-tide-500/12'
-                        : 'border-white/10 bg-white/5 hover:bg-white/8'
+                        : 'border-white/10 bg-white/[0.04] hover:bg-white/[0.08]'
                     }`}
                   >
                     <div className="flex items-start justify-between gap-3">
@@ -279,7 +279,7 @@ export function PlayRoomPage() {
               })}
             </div>
           ) : (
-            <div className="mt-5 rounded-[1.6rem] border border-white/10 bg-white/5 p-5">
+            <div className="mt-5 rounded-[1.6rem] border border-white/10 bg-white/[0.04] p-5">
               <p className="text-sm text-ink-300">
                 This browser does not have any saved decks available yet. Build one in the
                 deckbuilder first, then come back and select it here. If you are signed in, synced

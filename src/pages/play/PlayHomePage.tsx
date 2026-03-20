@@ -1,5 +1,6 @@
-import { ArrowRight, PlusCircle, RadioTower } from 'lucide-react'
+import { ArrowRight, EyeOff, PlusCircle, RadioTower, Rows3, WandSparkles } from 'lucide-react'
 import { Link } from 'react-router-dom'
+import type { ReactNode } from 'react'
 
 import { PlayFrame } from '@/play/components/PlayFrame'
 import { usePlay } from '@/play/usePlay'
@@ -35,24 +36,27 @@ export function PlayHomePage() {
       }
     >
       <div className="grid gap-6 xl:grid-cols-[minmax(0,1.15fr)_28rem]">
-        <section className="rounded-[2rem] border border-white/10 bg-ink-900/82 p-6 shadow-panel">
+        <section className="rounded-[2rem] border border-white/10 bg-[linear-gradient(180deg,rgba(18,33,41,0.95),rgba(11,24,31,0.99))] p-6 shadow-panel ring-1 ring-white/5">
           <div className="grid gap-4 md:grid-cols-3">
             <FeatureCard
+              icon={<EyeOff className="h-4 w-4" />}
               title="Private hand sync"
               description="Each browser only receives that player’s hand contents. Everyone else sees hand counts only."
             />
             <FeatureCard
+              icon={<Rows3 className="h-4 w-4" />}
               title="Shared table state"
               description="Battlefield, graveyard, exile, life totals, and library counts stay synchronized over WebSockets."
             />
             <FeatureCard
+              icon={<WandSparkles className="h-4 w-4" />}
               title="Manual first"
               description="Players move cards, tap permanents, and adjust life totals without a full MTG rules engine."
             />
           </div>
         </section>
 
-        <section className="rounded-[2rem] border border-white/10 bg-ink-900/82 p-6 shadow-panel">
+        <section className="rounded-[2rem] border border-white/10 bg-[linear-gradient(180deg,rgba(18,33,41,0.95),rgba(11,24,31,0.99))] p-6 shadow-panel ring-1 ring-white/5">
           <p className="text-xs font-semibold uppercase tracking-[0.22em] text-ink-400">
             Current session
           </p>
@@ -72,7 +76,7 @@ export function PlayHomePage() {
               actionLabel="Open lobby"
             />
           ) : (
-            <div className="mt-4 rounded-[1.5rem] border border-white/10 bg-white/5 p-4">
+            <div className="mt-4 rounded-[1.5rem] border border-white/10 bg-white/[0.04] p-4">
               <p className="text-sm text-ink-300">
                 No active room is attached to this browser right now.
               </p>
@@ -84,9 +88,20 @@ export function PlayHomePage() {
   )
 }
 
-function FeatureCard({ title, description }: { title: string; description: string }) {
+function FeatureCard({
+  icon,
+  title,
+  description,
+}: {
+  icon: ReactNode
+  title: string
+  description: string
+}) {
   return (
-    <article className="rounded-[1.6rem] border border-white/10 bg-white/5 p-5">
+    <article className="rounded-[1.6rem] border border-white/10 bg-[linear-gradient(180deg,rgba(255,255,255,0.06),rgba(255,255,255,0.03))] p-5">
+      <div className="inline-flex rounded-full border border-white/10 bg-white/[0.06] p-2 text-tide-100">
+        {icon}
+      </div>
       <h2 className="text-lg font-semibold text-ink-50">{title}</h2>
       <p className="mt-3 text-sm leading-7 text-ink-300">{description}</p>
     </article>
@@ -105,7 +120,7 @@ function ResumeCard({
   actionLabel: string
 }) {
   return (
-    <div className="mt-4 rounded-[1.6rem] border border-tide-400/20 bg-tide-500/10 p-5">
+    <div className="mt-4 rounded-[1.6rem] border border-tide-400/20 bg-[linear-gradient(180deg,rgba(29,150,167,0.14),rgba(255,255,255,0.03))] p-5">
       <h2 className="text-lg font-semibold text-ink-50">{title}</h2>
       <p className="mt-3 text-sm leading-7 text-ink-300">{description}</p>
       <Link

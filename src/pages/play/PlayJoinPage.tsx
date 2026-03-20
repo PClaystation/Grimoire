@@ -41,7 +41,7 @@ export function PlayJoinPage() {
       error={error}
       onDismissError={clearError}
     >
-      <section className="mx-auto w-full max-w-3xl rounded-[2rem] border border-white/10 bg-ink-900/82 p-6 shadow-panel sm:p-7">
+      <section className="mx-auto w-full max-w-3xl rounded-[2rem] border border-white/10 bg-[linear-gradient(180deg,rgba(18,33,41,0.96),rgba(11,24,31,0.99))] p-6 shadow-panel ring-1 ring-white/5 sm:p-7">
         <form
           className="grid gap-5"
           onSubmit={(event) => {
@@ -60,7 +60,7 @@ export function PlayJoinPage() {
               placeholder="Planeswalker"
               autoComplete="nickname"
               maxLength={PLAYER_NAME_MAX_LENGTH}
-              className="rounded-[1.2rem] border border-white/10 bg-white/5 px-4 py-3 text-base text-ink-50 outline-none transition focus:border-tide-400/40 focus:bg-white/7"
+              className="rounded-[1.2rem] border border-white/10 bg-white/[0.04] px-4 py-3 text-base text-ink-50 outline-none transition focus:border-tide-400/40 focus:bg-white/[0.07]"
             />
           </label>
 
@@ -77,7 +77,7 @@ export function PlayJoinPage() {
               autoComplete="off"
               spellCheck={false}
               maxLength={ROOM_CODE_LENGTH}
-              className="rounded-[1.2rem] border border-white/10 bg-white/5 px-4 py-3 text-base uppercase tracking-[0.18em] text-ink-50 outline-none transition focus:border-ember-400/40 focus:bg-white/7"
+              className="rounded-[1.2rem] border border-white/10 bg-white/[0.04] px-4 py-3 text-base uppercase tracking-[0.18em] text-ink-50 outline-none transition focus:border-ember-400/40 focus:bg-white/[0.07]"
             />
           </label>
 

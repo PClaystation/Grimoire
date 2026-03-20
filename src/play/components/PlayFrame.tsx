@@ -25,16 +25,23 @@ export function PlayFrame({
   actions,
   children,
 }: PlayFrameProps) {
+  const statusToneClassName =
+    connectionStatus === 'connected'
+      ? 'border-emerald-400/25 bg-emerald-500/10 text-emerald-100'
+      : connectionStatus === 'connecting'
+        ? 'border-amber-400/25 bg-amber-500/10 text-amber-100'
+        : 'border-rose-400/25 bg-rose-500/10 text-rose-100'
+
   return (
-    <div className="relative min-h-screen overflow-hidden bg-[linear-gradient(180deg,rgba(7,19,27,0.98)_0%,rgba(11,24,32,0.98)_48%,rgba(19,32,41,0.98)_100%)] px-4 py-6 text-ink-50 sm:px-6 lg:px-10 lg:py-8">
-      <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top_left,rgba(29,150,167,0.14),transparent_28%),radial-gradient(circle_at_top_right,rgba(223,107,11,0.12),transparent_24%)]" />
+    <div className="relative min-h-screen overflow-hidden bg-[linear-gradient(180deg,rgba(7,19,27,0.98)_0%,rgba(10,22,29,0.98)_44%,rgba(16,32,41,0.98)_100%)] px-4 py-6 text-ink-50 sm:px-6 lg:px-10 lg:py-8">
+      <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top_left,rgba(29,150,167,0.12),transparent_26%),radial-gradient(circle_at_top_right,rgba(223,107,11,0.1),transparent_22%)]" />
       <div className="mx-auto flex w-full max-w-[1520px] flex-col gap-6">
         <SiteNav connectionStatus={connectionStatus} />
 
-        <section className="relative isolate overflow-hidden rounded-[2.6rem] border border-white/10 bg-ink-900/96 px-6 py-8 shadow-panel sm:px-8 sm:py-10">
-          <div className="absolute inset-x-0 top-0 h-40 bg-[radial-gradient(circle_at_left_top,rgba(223,107,11,0.12),transparent_32%),radial-gradient(circle_at_right_top,rgba(29,150,167,0.14),transparent_34%)]" />
+        <section className="relative isolate overflow-hidden rounded-[2.6rem] border border-white/10 bg-[linear-gradient(135deg,rgba(11,25,32,0.98),rgba(7,18,24,0.98)_58%,rgba(18,36,45,0.98))] px-6 py-7 shadow-panel ring-1 ring-white/5 sm:px-8 sm:py-9">
+          <div className="absolute inset-0 bg-[radial-gradient(circle_at_left_top,rgba(223,107,11,0.14),transparent_30%),radial-gradient(circle_at_right_top,rgba(29,150,167,0.16),transparent_34%)]" />
 
-          <div className="relative flex flex-col gap-6 xl:flex-row xl:items-end xl:justify-between">
+          <div className="relative grid gap-6 xl:grid-cols-[minmax(0,1fr)_20rem] xl:items-end">
             <div className="max-w-4xl">
               <p className="text-xs font-semibold uppercase tracking-[0.24em] text-tide-200">
                 {eyebrow}
@@ -48,7 +55,27 @@ export function PlayFrame({
               <ContinentalBranding className="max-w-[22rem]" />
             </div>
 
-            {actions ? <div className="flex flex-wrap gap-3">{actions}</div> : null}
+            <div className="flex flex-col gap-3 xl:items-stretch">
+              {actions ? <div className="flex flex-wrap gap-3 xl:justify-end">{actions}</div> : null}
+              <div className="grid gap-3 sm:grid-cols-3 xl:grid-cols-1">
+                <div className={`rounded-[1.4rem] border px-4 py-3 ${statusToneClassName}`}>
+                  <p className="text-[0.68rem] font-semibold uppercase tracking-[0.18em]">Socket</p>
+                  <p className="mt-2 text-sm font-semibold capitalize">{connectionStatus}</p>
+                </div>
+                <div className="rounded-[1.4rem] border border-white/10 bg-white/[0.04] px-4 py-3 text-ink-100">
+                  <p className="text-[0.68rem] font-semibold uppercase tracking-[0.18em] text-ink-400">
+                    Hidden Data
+                  </p>
+                  <p className="mt-2 text-sm font-semibold">Hands stay private per browser.</p>
+                </div>
+                <div className="rounded-[1.4rem] border border-white/10 bg-white/[0.04] px-4 py-3 text-ink-100">
+                  <p className="text-[0.68rem] font-semibold uppercase tracking-[0.18em] text-ink-400">
+                    Shared Zones
+                  </p>
+                  <p className="mt-2 text-sm font-semibold">Battlefield and public zones sync live.</p>
+                </div>
+              </div>
+            </div>
           </div>
         </section>
 

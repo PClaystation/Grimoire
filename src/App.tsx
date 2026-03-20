@@ -427,8 +427,9 @@ function App() {
   }
 
   return (
-    <div className="relative min-h-screen overflow-hidden px-4 py-6 text-ink-50 sm:px-6 lg:px-10 lg:py-8">
-      <div className="mx-auto flex w-full max-w-[1520px] flex-col gap-6">
+    <div className="relative isolate min-h-screen overflow-hidden px-4 py-6 text-ink-50 sm:px-6 lg:px-10 lg:py-8">
+      <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top_left,rgba(29,150,167,0.08),transparent_18%),radial-gradient(circle_at_top_right,rgba(223,107,11,0.08),transparent_14%)]" />
+      <div className="relative mx-auto flex w-full max-w-[1520px] flex-col gap-6">
         <SiteNav />
 
         <AppHeader
@@ -444,38 +445,40 @@ function App() {
           syncState={syncState}
         />
 
-        <div className="flex flex-wrap items-center gap-3">
-          <div className="inline-flex rounded-[1.4rem] border border-white/10 bg-ink-900/90 p-1.5 shadow-panel">
-            <button
-              type="button"
-              onClick={() => setActiveWorkspaceTab('browser')}
-              className={`rounded-[1rem] px-4 py-2.5 text-sm font-semibold transition ${
-                activeWorkspaceTab === 'browser'
-                  ? 'bg-tide-500 text-white'
-                  : 'text-ink-300 hover:bg-white/5 hover:text-ink-50'
-              }`}
-            >
-              Search
-            </button>
-            <button
-              type="button"
-              onClick={() => setActiveWorkspaceTab('deck')}
-              className={`rounded-[1rem] px-4 py-2.5 text-sm font-semibold transition ${
-                activeWorkspaceTab === 'deck'
-                  ? 'bg-tide-500 text-white'
-                  : 'text-ink-300 hover:bg-white/5 hover:text-ink-50'
-              }`}
-            >
-              Gallery
-            </button>
-          </div>
+        <section className="rounded-[1.7rem] border border-white/10 bg-[linear-gradient(180deg,rgba(18,33,41,0.95),rgba(11,24,31,0.99))] px-4 py-4 shadow-panel ring-1 ring-white/5 sm:px-5">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <div className="inline-flex w-fit rounded-[1.4rem] border border-white/10 bg-white/[0.04] p-1.5">
+              <button
+                type="button"
+                onClick={() => setActiveWorkspaceTab('browser')}
+                className={`rounded-[1rem] px-4 py-2.5 text-sm font-semibold transition ${
+                  activeWorkspaceTab === 'browser'
+                    ? 'bg-tide-500 text-white shadow-[0_12px_24px_-16px_rgba(29,150,167,0.9)]'
+                    : 'text-ink-300 hover:bg-white/5 hover:text-ink-50'
+                }`}
+              >
+                Search
+              </button>
+              <button
+                type="button"
+                onClick={() => setActiveWorkspaceTab('deck')}
+                className={`rounded-[1rem] px-4 py-2.5 text-sm font-semibold transition ${
+                  activeWorkspaceTab === 'deck'
+                    ? 'bg-tide-500 text-white shadow-[0_12px_24px_-16px_rgba(29,150,167,0.9)]'
+                    : 'text-ink-300 hover:bg-white/5 hover:text-ink-50'
+                }`}
+              >
+                Gallery
+              </button>
+            </div>
 
-          <p className="text-sm text-ink-300">
-            {activeWorkspaceTab === 'browser'
-              ? 'Search the card pool and add cards without scrolling past the full deck panel first.'
-              : 'Review the finished list as full-card previews.'}
-          </p>
-        </div>
+            <p className="max-w-2xl text-sm leading-6 text-ink-300">
+              {activeWorkspaceTab === 'browser'
+                ? 'Search the card pool and add cards without scrolling past the full deck panel first.'
+                : 'Review the finished list as full-card previews.'}
+            </p>
+          </div>
+        </section>
 
         {activeWorkspaceTab === 'browser' ? (
           <FilterBar

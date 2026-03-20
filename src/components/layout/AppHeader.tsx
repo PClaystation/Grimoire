@@ -8,8 +8,8 @@ interface AppHeaderProps {
 
 export function AppHeader({ mainboardCards, sideboardCards, savedDecks }: AppHeaderProps) {
   return (
-    <header className="relative isolate overflow-hidden rounded-[2.2rem] border border-white/10 bg-ink-900/94 px-5 py-6 shadow-panel sm:px-6 sm:py-7">
-      <div className="absolute inset-x-0 top-0 h-32 bg-[radial-gradient(circle_at_left_top,rgba(29,150,167,0.16),transparent_32%),radial-gradient(circle_at_right_bottom,rgba(223,107,11,0.14),transparent_28%)]" />
+    <header className="relative isolate overflow-hidden rounded-[2.2rem] border border-white/10 bg-[linear-gradient(135deg,rgba(15,31,39,0.98),rgba(10,20,27,0.96)_58%,rgba(18,35,44,0.98))] px-5 py-6 shadow-panel ring-1 ring-white/5 sm:px-6 sm:py-7">
+      <div className="absolute inset-0 bg-[radial-gradient(circle_at_left_top,rgba(29,150,167,0.2),transparent_30%),radial-gradient(circle_at_85%_20%,rgba(223,107,11,0.16),transparent_26%)]" />
 
       <div className="relative grid gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(18rem,24rem)] lg:items-end">
         <div className="max-w-3xl">
@@ -27,7 +27,7 @@ export function AppHeader({ mainboardCards, sideboardCards, savedDecks }: AppHea
         </div>
 
         <div className="grid gap-3 sm:grid-cols-3">
-          <div className="rounded-[1.5rem] border border-white/10 bg-white/5 px-4 py-3">
+          <div className="rounded-[1.5rem] border border-tide-400/15 bg-[linear-gradient(180deg,rgba(29,150,167,0.12),rgba(255,255,255,0.04))] px-4 py-3">
             <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.18em] text-ink-400">
               <BookOpen className="h-4 w-4 text-tide-300" />
               Mainboard
@@ -35,7 +35,7 @@ export function AppHeader({ mainboardCards, sideboardCards, savedDecks }: AppHea
             <div className="mt-2 text-3xl font-semibold text-ink-50">{mainboardCards}</div>
             <p className="mt-1 text-sm text-ink-400">cards ready to play</p>
           </div>
-          <div className="rounded-[1.5rem] border border-white/10 bg-white/5 px-4 py-3">
+          <div className="rounded-[1.5rem] border border-ember-400/15 bg-[linear-gradient(180deg,rgba(223,107,11,0.12),rgba(255,255,255,0.04))] px-4 py-3">
             <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.18em] text-ink-400">
               <Layers3 className="h-4 w-4 text-ember-300" />
               Sideboard
@@ -43,7 +43,7 @@ export function AppHeader({ mainboardCards, sideboardCards, savedDecks }: AppHea
             <div className="mt-2 text-3xl font-semibold text-ink-50">{sideboardCards}</div>
             <p className="mt-1 text-sm text-ink-400">swap and matchup slots</p>
           </div>
-          <div className="rounded-[1.5rem] border border-white/10 bg-white/5 px-4 py-3">
+          <div className="rounded-[1.5rem] border border-white/10 bg-[linear-gradient(180deg,rgba(255,255,255,0.08),rgba(255,255,255,0.03))] px-4 py-3">
             <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.18em] text-ink-400">
               <Sparkles className="h-4 w-4 text-tide-300" />
               Deck Saves
