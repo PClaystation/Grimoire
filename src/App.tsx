@@ -447,7 +447,7 @@ function App() {
         />
 
         <div className="flex flex-wrap items-center gap-3">
-          <div className="inline-flex rounded-[1.4rem] border border-white/10 bg-ink-900/72 p-1.5 shadow-panel backdrop-blur-xl">
+          <div className="inline-flex rounded-[1.4rem] border border-white/10 bg-ink-900/90 p-1.5 shadow-panel">
             <button
               type="button"
               onClick={() => setActiveWorkspaceTab('browser')}

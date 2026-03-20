@@ -8,9 +8,8 @@ interface AppHeaderProps {
 
 export function AppHeader({ mainboardCards, sideboardCards, savedDecks }: AppHeaderProps) {
   return (
-    <header className="relative overflow-hidden rounded-[2.2rem] border border-white/10 bg-ink-900/78 px-5 py-6 shadow-panel backdrop-blur-xl sm:px-6 sm:py-7">
-      <div className="absolute -left-10 top-0 h-32 w-32 rounded-full bg-tide-500/18 blur-3xl" />
-      <div className="absolute -right-8 bottom-0 h-28 w-28 rounded-full bg-ember-500/16 blur-3xl" />
+    <header className="relative isolate overflow-hidden rounded-[2.2rem] border border-white/10 bg-ink-900/94 px-5 py-6 shadow-panel sm:px-6 sm:py-7">
+      <div className="absolute inset-x-0 top-0 h-32 bg-[radial-gradient(circle_at_left_top,rgba(29,150,167,0.16),transparent_32%),radial-gradient(circle_at_right_bottom,rgba(223,107,11,0.14),transparent_28%)]" />
 
       <div className="relative grid gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(18rem,24rem)] lg:items-end">
         <div className="max-w-3xl">

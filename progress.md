@@ -131,3 +131,15 @@ Original prompt: You are extending an existing MTG deckbuilder web app into an o
   - Ran the required Playwright smoke client against `http://127.0.0.1:8787/` after starting a local preview server and a loopback auth stub. Visually reviewed `output/web-game-production-clean/shot-0.png`; the page rendered correctly and no browser-console error file was produced.
 - Follow-up:
   - Full live login/sync testing against the real Continental ID service still requires the deployed auth backend, popup page, and a browser that permits the cross-site refresh cookie.
+
+2026-03-20
+- Rendering stabilization pass for rapid page flashing:
+  - Traced the issue to compositor-heavy styling rather than React state: the app was stacking translucent panels, `backdrop-blur`, large blurred glow elements, and a fixed masked full-page overlay.
+  - Replaced the global masked `body::before` overlay with a static body background so the page no longer depends on a fixed masked layer.
+  - Removed every `backdrop-blur*` and `blur-3xl` usage under `src/`, and increased surface opacity across the play shell, play table HUD/hand tray, deckbuilder header/panels, account banner, branding card, tab switcher, and modal backdrops.
+  - Kept the overall dark visual direction, but converted the previous glass effects into stable painted gradients so Safari/WebKit-style compositor flicker has far fewer triggers.
+- Verification:
+  - `npm run build` passed after the stabilization changes.
+  - Confirmed by source search that no `backdrop-blur`, `blur-3xl`, `mask-image`, or `body::before` usage remains anywhere under `src/`.
+  - Ran the required `develop-web-game` smoke client against `http://127.0.0.1:8787/play`.
+  - Captured fresh local screenshots for `/play` and `/play/create` in `tmp-debug/play-home.png` and `tmp-debug/play-create.png` and visually reviewed them.

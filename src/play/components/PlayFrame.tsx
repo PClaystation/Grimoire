@@ -31,9 +31,8 @@ export function PlayFrame({
       <div className="mx-auto flex w-full max-w-[1520px] flex-col gap-6">
         <SiteNav connectionStatus={connectionStatus} />
 
-        <section className="relative overflow-hidden rounded-[2.6rem] border border-white/10 bg-ink-900/94 px-6 py-8 shadow-panel sm:px-8 sm:py-10">
-          <div className="absolute -left-10 top-0 h-48 w-48 rounded-full bg-ember-500/14 blur-3xl" />
-          <div className="absolute right-0 top-0 h-52 w-52 rounded-full bg-tide-500/16 blur-3xl" />
+        <section className="relative isolate overflow-hidden rounded-[2.6rem] border border-white/10 bg-ink-900/96 px-6 py-8 shadow-panel sm:px-8 sm:py-10">
+          <div className="absolute inset-x-0 top-0 h-40 bg-[radial-gradient(circle_at_left_top,rgba(223,107,11,0.12),transparent_32%),radial-gradient(circle_at_right_top,rgba(29,150,167,0.14),transparent_34%)]" />
 
           <div className="relative flex flex-col gap-6 xl:flex-row xl:items-end xl:justify-between">
             <div className="max-w-4xl">

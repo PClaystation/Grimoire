@@ -27,9 +27,9 @@ export function ContinentalBranding({
 
   return (
     <div
-      className={`mt-6 inline-flex w-full max-w-[23rem] items-center gap-4 rounded-[1.5rem] border border-white/10 bg-white/6 px-4 py-3.5 text-left shadow-card backdrop-blur-xl sm:w-auto ${className}`.trim()}
+      className={`mt-6 inline-flex w-full max-w-[23rem] items-center gap-4 rounded-[1.5rem] border border-white/10 bg-ink-900/92 px-4 py-3.5 text-left shadow-card sm:w-auto ${className}`.trim()}
     >
-      <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl border border-white/10 bg-white/8 p-2">
+      <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl border border-white/10 bg-white/6 p-2">
         <img src={MARK_SRC} alt="" aria-hidden="true" className="h-full w-full object-contain" />
       </div>
 

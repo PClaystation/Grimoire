@@ -17,7 +17,7 @@ export function SectionPanel({
 }: SectionPanelProps) {
   return (
     <section
-      className={`rounded-[2.15rem] border border-white/10 bg-ink-900/72 p-6 shadow-panel backdrop-blur-xl sm:p-7 lg:p-8 ${
+      className={`rounded-[2.15rem] border border-white/10 bg-ink-900/90 p-6 shadow-panel sm:p-7 lg:p-8 ${
         className ?? ''
       }`}
     >

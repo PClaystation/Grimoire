@@ -739,7 +739,7 @@ function TableHud({
   const activePlayer = players.find((player) => player.id === turn.activePlayerId) ?? null
 
   return (
-    <section className="relative overflow-hidden rounded-[2rem] border border-white/10 bg-ink-900/88 px-5 py-5 shadow-panel backdrop-blur-xl">
+    <section className="relative isolate overflow-hidden rounded-[2rem] border border-white/10 bg-ink-900/94 px-5 py-5 shadow-panel">
       <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_left,rgba(29,150,167,0.16),transparent_28%),radial-gradient(circle_at_bottom_right,rgba(223,107,11,0.12),transparent_24%)]" />
       <div className="relative flex flex-col gap-5 xl:flex-row xl:items-end xl:justify-between">
         <div className="space-y-3">
@@ -1186,7 +1186,7 @@ function HandTray({
   return (
     <section
       data-testid="hand-tray"
-      className="rounded-[1.9rem] border border-white/10 bg-ink-900/90 px-4 py-4 shadow-panel backdrop-blur-xl"
+      className="rounded-[1.9rem] border border-white/10 bg-ink-900/94 px-4 py-4 shadow-panel"
     >
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div>

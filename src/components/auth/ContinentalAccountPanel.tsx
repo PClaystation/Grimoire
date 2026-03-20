@@ -70,7 +70,7 @@ export function ContinentalAccountPanel({
 
   return (
     <section
-      className={`rounded-[1.6rem] border px-4 py-3 shadow-panel backdrop-blur-xl sm:px-5 ${containerClassName}`}
+      className={`rounded-[1.6rem] border px-4 py-3 shadow-panel sm:px-5 ${containerClassName}`}
     >
       <div className="flex flex-wrap items-start gap-3">
         <span
