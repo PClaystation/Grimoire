@@ -1,8 +1,7 @@
 import { Eye, Plus } from 'lucide-react'
 
-import { COLOR_LABELS, COLOR_SWATCHES } from '@/constants/mtg'
 import type { MagicCard } from '@/types/scryfall'
-import { formatManaCost, formatMarketPriceLabel, formatTypeLine } from '@/utils/format'
+import { formatMarketPriceLabel } from '@/utils/format'
 
 interface CardGridItemProps {
   card: MagicCard
@@ -17,50 +16,21 @@ export function CardGridItem({
   onAddToMainboard,
   onAddToSideboard,
 }: CardGridItemProps) {
-  const colorTag = card.colors[0] ?? 'C'
-
   return (
-    <article className="group flex h-full flex-col overflow-hidden rounded-[1.6rem] border border-white/10 bg-ink-900/85 shadow-card transition duration-200 hover:-translate-y-1 hover:border-white/15 hover:shadow-panel">
+    <article className="group flex h-full flex-col">
       <button
         type="button"
         onClick={() => onPreview(card)}
         className="flex flex-1 flex-col text-left"
+        aria-label={`Preview ${card.name}`}
       >
-        <div className="flex flex-1 flex-col gap-4 p-4">
-          <div>
-            <div className="flex items-start justify-between gap-3">
-              <div className="min-w-0">
-                <h3 className="text-base font-semibold leading-tight text-ink-50">{card.name}</h3>
-                <p className="mt-2 text-sm text-ink-400">{formatTypeLine(card.typeLine)}</p>
-              </div>
-              <span className="shrink-0 rounded-full bg-white/10 px-2 py-1 text-xs font-medium text-ink-200">
-                {formatManaCost(card.manaCost)}
-              </span>
-            </div>
-
-            <div className="mt-3 flex flex-wrap gap-2">
-              <span className="rounded-full bg-white/10 px-2.5 py-1 text-[11px] font-semibold uppercase tracking-[0.14em] text-ink-100">
-                {card.setCode.toUpperCase()}
-              </span>
-              <span className="rounded-full bg-white/10 px-2.5 py-1 text-[11px] font-semibold uppercase tracking-[0.14em] text-ink-100">
-                {card.rarity}
-              </span>
-              <span
-                className={`inline-flex items-center rounded-full px-2.5 py-1 text-xs font-semibold ring-1 ${
-                  COLOR_SWATCHES[colorTag]
-                }`}
-              >
-                {COLOR_LABELS[colorTag]}
-              </span>
-            </div>
-          </div>
-
-          <div className="relative aspect-[5/7] overflow-hidden rounded-[1.3rem] border border-white/10 bg-[radial-gradient(circle_at_top,rgba(29,150,167,0.12),transparent_45%),rgba(9,17,23,0.96)] p-3">
+        <div className="mx-auto flex w-full max-w-[26rem] flex-1 flex-col gap-3">
+          <div className="aspect-[5/7] transition duration-200 group-hover:-translate-y-1">
             <img
               src={card.imageUrl}
               alt={card.name}
               loading="lazy"
-              className="h-full w-full object-contain transition duration-300 group-hover:scale-[1.02]"
+              className="h-full w-full rounded-[1.45rem] object-contain shadow-[0_28px_60px_rgba(0,0,0,0.46)] transition duration-300 group-hover:scale-[1.015]"
             />
           </div>
 
@@ -77,7 +47,7 @@ export function CardGridItem({
         </div>
       </button>
 
-      <div className="grid gap-2 px-4 pb-4 sm:grid-cols-2">
+      <div className="mx-auto mt-3 grid w-full max-w-[26rem] gap-2 sm:grid-cols-2">
         <button
           type="button"
           onClick={() => onAddToMainboard(card)}

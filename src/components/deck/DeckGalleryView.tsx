@@ -5,7 +5,7 @@ import { DECK_FORMAT_OPTIONS } from '@/constants/mtg'
 import { EmptyState } from '@/components/ui/EmptyState'
 import { SectionPanel } from '@/components/ui/SectionPanel'
 import type { DeckCardEntry, DeckFormat, DeckStats as DeckStatsShape } from '@/types/deck'
-import { countDeckEntries, formatTypeLine, formatUsdPrice, getCardMarketPriceUsd } from '@/utils/format'
+import { countDeckEntries, formatUsdPrice, getCardMarketPriceUsd } from '@/utils/format'
 
 type DeckGallerySection = 'all' | 'mainboard' | 'sideboard'
 type DeckGallerySort = 'CURVE' | 'NAME' | 'PRICE'
@@ -57,13 +57,11 @@ function DeckGallerySectionGrid({
   title,
   description,
   entries,
-  badgeTone,
   onPreview,
 }: {
   title: string
   description: string
   entries: DeckCardEntry[]
-  badgeTone: string
   onPreview: (card: DeckCardEntry['card']) => void
 }) {
   if (entries.length === 0) {
@@ -85,66 +83,58 @@ function DeckGallerySectionGrid({
       <div className="grid gap-5 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4">
         {entries.map((entry) => {
           const totalValue = getCardMarketPriceUsd(entry.card)
+          const stackDepth = Math.min(entry.quantity, 4)
+          const stackOffsets = Array.from({ length: stackDepth - 1 }, (_, index) => stackDepth - index - 1)
 
           return (
-            <article key={`${title}-${entry.card.id}`} className="group">
+            <article key={`${title}-${entry.card.id}`} className="group space-y-3">
               <button
                 type="button"
                 onClick={() => onPreview(entry.card)}
                 className="w-full text-left"
                 aria-label={`Preview ${entry.card.name}`}
               >
-                <div className="relative mx-auto aspect-[5/7] w-full max-w-[24rem] overflow-hidden rounded-[1.4rem] shadow-[0_24px_50px_rgba(0,0,0,0.45)] transition duration-200 group-hover:-translate-y-1 group-hover:shadow-[0_28px_65px_rgba(0,0,0,0.52)]">
-                  {entry.quantity > 1 ? (
-                    <div
-                      aria-hidden="true"
-                      className="absolute inset-0 translate-x-2 translate-y-2 rounded-[1.4rem] bg-black/25"
+                <div className="mx-auto w-full max-w-[26rem] pr-5 pb-5">
+                  <div className="relative aspect-[5/7] transition duration-200 group-hover:-translate-y-1">
+                    {stackOffsets.map((offset) => (
+                      <img
+                        key={`${entry.card.id}-stack-${offset}`}
+                        src={entry.card.imageUrl}
+                        alt=""
+                        aria-hidden="true"
+                        className="absolute inset-0 h-full w-full rounded-[1.45rem] object-contain shadow-[0_24px_48px_rgba(0,0,0,0.28)]"
+                        style={{
+                          transform: `translate(${offset * 6}px, ${offset * 6}px)`,
+                          opacity: 0.28 + offset * 0.12,
+                        }}
+                      />
+                    ))}
+
+                    <img
+                      src={entry.card.imageUrl}
+                      alt={entry.card.name}
+                      loading="lazy"
+                      className="relative z-[1] h-full w-full rounded-[1.45rem] object-contain shadow-[0_28px_60px_rgba(0,0,0,0.46)] transition duration-300 group-hover:scale-[1.015]"
                     />
-                  ) : null}
-                  {entry.quantity > 2 ? (
-                    <div
-                      aria-hidden="true"
-                      className="absolute inset-0 translate-x-4 translate-y-4 rounded-[1.4rem] bg-black/15"
-                    />
-                  ) : null}
-
-                  <img
-                    src={entry.card.imageUrl}
-                    alt={entry.card.name}
-                    loading="lazy"
-                    className="relative z-[1] h-full w-full object-contain transition duration-300 group-hover:scale-[1.015]"
-                  />
-
-                  <div className="pointer-events-none absolute inset-x-0 top-0 z-[2] flex items-start justify-between gap-3 p-3">
-                    <span className="rounded-full bg-black/68 px-3 py-1.5 text-sm font-black text-white shadow-lg backdrop-blur-sm">
-                      {entry.quantity}x
-                    </span>
-                    <span className={`rounded-full px-3 py-1.5 text-[11px] font-semibold uppercase tracking-[0.14em] shadow-lg backdrop-blur-sm ${badgeTone}`}>
-                      {entry.card.setCode.toUpperCase()}
-                    </span>
-                  </div>
-
-                  <div className="pointer-events-none absolute inset-x-0 bottom-0 z-[2] bg-gradient-to-t from-black/80 via-black/35 to-transparent p-4">
-                    <div className="flex items-end justify-between gap-3">
-                      <div className="min-w-0">
-                        <p className="truncate text-sm font-semibold text-white">{entry.card.name}</p>
-                        <p className="mt-1 truncate text-xs text-white/80">
-                          {formatTypeLine(entry.card.typeLine)}
-                        </p>
-                        <p className="mt-1 text-xs text-emerald-200">
-                          {totalValue === null
-                            ? 'No USD price'
-                            : `${formatUsdPrice(totalValue * entry.quantity)} total`}
-                        </p>
-                      </div>
-                      <span className="inline-flex items-center gap-1 rounded-full bg-black/55 px-2.5 py-1 text-xs font-medium text-tide-100">
-                        <Eye className="h-3.5 w-3.5" />
-                        Preview
-                      </span>
-                    </div>
                   </div>
                 </div>
               </button>
+
+              <div className="mx-auto flex w-full max-w-[26rem] items-center justify-between gap-3">
+                <div className="flex min-w-0 items-center gap-3">
+                  <div className="inline-flex items-center rounded-full bg-emerald-500/10 px-2.5 py-1 text-xs font-semibold text-emerald-200 ring-1 ring-emerald-500/20">
+                    {totalValue === null ? 'No USD price' : `${formatUsdPrice(totalValue * entry.quantity)} total`}
+                  </div>
+                  <span className="text-xs font-medium text-ink-400">
+                    {entry.quantity} {entry.quantity === 1 ? 'copy' : 'copies'}
+                  </span>
+                </div>
+
+                <span className="inline-flex items-center gap-1 text-xs font-medium text-tide-200">
+                  <Eye className="h-3.5 w-3.5" />
+                  Preview
+                </span>
+              </div>
             </article>
           )
         })}
@@ -254,7 +244,6 @@ export function DeckGalleryView({
                 title="Mainboard"
                 description="Your primary plan rendered as full card art."
                 entries={sortedMainboard}
-                badgeTone="bg-tide-500/20 text-tide-100"
                 onPreview={onPreview}
               />
             )}
@@ -264,7 +253,6 @@ export function DeckGalleryView({
                 title="Sideboard"
                 description="Swap pieces, bullets, and matchup tools shown with full art."
                 entries={sortedSideboard}
-                badgeTone="bg-ember-500/20 text-ember-100"
                 onPreview={onPreview}
               />
             )}

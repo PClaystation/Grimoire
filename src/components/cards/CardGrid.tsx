@@ -248,15 +248,14 @@ export function CardGrid({
         ) : null}
 
         {!error && isLoading ? (
-          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4">
+          <div className="grid gap-5 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4">
             {Array.from({ length: 8 }, (_, index) => (
               <div
                 key={index}
-                className="overflow-hidden rounded-[1.6rem] border border-white/10 bg-ink-800/80 p-3 shadow-card"
+                className="mx-auto w-full max-w-[26rem]"
               >
-                <div className="aspect-[5/7] animate-pulse rounded-[1.2rem] bg-ink-700" />
+                <div className="aspect-[5/7] animate-pulse rounded-[1.45rem] bg-ink-700 shadow-card" />
                 <div className="mt-4 h-4 animate-pulse rounded-full bg-ink-700" />
-                <div className="mt-3 h-3 w-3/4 animate-pulse rounded-full bg-ink-700" />
                 <div className="mt-4 h-10 animate-pulse rounded-2xl bg-ink-700" />
               </div>
             ))}
@@ -273,7 +272,7 @@ export function CardGrid({
 
         {!error && !isLoading && cards.length > 0 ? (
           <div className="space-y-6">
-            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4">
+            <div className="grid gap-5 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4">
               {cards.map((card) => (
                 <CardGridItem
                   key={card.id}
