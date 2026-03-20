@@ -5,7 +5,7 @@ import { DECK_FORMAT_OPTIONS } from '@/constants/mtg'
 import { EmptyState } from '@/components/ui/EmptyState'
 import { SectionPanel } from '@/components/ui/SectionPanel'
 import type { DeckCardEntry, DeckFormat, DeckStats as DeckStatsShape } from '@/types/deck'
-import { countDeckEntries, formatMarketPriceLabel, formatTypeLine, formatUsdPrice, getCardMarketPriceUsd } from '@/utils/format'
+import { countDeckEntries, formatTypeLine, formatUsdPrice, getCardMarketPriceUsd } from '@/utils/format'
 
 type DeckGallerySection = 'all' | 'mainboard' | 'sideboard'
 type DeckGallerySort = 'CURVE' | 'NAME' | 'PRICE'
@@ -82,98 +82,69 @@ function DeckGallerySectionGrid({
         <p className="mt-1 text-sm leading-6 text-ink-300">{description}</p>
       </div>
 
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4">
+      <div className="grid gap-5 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4">
         {entries.map((entry) => {
           const totalValue = getCardMarketPriceUsd(entry.card)
-          const quantityPips = Math.min(entry.quantity, 6)
 
           return (
-            <article
-              key={`${title}-${entry.card.id}`}
-              className="group overflow-hidden rounded-[1.6rem] border border-white/10 bg-ink-900/85 shadow-card transition duration-200 hover:-translate-y-1 hover:border-white/15 hover:shadow-panel"
-            >
+            <article key={`${title}-${entry.card.id}`} className="group">
               <button
                 type="button"
                 onClick={() => onPreview(entry.card)}
                 className="w-full text-left"
+                aria-label={`Preview ${entry.card.name}`}
               >
-                <div className="space-y-4 p-4">
-                  <div className="flex items-start justify-between gap-3">
-                    <div className="min-w-0">
-                      <p className="truncate text-sm font-semibold text-ink-50">{entry.card.name}</p>
-                      <p className="mt-1 truncate text-xs text-ink-300">
-                        {formatTypeLine(entry.card.typeLine)}
-                      </p>
-                    </div>
-                    <span className="shrink-0 rounded-full bg-white/10 px-2 py-1 text-[11px] font-semibold text-ink-100">
-                      MV {entry.card.manaValue}
-                    </span>
-                  </div>
+                <div className="relative mx-auto aspect-[5/7] w-full max-w-[24rem] overflow-hidden rounded-[1.4rem] shadow-[0_24px_50px_rgba(0,0,0,0.45)] transition duration-200 group-hover:-translate-y-1 group-hover:shadow-[0_28px_65px_rgba(0,0,0,0.52)]">
+                  {entry.quantity > 1 ? (
+                    <div
+                      aria-hidden="true"
+                      className="absolute inset-0 translate-x-2 translate-y-2 rounded-[1.4rem] bg-black/25"
+                    />
+                  ) : null}
+                  {entry.quantity > 2 ? (
+                    <div
+                      aria-hidden="true"
+                      className="absolute inset-0 translate-x-4 translate-y-4 rounded-[1.4rem] bg-black/15"
+                    />
+                  ) : null}
 
-                  <div className="flex flex-wrap items-center gap-2">
-                    <div className="inline-flex min-w-[4.25rem] items-baseline justify-center gap-1 rounded-[1rem] border border-tide-300/30 bg-tide-500/18 px-3 py-2 text-tide-100">
-                      <span className="text-2xl font-black leading-none">{entry.quantity}</span>
-                      <span className="text-xs font-bold uppercase tracking-[0.16em]">copies</span>
-                    </div>
-                    <span className={`rounded-full px-2.5 py-1 text-[11px] font-semibold uppercase tracking-[0.14em] ${badgeTone}`}>
+                  <img
+                    src={entry.card.imageUrl}
+                    alt={entry.card.name}
+                    loading="lazy"
+                    className="relative z-[1] h-full w-full object-contain transition duration-300 group-hover:scale-[1.015]"
+                  />
+
+                  <div className="pointer-events-none absolute inset-x-0 top-0 z-[2] flex items-start justify-between gap-3 p-3">
+                    <span className="rounded-full bg-black/68 px-3 py-1.5 text-sm font-black text-white shadow-lg backdrop-blur-sm">
+                      {entry.quantity}x
+                    </span>
+                    <span className={`rounded-full px-3 py-1.5 text-[11px] font-semibold uppercase tracking-[0.14em] shadow-lg backdrop-blur-sm ${badgeTone}`}>
                       {entry.card.setCode.toUpperCase()}
                     </span>
-                    <div className="flex flex-wrap gap-1.5">
-                      {Array.from({ length: quantityPips }, (_, index) => (
-                        <span
-                          key={`${entry.card.id}-pip-${index}`}
-                          className="h-2.5 w-2.5 rounded-full bg-tide-200/95 ring-2 ring-tide-900/35"
-                        />
-                      ))}
-                      {entry.quantity > quantityPips ? (
-                        <span className="rounded-full bg-white/10 px-2 py-0.5 text-[10px] font-bold text-ink-100">
-                          +{entry.quantity - quantityPips}
-                        </span>
-                      ) : null}
-                    </div>
                   </div>
 
-                  <div className="relative aspect-[5/7] overflow-hidden rounded-[1.3rem] border border-white/10 bg-[radial-gradient(circle_at_top,rgba(29,150,167,0.12),transparent_45%),rgba(9,17,23,0.96)] p-3">
-                    {entry.quantity > 1 ? (
-                      <div
-                        aria-hidden="true"
-                        className="absolute inset-0 translate-x-2 translate-y-2 rounded-[1.3rem] border border-white/8 bg-ink-950/45"
-                      />
-                    ) : null}
-                    {entry.quantity > 2 ? (
-                      <div
-                        aria-hidden="true"
-                        className="absolute inset-0 translate-x-4 translate-y-4 rounded-[1.3rem] border border-white/5 bg-ink-950/25"
-                      />
-                    ) : null}
-
-                    <img
-                      src={entry.card.imageUrl}
-                      alt={entry.card.name}
-                      loading="lazy"
-                      className="relative z-[1] h-full w-full object-contain transition duration-300 group-hover:scale-[1.02]"
-                    />
+                  <div className="pointer-events-none absolute inset-x-0 bottom-0 z-[2] bg-gradient-to-t from-black/80 via-black/35 to-transparent p-4">
+                    <div className="flex items-end justify-between gap-3">
+                      <div className="min-w-0">
+                        <p className="truncate text-sm font-semibold text-white">{entry.card.name}</p>
+                        <p className="mt-1 truncate text-xs text-white/80">
+                          {formatTypeLine(entry.card.typeLine)}
+                        </p>
+                        <p className="mt-1 text-xs text-emerald-200">
+                          {totalValue === null
+                            ? 'No USD price'
+                            : `${formatUsdPrice(totalValue * entry.quantity)} total`}
+                        </p>
+                      </div>
+                      <span className="inline-flex items-center gap-1 rounded-full bg-black/55 px-2.5 py-1 text-xs font-medium text-tide-100">
+                        <Eye className="h-3.5 w-3.5" />
+                        Preview
+                      </span>
+                    </div>
                   </div>
                 </div>
               </button>
-
-              <div className="flex items-center justify-between gap-3 px-4 pb-4">
-                <div>
-                  <p className="truncate text-xs font-medium text-emerald-300">
-                    {formatMarketPriceLabel(entry.card)}
-                  </p>
-                  <p className="mt-1 text-xs text-ink-400">
-                    {totalValue === null
-                      ? 'No USD price'
-                      : `${formatUsdPrice(totalValue * entry.quantity)} total`}
-                  </p>
-                </div>
-
-                <span className="inline-flex items-center gap-1 text-xs font-medium text-tide-200">
-                  <Eye className="h-3.5 w-3.5" />
-                  Preview
-                </span>
-              </div>
             </article>
           )
         })}
@@ -274,7 +245,7 @@ export function DeckGalleryView({
                 <p className="mt-2 text-2xl font-semibold text-ink-50">
                   {formatUsdPrice(stats.totalEstimatedValueUsd)}
                 </p>
-                <p className="mt-1 text-sm text-ink-400">Click any card to inspect the full art</p>
+                <p className="mt-1 text-sm text-ink-400">Cards render at a larger size for direct reading</p>
               </div>
             </div>
 
