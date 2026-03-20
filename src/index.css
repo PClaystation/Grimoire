@@ -40,6 +40,12 @@ body {
   color: #f4f7f8;
 }
 
+body[data-grimoire-backdrop='minimal'] {
+  background-image: linear-gradient(180deg, #061018 0%, #0a161d 44%, #10202a 100%);
+  background-size: auto;
+  background-position: top left;
+}
+
 button,
 input,
 select,
@@ -89,6 +95,18 @@ p {
 ::selection {
   background: rgba(112, 208, 214, 0.28);
   color: #f4f7f8;
+}
+
+html[data-grimoire-reduced-motion='true'] {
+  scroll-behavior: auto;
+}
+
+html[data-grimoire-reduced-motion='true'] *,
+html[data-grimoire-reduced-motion='true'] *::before,
+html[data-grimoire-reduced-motion='true'] *::after {
+  animation-duration: 0.01ms !important;
+  animation-iteration-count: 1 !important;
+  transition-duration: 0.01ms !important;
 }
 
 @media (prefers-reduced-motion: reduce) {

@@ -16,6 +16,7 @@ import { DEFAULT_FILTERS, normalizeCardSearchFilters } from '@/constants/mtg'
 import { useDeckRepository } from '@/decks/useDeckRepository'
 import { useCardSearch } from '@/hooks/useCardSearch'
 import { useCardSets } from '@/hooks/useCardSets'
+import { useAppSettings } from '@/settings/useAppSettings'
 import { useDeckBuilder } from '@/state/useDeckBuilder'
 import { useSavedDecks } from '@/state/useSavedDecks'
 import type { DeckFormat } from '@/types/deck'
@@ -50,7 +51,10 @@ function App() {
   const [isImporting, setIsImporting] = useState(false)
   const [importError, setImportError] = useState<string | null>(null)
   const [isPlaytestOpen, setIsPlaytestOpen] = useState(false)
-  const [activeWorkspaceTab, setActiveWorkspaceTab] = useState<'browser' | 'deck'>('browser')
+  const { settings } = useAppSettings()
+  const [activeWorkspaceTab, setActiveWorkspaceTab] = useState<'browser' | 'deck'>(
+    () => settings.defaultDeckWorkspaceTab,
+  )
   const hasProcessedSharedDeckRef = useRef(false)
   const {
     status: authStatus,
