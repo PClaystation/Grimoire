@@ -189,7 +189,9 @@
       return window.location.origin;
     };
 
-    const API_BASE_URL = trimTrailingSlash(window.__API_BASE_URL__ || getDefaultApiBaseUrl());
+    const API_BASE_URL = trimTrailingSlash(
+      params.get('apiBaseUrl') || window.__API_BASE_URL__ || getDefaultApiBaseUrl()
+    );
     const AUTH_API_BASE = `${API_BASE_URL}/api/auth`;
 
     const statusDiv = document.getElementById('status');

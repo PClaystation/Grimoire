@@ -66,6 +66,9 @@ export function buildLoginPopupUrl(currentHref = getRuntimeHref()) {
 
   popupUrl.searchParams.set('origin', currentOrigin)
   popupUrl.searchParams.set('redirect', currentHref)
+  if (API_BASE_URL) {
+    popupUrl.searchParams.set('apiBaseUrl', API_BASE_URL)
+  }
 
   return popupUrl
 }
