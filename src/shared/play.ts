@@ -20,19 +20,6 @@ export type RoomVisibility = 'private' | 'public'
 export type RoomFormatPreference = DeckFormat | 'any'
 export type RoomPowerLevel = 'casual' | 'focused' | 'competitive'
 export type OwnedZone = 'library' | 'hand' | 'battlefield' | 'graveyard' | 'exile' | 'command'
-export type TurnPhase =
-  | 'untap'
-  | 'upkeep'
-  | 'draw'
-  | 'main1'
-  | 'begin_combat'
-  | 'declare_attackers'
-  | 'declare_blockers'
-  | 'combat_damage'
-  | 'end_combat'
-  | 'main2'
-  | 'end'
-  | 'cleanup'
 export type StackItemType = 'spell' | 'ability' | 'trigger'
 export type PlayerDesignation = 'monarch' | 'initiative' | 'citys_blessing'
 
@@ -65,7 +52,6 @@ export interface PlayerDesignations {
 export interface TurnStateSnapshot {
   turnNumber: number
   activePlayerId: string
-  phase: TurnPhase
 }
 
 export interface DeckSelectionSummary {
@@ -238,9 +224,7 @@ export interface GameSnapshot {
 export type ClientGameAction =
   | { type: 'shuffle_library' }
   | { type: 'draw_card'; amount?: number }
-  | { type: 'advance_turn_phase' }
   | { type: 'advance_turn'; nextPlayerId?: string }
-  | { type: 'set_turn_phase'; phase: TurnPhase }
   | { type: 'set_active_player'; playerId: string; turnNumber?: number }
   | {
       type: 'move_owned_card'
@@ -487,21 +471,6 @@ export function clampPermanentPosition(
     y: Math.max(8, Math.min(88, Number(nextY.toFixed(1)))),
   }
 }
-
-export const TURN_PHASES: TurnPhase[] = [
-  'untap',
-  'upkeep',
-  'draw',
-  'main1',
-  'begin_combat',
-  'declare_attackers',
-  'declare_blockers',
-  'combat_damage',
-  'end_combat',
-  'main2',
-  'end',
-  'cleanup',
-]
 
 export function normalizeDeckFormat(value: string): DeckFormat {
   switch (value) {

@@ -1,4 +1,4 @@
-import { PLAY_COMMANDER_STARTING_LIFE_TOTAL, PLAY_OPENING_HAND_SIZE, PLAY_STARTING_LIFE_TOTAL, TURN_PHASES, buildDeckSelectionSummary, buildRandomRoomCode, clampPermanentPosition, countDeckCards, normalizeDeckFormat, normalizePlayerName, normalizeRoomCode, normalizeRoomSettings, } from '../src/shared/play.js';
+import { PLAY_COMMANDER_STARTING_LIFE_TOTAL, PLAY_OPENING_HAND_SIZE, PLAY_STARTING_LIFE_TOTAL, buildDeckSelectionSummary, buildRandomRoomCode, clampPermanentPosition, countDeckCards, normalizeDeckFormat, normalizePlayerName, normalizeRoomCode, normalizeRoomSettings, } from '../src/shared/play.js';
 import { expandDeckEntries, shuffleCardInstances, } from '../src/shared/playDeck.js';
 const DEFAULT_DISCONNECT_GRACE_PERIOD_MS = 5_000;
 function removeCardFromZone(cards, cardId) {
@@ -93,10 +93,6 @@ function buildHiddenCard(card) {
         imageUrl: FACE_DOWN_IMAGE_URL,
         largeImageUrl: FACE_DOWN_IMAGE_URL,
     };
-}
-function getNextTurnPhase(current) {
-    const currentIndex = TURN_PHASES.indexOf(current);
-    return TURN_PHASES[(currentIndex + 1) % TURN_PHASES.length] ?? 'untap';
 }
 function buildTokenImage(name, colors, power, toughness) {
     const palette = colors.length === 0
@@ -476,7 +472,6 @@ export class PlayServer {
             turn: {
                 turnNumber: 1,
                 activePlayerId: players[0]?.id ?? hostPlayer.id,
-                phase: 'untap',
             },
             stack: [],
             players,
@@ -500,20 +495,15 @@ export class PlayServer {
             this.emitError(sessionId, 'You are not part of this game.');
             return;
         }
+        if (game.turn.activePlayerId !== actor.id) {
+            const activePlayer = game.players.find((player) => player.id === game.turn.activePlayerId);
+            this.emitError(sessionId, `It is currently ${activePlayer?.name ?? 'another player'}'s turn.`);
+            return;
+        }
         switch (action.type) {
             case 'shuffle_library': {
                 actor.library = shuffleCardInstances(actor.library);
                 this.recordEvent(game, actor.id, action.type, `${actor.name} shuffled their library.`);
-                break;
-            }
-            case 'advance_turn_phase': {
-                const previousPhase = game.turn.phase;
-                const nextPhase = getNextTurnPhase(previousPhase);
-                game.turn.phase = nextPhase;
-                if (nextPhase === 'untap') {
-                    game.turn.turnNumber = clampTurnNumber(game.turn.turnNumber + 1, game.turn.turnNumber + 1);
-                }
-                this.recordEvent(game, actor.id, action.type, `${actor.name} advanced the turn from ${previousPhase.replace(/_/g, ' ')} to ${nextPhase.replace(/_/g, ' ')}.`);
                 break;
             }
             case 'advance_turn': {
@@ -526,13 +516,7 @@ export class PlayServer {
                 }
                 game.turn.activePlayerId = nextPlayer.id;
                 game.turn.turnNumber = clampTurnNumber(game.turn.turnNumber + 1, game.turn.turnNumber + 1);
-                game.turn.phase = 'untap';
                 this.recordEvent(game, actor.id, action.type, `${actor.name} passed the turn to ${nextPlayer.name}.`);
-                break;
-            }
-            case 'set_turn_phase': {
-                game.turn.phase = action.phase;
-                this.recordEvent(game, actor.id, action.type, `${actor.name} set the turn phase to ${action.phase.replace(/_/g, ' ')}.`);
                 break;
             }
             case 'set_active_player': {

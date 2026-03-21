@@ -16,7 +16,6 @@ export type RoomVisibility = 'private' | 'public';
 export type RoomFormatPreference = DeckFormat | 'any';
 export type RoomPowerLevel = 'casual' | 'focused' | 'competitive';
 export type OwnedZone = 'library' | 'hand' | 'battlefield' | 'graveyard' | 'exile' | 'command';
-export type TurnPhase = 'untap' | 'upkeep' | 'draw' | 'main1' | 'begin_combat' | 'declare_attackers' | 'declare_blockers' | 'combat_damage' | 'end_combat' | 'main2' | 'end' | 'cleanup';
 export type StackItemType = 'spell' | 'ability' | 'trigger';
 export type PlayerDesignation = 'monarch' | 'initiative' | 'citys_blessing';
 export interface PermanentPosition {
@@ -43,7 +42,6 @@ export interface PlayerDesignations {
 export interface TurnStateSnapshot {
     turnNumber: number;
     activePlayerId: string;
-    phase: TurnPhase;
 }
 export interface DeckSelectionSummary {
     id: string;
@@ -201,13 +199,8 @@ export type ClientGameAction = {
     type: 'draw_card';
     amount?: number;
 } | {
-    type: 'advance_turn_phase';
-} | {
     type: 'advance_turn';
     nextPlayerId?: string;
-} | {
-    type: 'set_turn_phase';
-    phase: TurnPhase;
 } | {
     type: 'set_active_player';
     playerId: string;
@@ -366,5 +359,4 @@ export declare function buildDefaultRoomName(hostPlayerName: string): string;
 export declare function normalizeRoomTags(value: string[] | undefined): string[];
 export declare function normalizeRoomSettings(value: RoomSettingsInput | null | undefined, hostPlayerName?: string): RoomSettings;
 export declare function clampPermanentPosition(position: Partial<PermanentPosition> | null | undefined): PermanentPosition;
-export declare const TURN_PHASES: TurnPhase[];
 export declare function normalizeDeckFormat(value: string): DeckFormat;

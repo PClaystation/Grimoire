@@ -25,6 +25,7 @@ import { PlayFrame } from '@/play/components/PlayFrame'
 import { usePlay } from '@/play/usePlay'
 import type {
   BattlefieldPermanentSnapshot,
+  ClientGameAction,
   GameActionEvent,
   GamePlayerPublicSnapshot,
   GamePrivatePlayerState,
@@ -33,7 +34,6 @@ import type {
   PermanentPosition,
   StackItemSnapshot,
   TableCardSnapshot,
-  TurnPhase,
 } from '@/shared/play'
 import type { CardColor, MagicCard } from '@/types/scryfall'
 import { formatManaCost, formatTypeLine } from '@/utils/format'
@@ -83,20 +83,6 @@ const COUNTER_PRESETS = ['+1/+1', 'loyalty', 'shield', 'stun']
 const PLAYER_COUNTER_PRESETS = ['poison', 'energy', 'experience', 'rad']
 const PUBLIC_ZONE_ORDER: PublicZone[] = ['command', 'graveyard', 'exile']
 const LOCAL_ZONE_ORDER: BrowseableZone[] = ['library', 'command', 'graveyard', 'exile']
-const TURN_PHASE_LABELS: Array<{ value: TurnPhase; label: string }> = [
-  { value: 'untap', label: 'Untap' },
-  { value: 'upkeep', label: 'Upkeep' },
-  { value: 'draw', label: 'Draw' },
-  { value: 'main1', label: 'Main 1' },
-  { value: 'begin_combat', label: 'Begin combat' },
-  { value: 'declare_attackers', label: 'Attackers' },
-  { value: 'declare_blockers', label: 'Blockers' },
-  { value: 'combat_damage', label: 'Damage' },
-  { value: 'end_combat', label: 'End combat' },
-  { value: 'main2', label: 'Main 2' },
-  { value: 'end', label: 'End step' },
-  { value: 'cleanup', label: 'Cleanup' },
-]
 const LIBRARY_SORT_OPTIONS: Array<{ value: LibraryCardSortOption; label: string }> = [
   { value: 'DECK_ORDER', label: 'Deck order' },
   { value: 'NAME', label: 'Name A-Z' },
@@ -199,6 +185,10 @@ export function PlayGamePage() {
   const localPlayerId = activeGame?.localPlayerId ?? ''
   const localPublicPlayer = players.find((player) => player.id === localPlayerId) ?? null
   const localPrivatePlayer = activeGame?.privateState ?? null
+  const turn = activeGame?.publicState.turn ?? null
+  const activeTurnPlayer =
+    players.find((player) => player.id === turn?.activePlayerId) ?? players[0] ?? null
+  const isLocalPlayersTurn = Boolean(localPlayerId) && activeTurnPlayer?.id === localPlayerId
   const opponentPlayers = players.filter((player) => player.id !== localPlayerId)
   const battlefieldByController = players.map((player) => ({
     player,
@@ -263,13 +253,21 @@ export function PlayGamePage() {
 
   const activeGameId = activeGame.gameId
 
+  function sendTurnAction(action: ClientGameAction) {
+    if (!isLocalPlayersTurn) {
+      return
+    }
+
+    sendGameAction(activeGameId, action)
+  }
+
   function moveOwnedCard(
     fromZone: OwnedZone,
     toZone: OwnedZone,
     cardId: string,
     position?: PermanentPosition,
   ) {
-    sendGameAction(activeGameId, {
+    sendTurnAction({
       type: 'move_owned_card',
       cardId,
       fromZone,
@@ -312,18 +310,10 @@ export function PlayGamePage() {
           roomCode={room?.code ?? activeGame.roomId}
           battlefieldCount={battlefield.length}
           turn={activeGame.publicState.turn}
-          players={players}
+          activePlayer={activeTurnPlayer}
           localPlayer={localPublicPlayer}
-          onDraw={() => sendGameAction(activeGameId, { type: 'draw_card' })}
-          onDrawSeven={() => sendGameAction(activeGameId, { type: 'draw_card', amount: 7 })}
-          onShuffle={() => sendGameAction(activeGameId, { type: 'shuffle_library' })}
-          onUntapAll={() => sendGameAction(activeGameId, { type: 'untap_all' })}
-          onAdvancePhase={() => sendGameAction(activeGameId, { type: 'advance_turn_phase' })}
-          onAdvanceTurn={() => sendGameAction(activeGameId, { type: 'advance_turn' })}
-          onSetPhase={(phase) => sendGameAction(activeGameId, { type: 'set_turn_phase', phase })}
-          onSetActivePlayer={(playerId) =>
-            sendGameAction(activeGameId, { type: 'set_active_player', playerId })
-          }
+          isLocalPlayersTurn={isLocalPlayersTurn}
+          onAdvanceTurn={() => sendTurnAction({ type: 'advance_turn' })}
         />
 
         {error ? (
@@ -356,18 +346,24 @@ export function PlayGamePage() {
                       player={player}
                       permanents={permanents}
                       localPlayerId={localPlayerId}
+                      isActiveTurnPlayer={activeTurnPlayer?.id === player.id}
+                      isLocalPlayersTurn={isLocalPlayersTurn}
                       compact
                       selectedCardId={
                         activeSelection?.zone === 'battlefield' ? activeSelection.cardId : null
                       }
                       onAdjustLife={(playerId, delta) =>
-                        sendGameAction(activeGameId, {
+                        sendTurnAction({
                           type: 'adjust_life',
                           playerId,
                           delta,
                         })
                       }
                       onOpenZone={openZone}
+                      onDrawCard={() => sendTurnAction({ type: 'draw_card' })}
+                      onBrowseLocalLibrary={openLocalLibrary}
+                      onShuffle={() => sendTurnAction({ type: 'shuffle_library' })}
+                      onUntapAll={() => sendTurnAction({ type: 'untap_all' })}
                       onSelectPermanent={(cardId) => {
                         setSelectedCard({ zone: 'battlefield', cardId })
                         setFocusedPlayerId(player.id)
@@ -375,7 +371,7 @@ export function PlayGamePage() {
                       onDropCard={(payload, position) => {
                         if (payload.fromZone === 'battlefield') {
                           if (payload.controllerPlayerId === player.id) {
-                            sendGameAction(activeGameId, {
+                            sendTurnAction({
                               type: 'set_permanent_position',
                               cardId: payload.cardId,
                               position,
@@ -385,14 +381,14 @@ export function PlayGamePage() {
                         }
                       }}
                       onToggleTapped={(cardId, tapped) =>
-                        sendGameAction(activeGameId, {
+                        sendTurnAction({
                           type: 'tap_card',
                           cardId,
                           tapped,
                         })
                       }
                       onStackCard={(cardId, stackWithCardId) =>
-                        sendGameAction(activeGameId, {
+                        sendTurnAction({
                           type: 'set_permanent_stack',
                           cardId,
                           stackWithCardId,
@@ -411,24 +407,31 @@ export function PlayGamePage() {
                   player={player}
                   permanents={permanents}
                   localPlayerId={localPlayerId}
+                  privateState={localPrivatePlayer}
+                  isActiveTurnPlayer={activeTurnPlayer?.id === player.id}
+                  isLocalPlayersTurn={isLocalPlayersTurn}
                   selectedCardId={
                     activeSelection?.zone === 'battlefield' ? activeSelection.cardId : null
                   }
                   onAdjustLife={(playerId, delta) =>
-                    sendGameAction(activeGameId, {
+                    sendTurnAction({
                       type: 'adjust_life',
                       playerId,
                       delta,
                     })
                   }
                   onOpenZone={openZone}
+                  onDrawCard={() => sendTurnAction({ type: 'draw_card' })}
+                  onBrowseLocalLibrary={openLocalLibrary}
+                  onShuffle={() => sendTurnAction({ type: 'shuffle_library' })}
+                  onUntapAll={() => sendTurnAction({ type: 'untap_all' })}
                   onSelectPermanent={(cardId) => {
                     setSelectedCard({ zone: 'battlefield', cardId })
                     setFocusedPlayerId(player.id)
                   }}
                   onDropCard={(payload, position) => {
                     if (payload.fromZone === 'battlefield') {
-                      sendGameAction(activeGameId, {
+                      sendTurnAction({
                         type: 'set_permanent_position',
                         cardId: payload.cardId,
                         position,
@@ -439,14 +442,14 @@ export function PlayGamePage() {
                     moveOwnedCard(payload.fromZone, 'battlefield', payload.cardId, position)
                   }}
                   onToggleTapped={(cardId, tapped) =>
-                    sendGameAction(activeGameId, {
+                    sendTurnAction({
                       type: 'tap_card',
                       cardId,
                       tapped,
                     })
                   }
                   onStackCard={(cardId, stackWithCardId) =>
-                    sendGameAction(activeGameId, {
+                    sendTurnAction({
                       type: 'set_permanent_stack',
                       cardId,
                       stackWithCardId,
@@ -457,16 +460,15 @@ export function PlayGamePage() {
 
             {localPublicPlayer && localPrivatePlayer ? (
               <HandTray
-                player={localPublicPlayer}
                 privateState={localPrivatePlayer}
+                canAct={isLocalPlayersTurn}
+                activePlayerName={activeTurnPlayer?.name ?? 'Unknown player'}
                 selectedCardId={
                   activeSelection?.zone === 'hand' || activeSelection?.zone === 'library'
                     ? activeSelection.cardId
                     : null
                 }
-                onOpenZone={(zone) => openZone(localPublicPlayer.id, zone)}
                 onSelectCard={(cardId) => setSelectedCard({ zone: 'hand', cardId })}
-                onOpenLibrary={openLocalLibrary}
                 onQuickCast={(cardId) => moveOwnedCard('hand', 'battlefield', cardId)}
               />
             ) : null}
@@ -476,6 +478,7 @@ export function PlayGamePage() {
             <InspectorCard
               players={players}
               selected={selectedData}
+              canAct={isLocalPlayersTurn}
               counterDraft={counterDraft}
               noteDraft={noteDraft}
               onCounterDraftChange={setCounterDraft}
@@ -489,21 +492,21 @@ export function PlayGamePage() {
               onMoveOwnedCard={moveOwnedCard}
               stackCards={selectedStackCards}
               onToggleTapped={(cardId, tapped) =>
-                sendGameAction(activeGameId, {
+                sendTurnAction({
                   type: 'tap_card',
                   cardId,
                   tapped,
                 })
               }
               onSetStack={(cardId, stackWithCardId) =>
-                sendGameAction(activeGameId, {
+                sendTurnAction({
                   type: 'set_permanent_stack',
                   cardId,
                   stackWithCardId,
                 })
               }
               onAdjustCounter={(cardId, counterKind, delta) =>
-                sendGameAction(activeGameId, {
+                sendTurnAction({
                   type: 'adjust_permanent_counter',
                   cardId,
                   counterKind,
@@ -511,21 +514,21 @@ export function PlayGamePage() {
                 })
               }
               onSaveNote={(cardId, note) =>
-                sendGameAction(activeGameId, {
+                sendTurnAction({
                   type: 'set_permanent_note',
                   cardId,
                   note,
                 })
               }
               onSetFaceDown={(cardId, faceDown) =>
-                sendGameAction(activeGameId, {
+                sendTurnAction({
                   type: 'set_permanent_face_down',
                   cardId,
                   faceDown,
                 })
               }
               onChangeControl={(cardId, controllerPlayerId) =>
-                sendGameAction(activeGameId, {
+                sendTurnAction({
                   type: 'change_control',
                   cardId,
                   controllerPlayerId,
@@ -566,6 +569,7 @@ export function PlayGamePage() {
                   <ZoneBrowser
                     players={players}
                     localPlayerId={localPlayerId}
+                    canAct={isLocalPlayersTurn}
                     focusedPlayer={focusedPlayer}
                     privateState={localPrivatePlayer}
                     activeZone={activeZone}
@@ -585,6 +589,7 @@ export function PlayGamePage() {
                     players={players}
                     focusedPlayer={focusedPlayer}
                     localPlayerId={localPlayerId}
+                    canAct={isLocalPlayersTurn}
                     counterDraft={playerCounterDraft}
                     noteDraft={focusedPlayerNoteDraft}
                     onCounterDraftChange={setPlayerCounterDraft}
@@ -596,7 +601,7 @@ export function PlayGamePage() {
                     }
                     onFocusPlayer={(playerId) => setFocusedPlayerId(playerId)}
                     onAdjustCounter={(playerId, counterKind, delta) =>
-                      sendGameAction(activeGameId, {
+                      sendTurnAction({
                         type: 'adjust_player_counter',
                         playerId,
                         counterKind,
@@ -604,14 +609,14 @@ export function PlayGamePage() {
                       })
                     }
                     onSaveNote={(playerId, note) =>
-                      sendGameAction(activeGameId, {
+                      sendTurnAction({
                         type: 'set_player_note',
                         playerId,
                         note,
                       })
                     }
                     onSetDesignation={(playerId, designation, value) =>
-                      sendGameAction(activeGameId, {
+                      sendTurnAction({
                         type: 'set_player_designation',
                         playerId,
                         designation,
@@ -619,14 +624,14 @@ export function PlayGamePage() {
                       })
                     }
                     onAdjustCommanderTax={(playerId, delta) =>
-                      sendGameAction(activeGameId, {
+                      sendTurnAction({
                         type: 'adjust_commander_tax',
                         playerId,
                         delta,
                       })
                     }
                     onAdjustCommanderDamage={(playerId, sourcePlayerId, delta) =>
-                      sendGameAction(activeGameId, {
+                      sendTurnAction({
                         type: 'adjust_commander_damage',
                         playerId,
                         sourcePlayerId,
@@ -641,6 +646,7 @@ export function PlayGamePage() {
                     stack={activeGame.publicState.stack}
                     selected={selectedData}
                     isLocalOwned={Boolean(isSelectedCardLocalOwned)}
+                    canAct={isLocalPlayersTurn}
                     draft={stackDraft}
                     onDraftChange={setStackDraft}
                     onCreateFromSelected={(itemType, note, faceDown) => {
@@ -648,7 +654,7 @@ export function PlayGamePage() {
                         return
                       }
 
-                      sendGameAction(activeGameId, {
+                      sendTurnAction({
                         type: 'create_stack_item',
                         itemType,
                         cardId: selectedData.card.instanceId,
@@ -658,19 +664,19 @@ export function PlayGamePage() {
                       })
                     }}
                     onCreateManual={(payload) =>
-                      sendGameAction(activeGameId, {
+                      sendTurnAction({
                         type: 'create_stack_item',
                         ...payload,
                       })
                     }
                     onResolve={(stackItemId) =>
-                      sendGameAction(activeGameId, {
+                      sendTurnAction({
                         type: 'resolve_stack_item',
                         stackItemId,
                       })
                     }
                     onRemove={(stackItemId) =>
-                      sendGameAction(activeGameId, {
+                      sendTurnAction({
                         type: 'remove_stack_item',
                         stackItemId,
                       })
@@ -680,10 +686,11 @@ export function PlayGamePage() {
 
                 {utilityPanel === 'tokens' ? (
                   <TokenWorkshop
+                    canAct={isLocalPlayersTurn}
                     draft={tokenDraft}
                     onDraftChange={setTokenDraft}
                     onCreateToken={(preset) =>
-                      sendGameAction(activeGameId, {
+                      sendTurnAction({
                         type: 'create_token',
                         ...preset,
                       })
@@ -709,35 +716,21 @@ function TableHud({
   startedAt,
   battlefieldCount,
   turn,
-  players,
+  activePlayer,
   localPlayer,
-  onDraw,
-  onDrawSeven,
-  onShuffle,
-  onUntapAll,
-  onAdvancePhase,
+  isLocalPlayersTurn,
   onAdvanceTurn,
-  onSetPhase,
-  onSetActivePlayer,
 }: {
   gameId: string
   roomCode: string
   startedAt: string
   battlefieldCount: number
-  turn: { turnNumber: number; activePlayerId: string; phase: TurnPhase }
-  players: GamePlayerPublicSnapshot[]
+  turn: { turnNumber: number; activePlayerId: string }
+  activePlayer: GamePlayerPublicSnapshot | null
   localPlayer: GamePlayerPublicSnapshot | null
-  onDraw: () => void
-  onDrawSeven: () => void
-  onShuffle: () => void
-  onUntapAll: () => void
-  onAdvancePhase: () => void
+  isLocalPlayersTurn: boolean
   onAdvanceTurn: () => void
-  onSetPhase: (phase: TurnPhase) => void
-  onSetActivePlayer: (playerId: string) => void
 }) {
-  const activePlayer = players.find((player) => player.id === turn.activePlayerId) ?? null
-
   return (
     <section className="relative isolate overflow-hidden rounded-[2rem] border border-white/10 bg-ink-900/94 px-5 py-5 shadow-panel">
       <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_left,rgba(29,150,167,0.16),transparent_28%),radial-gradient(circle_at_bottom_right,rgba(223,107,11,0.12),transparent_24%)]" />
@@ -757,7 +750,7 @@ function TableHud({
               Table {gameId.slice(0, 8)}
             </h1>
             <p className="mt-2 max-w-3xl text-sm text-ink-300 sm:text-base">
-              Drag cards to the board, tap permanents, and use the inspector for the rest.
+              The active player owns the table controls. Draw from the library pile on the board and open zones from the lane piles.
             </p>
           </div>
 
@@ -766,9 +759,7 @@ function TableHud({
             <MetaPill icon={<Swords className="h-3.5 w-3.5" />} label={`${battlefieldCount} permanents`} />
             <MetaPill
               icon={<Crown className="h-3.5 w-3.5" />}
-              label={`Turn ${turn.turnNumber} • ${activePlayer?.name ?? 'Unknown'} • ${
-                TURN_PHASE_LABELS.find((entry) => entry.value === turn.phase)?.label ?? turn.phase
-              }`}
+              label={`Turn ${turn.turnNumber} • ${activePlayer?.name ?? 'Unknown player'} acting`}
             />
             {localPlayer ? (
               <>
@@ -786,66 +777,31 @@ function TableHud({
           </div>
         </div>
 
-        <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-4">
-          <HudButton icon={<Shuffle className="h-4 w-4" />} label="Shuffle" onClick={onShuffle} />
-          <HudButton icon={<BookOpen className="h-4 w-4" />} label="Draw 1" onClick={onDraw} />
-          <HudButton
-            icon={<Sparkles className="h-4 w-4" />}
-            label="Draw 7"
-            onClick={onDrawSeven}
-          />
-          <HudButton
-            icon={<RefreshCcw className="h-4 w-4" />}
-            label="Untap all"
-            onClick={onUntapAll}
-          />
-        </div>
-
-        <div className="relative flex flex-col gap-3 rounded-[1.4rem] border border-white/10 bg-white/5 p-3 xl:min-w-[24rem]">
-          <div className="flex flex-wrap items-center gap-2">
-            {players.map((player) => (
-              <button
-                key={player.id}
-                type="button"
-                onClick={() => onSetActivePlayer(player.id)}
-                className={`rounded-full border px-3 py-1.5 text-xs font-semibold transition ${
-                  turn.activePlayerId === player.id
-                    ? 'border-ember-400/30 bg-ember-500/12 text-ember-100'
-                    : 'border-white/10 bg-white/6 text-ink-100 hover:border-white/20'
-                }`}
-              >
-                {player.name}
-              </button>
-            ))}
+        <div className="grid gap-3 rounded-[1.5rem] border border-white/10 bg-white/6 p-4 xl:min-w-[25rem]">
+          <div>
+            <p className="text-xs font-semibold uppercase tracking-[0.18em] text-ink-400">
+              Turn spotlight
+            </p>
+            <div className="mt-3 flex flex-wrap items-center justify-between gap-3">
+              <div>
+                <p className="text-[0.72rem] font-semibold uppercase tracking-[0.16em] text-ember-200/80">
+                  {isLocalPlayersTurn ? 'Your turn' : `${activePlayer?.name ?? 'Unknown player'}'s turn`}
+                </p>
+                <h2 className="mt-1 text-2xl font-semibold text-ink-50">
+                  {isLocalPlayersTurn
+                    ? 'You can move cards and use the board.'
+                    : `Actions stay locked until ${activePlayer?.name ?? 'the active player'} passes.`}
+                </h2>
+              </div>
+              <fieldset disabled={!isLocalPlayersTurn} className={isLocalPlayersTurn ? '' : 'opacity-60'}>
+                <HudButton icon={<ArrowRight className="h-4 w-4" />} label="Pass turn" onClick={onAdvanceTurn} />
+              </fieldset>
+            </div>
           </div>
 
-          <div className="flex flex-wrap gap-2">
-            {TURN_PHASE_LABELS.map((phase) => (
-              <button
-                key={phase.value}
-                type="button"
-                onClick={() => onSetPhase(phase.value)}
-                className={`rounded-full border px-2.5 py-1 text-[0.68rem] font-semibold transition ${
-                  turn.phase === phase.value
-                    ? 'border-tide-400/35 bg-tide-500/12 text-tide-100'
-                    : 'border-white/10 bg-white/6 text-ink-200 hover:border-white/20'
-                }`}
-              >
-                {phase.label}
-              </button>
-            ))}
-          </div>
-
-          <div className="flex flex-wrap gap-2">
-            <InspectorButton onClick={onAdvancePhase} tone="primary">
-              <ArrowRight className="h-3.5 w-3.5" />
-              Next phase
-            </InspectorButton>
-            <InspectorButton onClick={onAdvanceTurn}>
-              <ArrowRight className="h-3.5 w-3.5" />
-              Pass turn
-            </InspectorButton>
-          </div>
+          <p className="text-sm leading-6 text-ink-300">
+            The library, graveyard, command, and exile piles now live inside each lane so the board carries the game flow instead of the old phase toolbar.
+          </p>
         </div>
       </div>
     </section>
@@ -856,10 +812,17 @@ function BattlefieldLane({
   player,
   permanents,
   localPlayerId,
+  privateState = null,
   compact = false,
+  isActiveTurnPlayer,
+  isLocalPlayersTurn,
   selectedCardId,
   onAdjustLife,
   onOpenZone,
+  onDrawCard,
+  onBrowseLocalLibrary,
+  onShuffle,
+  onUntapAll,
   onSelectPermanent,
   onDropCard,
   onToggleTapped,
@@ -868,22 +831,33 @@ function BattlefieldLane({
   player: GamePlayerPublicSnapshot
   permanents: BattlefieldPermanentSnapshot[]
   localPlayerId: string
+  privateState?: GamePrivatePlayerState | null
   compact?: boolean
+  isActiveTurnPlayer: boolean
+  isLocalPlayersTurn: boolean
   selectedCardId: string | null
   onAdjustLife: (playerId: string, delta: number) => void
   onOpenZone: (playerId: string, zone: BrowseableZone) => void
+  onDrawCard: () => void
+  onBrowseLocalLibrary: () => void
+  onShuffle: () => void
+  onUntapAll: () => void
   onSelectPermanent: (cardId: string) => void
   onDropCard: (payload: DragPayload, position: PermanentPosition) => void
   onToggleTapped: (cardId: string, tapped: boolean) => void
   onStackCard: (cardId: string, stackWithCardId: string | null) => void
 }) {
   const isLocalLane = player.id === localPlayerId
-  const laneHeight = compact ? 'min-h-[13.5rem]' : 'min-h-[15.5rem]'
+  const laneHeight = compact ? 'min-h-[19rem]' : 'min-h-[23rem]'
   const stackGroups = buildBattlefieldStackGroups(permanents)
   const stackOffsetX = compact ? 10 : 12
   const stackOffsetY = compact ? 6 : 8
 
   function handleDrop(event: DragEvent<HTMLDivElement>) {
+    if (!isLocalPlayersTurn) {
+      return
+    }
+
     event.preventDefault()
 
     const payload = parseDragPayload(event.dataTransfer.getData('application/x-grimoire-card'))
@@ -932,6 +906,11 @@ function BattlefieldLane({
                     Your seat
                   </span>
                 ) : null}
+                {isActiveTurnPlayer ? (
+                  <span className="rounded-full border border-ember-400/30 bg-ember-500/12 px-2.5 py-1 text-[0.65rem] font-semibold uppercase tracking-[0.16em] text-ember-100">
+                    Active turn
+                  </span>
+                ) : null}
               </div>
               <p className="mt-1 text-sm text-ink-400">
                 {player.deck ? `${player.deck.name} • ${player.deck.format}` : 'No deck selected'}
@@ -942,27 +921,9 @@ function BattlefieldLane({
           <div className="flex flex-wrap gap-2">
             <CountPill label="Hand" value={player.zoneCounts.hand} />
             <CountPill label="Field" value={player.zoneCounts.battlefield} />
-            {isLocalLane ? (
-              <button
-                type="button"
-                onClick={() => onOpenZone(player.id, 'library')}
-                className="rounded-full border border-tide-400/25 bg-tide-500/12 px-3 py-1.5 text-xs font-semibold text-tide-100 transition hover:border-tide-400/40 hover:bg-tide-500/18"
-              >
-                Library {player.zoneCounts.library}
-              </button>
-            ) : (
-              <CountPill label="Library" value={player.zoneCounts.library} />
-            )}
-            {PUBLIC_ZONE_ORDER.map((zone) => (
-              <button
-                key={zone}
-                type="button"
-                onClick={() => onOpenZone(player.id, zone)}
-                className="rounded-full border border-white/10 bg-white/6 px-3 py-1.5 text-xs font-semibold text-ink-100 transition hover:border-white/20 hover:bg-white/10"
-              >
-                {zoneLabel(zone)} {player.zoneCounts[zone]}
-              </button>
-            ))}
+            <CountPill label="Library" value={player.zoneCounts.library} />
+            <CountPill label="Graveyard" value={player.zoneCounts.graveyard} />
+            <CountPill label="Command" value={player.zoneCounts.command} />
           </div>
         </div>
 
@@ -973,212 +934,449 @@ function BattlefieldLane({
             </p>
             <p className="mt-1 text-3xl font-semibold text-ink-50">{player.lifeTotal}</p>
           </div>
-          <div className="flex gap-2">
-            <LifeButton tone="secondary" onClick={() => onAdjustLife(player.id, -1)}>
-              <Minus className="h-3.5 w-3.5" />
-              1
-            </LifeButton>
-            <LifeButton tone="primary" onClick={() => onAdjustLife(player.id, +1)}>
-              <Plus className="h-3.5 w-3.5" />
-              1
-            </LifeButton>
-            <LifeButton tone="accent" onClick={() => onAdjustLife(player.id, +5)}>
-              <Plus className="h-3.5 w-3.5" />
-              5
-            </LifeButton>
-          </div>
+          <fieldset disabled={!isLocalPlayersTurn} className={isLocalPlayersTurn ? '' : 'opacity-60'}>
+            <div className="flex gap-2">
+              <LifeButton tone="secondary" onClick={() => onAdjustLife(player.id, -1)}>
+                <Minus className="h-3.5 w-3.5" />
+                1
+              </LifeButton>
+              <LifeButton tone="primary" onClick={() => onAdjustLife(player.id, +1)}>
+                <Plus className="h-3.5 w-3.5" />
+                1
+              </LifeButton>
+              <LifeButton tone="accent" onClick={() => onAdjustLife(player.id, +5)}>
+                <Plus className="h-3.5 w-3.5" />
+                5
+              </LifeButton>
+            </div>
+          </fieldset>
         </div>
       </div>
 
-      <div
-        data-testid={`lane-board-${isLocalLane ? 'local' : player.name.toLowerCase().replace(/\s+/g, '-')}`}
-        data-lane-dropzone="true"
-        className={`relative mt-4 overflow-hidden rounded-[1.7rem] border border-white/10 bg-[linear-gradient(180deg,rgba(17,37,45,0.94),rgba(12,27,34,0.94))] ${laneHeight}`}
-        onDragOver={(event) => event.preventDefault()}
-        onDrop={handleDrop}
-      >
-        <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top_left,rgba(29,150,167,0.08),transparent_22%),linear-gradient(rgba(255,255,255,0.04)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.04)_1px,transparent_1px)] bg-[length:auto,28px_28px,28px_28px]" />
-        <div className="pointer-events-none absolute inset-x-0 bottom-0 h-[31%] border-t border-white/10 bg-[linear-gradient(180deg,rgba(255,255,255,0.04),rgba(223,107,11,0.08))]" />
-        <div className="pointer-events-none absolute left-4 top-3 text-[0.65rem] font-semibold uppercase tracking-[0.16em] text-ink-500">
-          Active board
-        </div>
-        <div className="pointer-events-none absolute right-4 bottom-3 text-[0.65rem] font-semibold uppercase tracking-[0.16em] text-ember-200/80">
-          Mana shelf
-        </div>
-
-        {permanents.length === 0 ? (
-          <div className="absolute inset-0 flex items-center justify-center px-8 text-center text-sm text-ink-400">
-            {isLocalLane
-              ? 'Drag cards here. Drop one permanent onto another to stack them.'
-              : 'No permanents in this lane yet.'}
+      <div className={`mt-4 grid gap-3 ${laneHeight} xl:grid-cols-[minmax(0,1fr)_14rem]`}>
+        <div
+          data-testid={`lane-board-${isLocalLane ? 'local' : player.name.toLowerCase().replace(/\s+/g, '-')}`}
+          data-lane-dropzone="true"
+          className="relative h-full overflow-hidden rounded-[1.7rem] border border-white/10 bg-[linear-gradient(180deg,rgba(17,37,45,0.94),rgba(12,27,34,0.94))]"
+          onDragOver={(event) => event.preventDefault()}
+          onDrop={handleDrop}
+        >
+          <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top_left,rgba(29,150,167,0.08),transparent_22%),linear-gradient(rgba(255,255,255,0.04)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.04)_1px,transparent_1px)] bg-[length:auto,28px_28px,28px_28px]" />
+          <div className="pointer-events-none absolute inset-x-0 bottom-0 h-[31%] border-t border-white/10 bg-[linear-gradient(180deg,rgba(255,255,255,0.04),rgba(223,107,11,0.08))]" />
+          <div className="pointer-events-none absolute left-4 top-3 text-[0.65rem] font-semibold uppercase tracking-[0.16em] text-ink-500">
+            Play field
           </div>
-        ) : null}
+          <div className="pointer-events-none absolute right-4 bottom-3 text-[0.65rem] font-semibold uppercase tracking-[0.16em] text-ember-200/80">
+            Mana shelf
+          </div>
 
-        {stackGroups.map((group, index) => {
-          const stackWidth = 192 + (group.cards.length - 1) * stackOffsetX
-          const stackHeight = 212 + (group.cards.length - 1) * stackOffsetY
+          {permanents.length === 0 ? (
+            <div className="absolute inset-0 flex items-center justify-center px-8 text-center text-sm text-ink-400">
+              {isLocalLane
+                ? isLocalPlayersTurn
+                  ? 'Drag cards here. Drop one permanent onto another to stack them.'
+                  : `Waiting for the active player. Your board unlocks on your turn.`
+                : 'No permanents in this lane yet.'}
+            </div>
+          ) : null}
 
-          return (
-            <div
-              key={group.id}
-              style={{
-                left: `${group.position.x}%`,
-                top: `${group.position.y}%`,
-                zIndex: index + 2,
-              }}
-              className="absolute -translate-x-1/2 -translate-y-1/2 text-left"
-            >
+          {stackGroups.map((group, index) => {
+            const stackWidth = 192 + (group.cards.length - 1) * stackOffsetX
+            const stackHeight = 212 + (group.cards.length - 1) * stackOffsetY
+
+            return (
               <div
-                className="relative"
+                key={group.id}
                 style={{
-                  width: `${stackWidth}px`,
-                  height: `${stackHeight}px`,
+                  left: `${group.position.x}%`,
+                  top: `${group.position.y}%`,
+                  zIndex: index + 2,
                 }}
+                className="absolute -translate-x-1/2 -translate-y-1/2 text-left"
               >
-                {group.cards.length > 1 ? (
-                  <div className="absolute left-2 top-2 z-30 rounded-full border border-tide-400/25 bg-ink-950/85 px-2.5 py-1 text-[0.62rem] font-semibold uppercase tracking-[0.14em] text-tide-100 shadow-lg">
-                    {group.cards.length} card stack
-                  </div>
-                ) : null}
+                <div
+                  className="relative"
+                  style={{
+                    width: `${stackWidth}px`,
+                    height: `${stackHeight}px`,
+                  }}
+                >
+                  {group.cards.length > 1 ? (
+                    <div className="absolute left-2 top-2 z-30 rounded-full border border-tide-400/25 bg-ink-950/85 px-2.5 py-1 text-[0.62rem] font-semibold uppercase tracking-[0.14em] text-tide-100 shadow-lg">
+                      {group.cards.length} card stack
+                    </div>
+                  ) : null}
 
-                {group.cards.map((permanent, stackIndex) => {
-                  const canControl =
-                    permanent.ownerPlayerId === localPlayerId ||
-                    permanent.controllerPlayerId === localPlayerId
+                  {group.cards.map((permanent, stackIndex) => {
+                    const canControl =
+                      isLocalPlayersTurn &&
+                      (permanent.ownerPlayerId === localPlayerId ||
+                        permanent.controllerPlayerId === localPlayerId)
 
-                  return (
-                    <div
-                      key={permanent.instanceId}
-                      style={{
-                        left: `${stackIndex * stackOffsetX}px`,
-                        top: `${stackIndex * stackOffsetY}px`,
-                        zIndex: stackIndex + 1,
-                      }}
-                      className="absolute"
-                    >
-                      <div className="relative h-[13.25rem] w-[12rem]">
-                        {canControl ? (
+                    return (
+                      <div
+                        key={permanent.instanceId}
+                        style={{
+                          left: `${stackIndex * stackOffsetX}px`,
+                          top: `${stackIndex * stackOffsetY}px`,
+                          zIndex: stackIndex + 1,
+                        }}
+                        className="absolute"
+                      >
+                        <div className="relative h-[13.25rem] w-[12rem]">
+                          {canControl ? (
+                            <button
+                              type="button"
+                              onClick={(event) => {
+                                event.stopPropagation()
+                                onToggleTapped(permanent.instanceId, !permanent.tapped)
+                              }}
+                              className={`absolute right-1 top-1 z-20 rounded-full border px-2.5 py-1 text-[0.62rem] font-semibold uppercase tracking-[0.14em] transition ${
+                                permanent.tapped
+                                  ? 'border-emerald-400/25 bg-emerald-500/12 text-emerald-100 hover:border-emerald-400/40'
+                                  : 'border-ember-400/25 bg-ember-500/12 text-ember-100 hover:border-ember-400/40'
+                              }`}
+                            >
+                              {permanent.tapped ? 'Untap' : 'Tap'}
+                            </button>
+                          ) : null}
+
                           <button
                             type="button"
-                            onClick={(event) => {
-                              event.stopPropagation()
-                              onToggleTapped(permanent.instanceId, !permanent.tapped)
+                            data-card-name={permanent.card.name}
+                            draggable={canControl}
+                            onDragStart={(event) =>
+                              event.dataTransfer.setData(
+                                'application/x-grimoire-card',
+                                JSON.stringify({
+                                  cardId: permanent.instanceId,
+                                  fromZone: 'battlefield',
+                                  controllerPlayerId: permanent.controllerPlayerId,
+                                } satisfies DragPayload),
+                              )
+                            }
+                            onDragOver={(event) => {
+                              if (
+                                canControl &&
+                                event.dataTransfer.types.includes('application/x-grimoire-card')
+                              ) {
+                                event.preventDefault()
+                              }
                             }}
-                            className={`absolute right-1 top-1 z-20 rounded-full border px-2.5 py-1 text-[0.62rem] font-semibold uppercase tracking-[0.14em] transition ${
-                              permanent.tapped
-                                ? 'border-emerald-400/25 bg-emerald-500/12 text-emerald-100 hover:border-emerald-400/40'
-                                : 'border-ember-400/25 bg-ember-500/12 text-ember-100 hover:border-ember-400/40'
-                            }`}
-                          >
-                            {permanent.tapped ? 'Untap' : 'Tap'}
-                          </button>
-                        ) : null}
+                            onDrop={(event) => {
+                              if (!isLocalPlayersTurn) {
+                                return
+                              }
 
-                        <button
-                          type="button"
-                          data-card-name={permanent.card.name}
-                          draggable={canControl}
-                          onDragStart={(event) =>
-                            event.dataTransfer.setData(
-                              'application/x-grimoire-card',
-                              JSON.stringify({
-                                cardId: permanent.instanceId,
-                                fromZone: 'battlefield',
-                                controllerPlayerId: permanent.controllerPlayerId,
-                              } satisfies DragPayload),
-                            )
-                          }
-                          onDragOver={(event) => {
-                            if (
-                              event.dataTransfer.types.includes('application/x-grimoire-card')
-                            ) {
+                              const payload = parseDragPayload(
+                                event.dataTransfer.getData('application/x-grimoire-card'),
+                              )
+
+                              if (
+                                !payload ||
+                                payload.fromZone !== 'battlefield' ||
+                                payload.cardId === permanent.instanceId
+                              ) {
+                                return
+                              }
+
                               event.preventDefault()
-                            }
-                          }}
-                          onDrop={(event) => {
-                            const payload = parseDragPayload(
-                              event.dataTransfer.getData('application/x-grimoire-card'),
-                            )
+                              event.stopPropagation()
 
-                            if (
-                              !payload ||
-                              payload.fromZone !== 'battlefield' ||
-                              payload.cardId === permanent.instanceId
-                            ) {
-                              return
-                            }
-
-                            event.preventDefault()
-                            event.stopPropagation()
-
-                            if (
-                              payload.fromZone === 'battlefield' &&
-                              payload.cardId !== permanent.instanceId
-                            ) {
                               onStackCard(payload.cardId, permanent.instanceId)
-                              return
+                            }}
+                            onClick={() => onSelectPermanent(permanent.instanceId)}
+                            onDoubleClick={() =>
+                              canControl
+                                ? onToggleTapped(permanent.instanceId, !permanent.tapped)
+                                : undefined
                             }
-
-                            const laneElement = event.currentTarget.closest('[data-lane-dropzone="true"]')
-
-                            if (!(laneElement instanceof HTMLDivElement)) {
-                              return
-                            }
-
-                            const rect = laneElement.getBoundingClientRect()
-                            const x = ((event.clientX - rect.left) / rect.width) * 100
-                            const y = ((event.clientY - rect.top) / rect.height) * 100
-
-                            onDropCard(payload, {
-                              x,
-                              y,
-                            })
-                          }}
-                          onClick={() => onSelectPermanent(permanent.instanceId)}
-                          onDoubleClick={() =>
-                            canControl
-                              ? onToggleTapped(permanent.instanceId, !permanent.tapped)
-                              : undefined
-                          }
-                          className="absolute inset-0 flex items-center justify-center text-left"
-                        >
-                          <TableCard
-                            card={permanent.card}
-                            variant="battlefield"
-                            tapped={permanent.tapped}
-                            selected={selectedCardId === permanent.instanceId}
-                            counters={permanent.counters}
-                            note={permanent.note}
-                            badge={permanent.isToken ? 'Token' : undefined}
-                          />
-                        </button>
+                            className="absolute inset-0 flex items-center justify-center text-left"
+                          >
+                            <TableCard
+                              card={permanent.card}
+                              variant="battlefield"
+                              tapped={permanent.tapped}
+                              selected={selectedCardId === permanent.instanceId}
+                              counters={permanent.counters}
+                              note={permanent.note}
+                              badge={permanent.isToken ? 'Token' : undefined}
+                            />
+                          </button>
+                        </div>
                       </div>
-                    </div>
-                  )
-                })}
+                    )
+                  })}
+                </div>
               </div>
-            </div>
-          )
-        })}
+            )
+          })}
+        </div>
+
+        <LaneZoneDock
+          player={player}
+          privateState={isLocalLane ? privateState : null}
+          isLocalLane={isLocalLane}
+          isActiveTurnPlayer={isActiveTurnPlayer}
+          isLocalPlayersTurn={isLocalPlayersTurn}
+          onOpenZone={onOpenZone}
+          onDrawCard={onDrawCard}
+          onBrowseLocalLibrary={onBrowseLocalLibrary}
+          onShuffle={onShuffle}
+          onUntapAll={onUntapAll}
+        />
       </div>
     </section>
   )
 }
 
-function HandTray({
+function LaneZoneDock({
   player,
   privateState,
-  selectedCardId,
+  isLocalLane,
+  isActiveTurnPlayer,
+  isLocalPlayersTurn,
   onOpenZone,
-  onOpenLibrary,
+  onDrawCard,
+  onBrowseLocalLibrary,
+  onShuffle,
+  onUntapAll,
+}: {
+  player: GamePlayerPublicSnapshot
+  privateState: GamePrivatePlayerState | null
+  isLocalLane: boolean
+  isActiveTurnPlayer: boolean
+  isLocalPlayersTurn: boolean
+  onOpenZone: (playerId: string, zone: BrowseableZone) => void
+  onDrawCard: () => void
+  onBrowseLocalLibrary: () => void
+  onShuffle: () => void
+  onUntapAll: () => void
+}) {
+  const laneSlug = isLocalLane ? 'local' : player.name.toLowerCase().replace(/\s+/g, '-')
+  const libraryCount = isLocalLane ? privateState?.library.length ?? player.zoneCounts.library : player.zoneCounts.library
+  const graveyardTopCard = player.graveyard[player.graveyard.length - 1]?.card.imageUrl
+  const commandTopCard = player.command[player.command.length - 1]?.card.imageUrl
+  const exileTopCard = player.exile[player.exile.length - 1]?.card.imageUrl
+
+  return (
+    <aside className="flex h-full flex-col rounded-[1.7rem] border border-white/10 bg-ink-950/70 p-3 shadow-card">
+      <div>
+        <p className="text-[0.65rem] font-semibold uppercase tracking-[0.16em] text-ink-500">
+          Board rail
+        </p>
+        <h3 className="mt-2 text-lg font-semibold text-ink-50">
+          {isLocalLane ? 'Your piles' : `${player.name}'s piles`}
+        </h3>
+        <p className="mt-2 text-sm leading-5 text-ink-400">
+          {isLocalLane
+            ? isLocalPlayersTurn
+              ? 'Click the library pile to draw. Open piles to browse the zone list.'
+              : 'Piles stay visible, but only the active player can use the board controls.'
+            : isActiveTurnPlayer
+              ? 'This player currently has the turn.'
+              : 'Public zones stay visible from here.'}
+        </p>
+      </div>
+
+      <div className="mt-4 grid grid-cols-2 gap-3">
+        <BoardZonePile
+          dataTestId={`zone-pile-library-${laneSlug}`}
+          title="Library"
+          count={libraryCount}
+          faceDown
+          imageUrl={null}
+          actionLabel={isLocalLane ? 'Draw' : 'Hidden'}
+          onClick={isLocalLane ? onDrawCard : undefined}
+          disabled={!isLocalLane || !isLocalPlayersTurn}
+          secondaryAction={
+            isLocalLane
+              ? {
+                  label: 'Browse',
+                  dataTestId: `zone-pile-library-browse-${laneSlug}`,
+                  onClick: onBrowseLocalLibrary,
+                }
+              : undefined
+          }
+        />
+        <BoardZonePile
+          dataTestId={`zone-pile-graveyard-${laneSlug}`}
+          title="Graveyard"
+          count={player.zoneCounts.graveyard}
+          imageUrl={graveyardTopCard ?? null}
+          actionLabel="Open"
+          onClick={() => onOpenZone(player.id, 'graveyard')}
+        />
+        <BoardZonePile
+          dataTestId={`zone-pile-command-${laneSlug}`}
+          title="Command"
+          count={player.zoneCounts.command}
+          imageUrl={commandTopCard ?? null}
+          actionLabel="Open"
+          onClick={() => onOpenZone(player.id, 'command')}
+        />
+        <BoardZonePile
+          dataTestId={`zone-pile-exile-${laneSlug}`}
+          title="Exile"
+          count={player.zoneCounts.exile}
+          imageUrl={exileTopCard ?? null}
+          actionLabel="Open"
+          onClick={() => onOpenZone(player.id, 'exile')}
+        />
+      </div>
+
+      {isLocalLane ? (
+        <fieldset
+          disabled={!isLocalPlayersTurn}
+          className={`mt-4 grid gap-2 ${isLocalPlayersTurn ? '' : 'opacity-60'}`}
+        >
+          <button
+            type="button"
+            onClick={onShuffle}
+            className="inline-flex items-center justify-center gap-2 rounded-2xl border border-white/10 bg-white/6 px-3 py-2.5 text-sm font-semibold text-ink-100 transition hover:border-white/20 hover:bg-white/10"
+          >
+            <Shuffle className="h-4 w-4" />
+            Shuffle
+          </button>
+          <button
+            type="button"
+            onClick={onUntapAll}
+            className="inline-flex items-center justify-center gap-2 rounded-2xl border border-white/10 bg-white/6 px-3 py-2.5 text-sm font-semibold text-ink-100 transition hover:border-white/20 hover:bg-white/10"
+          >
+            <RefreshCcw className="h-4 w-4" />
+            Untap all
+          </button>
+        </fieldset>
+      ) : null}
+    </aside>
+  )
+}
+
+function BoardZonePile({
+  dataTestId,
+  title,
+  count,
+  faceDown = false,
+  imageUrl,
+  actionLabel,
+  onClick,
+  disabled = false,
+  secondaryAction,
+}: {
+  dataTestId: string
+  title: string
+  count: number
+  faceDown?: boolean
+  imageUrl: string | null
+  actionLabel: string
+  onClick?: () => void
+  disabled?: boolean
+  secondaryAction?: { label: string; dataTestId?: string; onClick: () => void }
+}) {
+  const canActivate = Boolean(onClick) && !disabled
+
+  return (
+    <article className="rounded-[1.35rem] border border-white/10 bg-white/5 p-2.5">
+      <button
+        type="button"
+        data-testid={dataTestId}
+        onClick={canActivate ? onClick : undefined}
+        disabled={!canActivate}
+        className={`w-full rounded-[1rem] border px-3 py-3 text-left transition ${
+          canActivate
+            ? 'border-white/10 bg-ink-950/70 hover:border-tide-400/35 hover:bg-ink-900/90'
+            : 'cursor-not-allowed border-white/10 bg-ink-950/45 text-ink-500'
+        }`}
+      >
+        <div className="flex items-start justify-between gap-3">
+          <div>
+            <p className="text-[0.62rem] font-semibold uppercase tracking-[0.16em] text-ink-500">
+              {title}
+            </p>
+            <p className="mt-1 text-lg font-semibold text-ink-50">{count}</p>
+          </div>
+          <span className="rounded-full border border-white/10 bg-white/6 px-2 py-1 text-[0.58rem] font-semibold uppercase tracking-[0.14em] text-ink-200">
+            {actionLabel}
+          </span>
+        </div>
+
+        <div className="mt-3 flex justify-center">
+          <BoardPileVisual faceDown={faceDown} imageUrl={imageUrl} title={title} />
+        </div>
+      </button>
+
+      {secondaryAction ? (
+        <button
+          type="button"
+          data-testid={secondaryAction.dataTestId}
+          onClick={secondaryAction.onClick}
+          className="mt-2 w-full rounded-xl border border-white/10 bg-white/6 px-3 py-2 text-xs font-semibold text-ink-100 transition hover:border-white/20 hover:bg-white/10"
+        >
+          {secondaryAction.label}
+        </button>
+      ) : null}
+    </article>
+  )
+}
+
+function BoardPileVisual({
+  faceDown,
+  imageUrl,
+  title,
+}: {
+  faceDown: boolean
+  imageUrl: string | null
+  title: string
+}) {
+  return (
+    <div className="relative h-[7.6rem] w-[5.3rem]">
+      {[0, 1].map((layer) => (
+        <div
+          key={layer}
+          style={{
+            transform: `translate(${layer * 6}px, ${layer * 4}px) ${faceDown ? 'rotate(180deg)' : 'rotate(0deg)'}`,
+          }}
+          className="absolute inset-0 rounded-[0.9rem] border border-white/10 bg-ink-950/80 shadow-card"
+        />
+      ))}
+      <div
+        style={{
+          transform: `translate(12px, 8px) ${faceDown ? 'rotate(180deg)' : 'rotate(0deg)'}`,
+        }}
+        className="absolute inset-0 overflow-hidden rounded-[0.9rem] border border-white/10 shadow-card"
+      >
+        {faceDown ? (
+          <div className="relative h-full w-full bg-[radial-gradient(circle_at_center,rgba(86,151,171,0.95),rgba(31,53,84,0.96)_38%,rgba(14,20,34,1)_78%)]">
+            <div className="absolute inset-2 rounded-[0.7rem] border border-[#d6c079]/45" />
+            <div className="absolute inset-[22%] rounded-full border border-[#d6c079]/50 bg-[radial-gradient(circle_at_center,rgba(17,24,39,0.25),rgba(17,24,39,0.72))]" />
+            <div className="absolute inset-x-4 top-4 rounded-full border border-white/10 bg-black/20 py-1 text-center text-[0.52rem] font-semibold uppercase tracking-[0.24em] text-white/80">
+              Library
+            </div>
+          </div>
+        ) : imageUrl ? (
+          <img src={imageUrl} alt={title} className="h-full w-full object-cover" />
+        ) : (
+          <div className="flex h-full items-center justify-center bg-[linear-gradient(180deg,rgba(21,32,44,0.92),rgba(12,18,27,0.98))] px-3 text-center text-[0.68rem] font-semibold uppercase tracking-[0.18em] text-ink-300">
+            {title}
+          </div>
+        )}
+      </div>
+    </div>
+  )
+}
+
+function HandTray({
+  privateState,
+  canAct,
+  activePlayerName,
+  selectedCardId,
   onSelectCard,
   onQuickCast,
 }: {
-  player: GamePlayerPublicSnapshot
   privateState: GamePrivatePlayerState
+  canAct: boolean
+  activePlayerName: string
   selectedCardId: string | null
-  onOpenZone: (zone: PublicZone) => void
-  onOpenLibrary: () => void
   onSelectCard: (cardId: string) => void
   onQuickCast: (cardId: string) => void
 }) {
@@ -1196,29 +1394,15 @@ function HandTray({
             {privateState.hand.length} cards in hand
           </h2>
           <p className="mt-1 text-sm text-ink-400">
-            Drag to the board or double-click to cast.
+            {canAct
+              ? 'Drag to the board or double-click to cast.'
+              : `Waiting for ${activePlayerName} to finish their turn.`}
           </p>
         </div>
-
-        <div className="flex flex-wrap gap-2">
-          <button
-            type="button"
-            onClick={onOpenLibrary}
-            className="rounded-full border border-tide-400/25 bg-tide-500/12 px-3 py-1.5 text-xs font-semibold text-tide-100 transition hover:border-tide-400/40 hover:bg-tide-500/18"
-          >
-            Library {privateState.library.length}
-          </button>
-          {PUBLIC_ZONE_ORDER.map((zone) => (
-            <button
-              key={zone}
-              type="button"
-              onClick={() => onOpenZone(zone)}
-              className="rounded-full border border-white/10 bg-white/6 px-3 py-1.5 text-xs font-semibold text-ink-100 transition hover:border-white/20 hover:bg-white/10"
-            >
-              {zoneLabel(zone)} {player.zoneCounts[zone]}
-            </button>
-          ))}
-        </div>
+        <InfoChip
+          label={canAct ? 'Board controls unlocked' : 'Board controls locked'}
+          tone={canAct ? 'info' : 'warning'}
+        />
       </div>
 
       {privateState.hand.length > 0 ? (
@@ -1229,19 +1413,23 @@ function HandTray({
                 key={card.instanceId}
                 type="button"
                 data-card-name={card.card.name}
-                draggable
+                draggable={canAct}
                 onDragStart={(event) =>
-                  event.dataTransfer.setData(
-                    'application/x-grimoire-card',
-                    JSON.stringify({
-                      cardId: card.instanceId,
-                      fromZone: 'hand',
-                    } satisfies DragPayload),
-                  )
+                  canAct
+                    ? event.dataTransfer.setData(
+                        'application/x-grimoire-card',
+                        JSON.stringify({
+                          cardId: card.instanceId,
+                          fromZone: 'hand',
+                        } satisfies DragPayload),
+                      )
+                    : undefined
                 }
                 onClick={() => onSelectCard(card.instanceId)}
-                onDoubleClick={() => onQuickCast(card.instanceId)}
-                className={`${index === 0 ? '' : '-ml-16'} rounded-[1.3rem] transition hover:z-10 hover:-translate-y-2`}
+                onDoubleClick={() => (canAct ? onQuickCast(card.instanceId) : undefined)}
+                className={`${index === 0 ? '' : '-ml-16'} rounded-[1.3rem] transition ${
+                  canAct ? 'hover:z-10 hover:-translate-y-2' : 'cursor-default opacity-85'
+                }`}
               >
                 <TableCard
                   card={card.card}
@@ -1258,6 +1446,12 @@ function HandTray({
           Your hand is empty. Draw cards or use the token workshop.
         </div>
       )}
+
+      {!canAct ? (
+        <div className="mt-4 rounded-[1.4rem] border border-ember-400/20 bg-ember-500/8 px-4 py-3 text-sm text-ember-100/90">
+          The hand stays read-only until the turn marker comes back to you.
+        </div>
+      ) : null}
     </section>
   )
 }
@@ -1265,6 +1459,7 @@ function HandTray({
 function InspectorCard({
   players,
   selected,
+  canAct,
   stackCards,
   counterDraft,
   noteDraft,
@@ -1284,6 +1479,7 @@ function InspectorCard({
 }: {
   players: GamePlayerPublicSnapshot[]
   selected: SelectedCardData | null
+  canAct: boolean
   stackCards: BattlefieldPermanentSnapshot[]
   counterDraft: string
   noteDraft: string
@@ -1310,6 +1506,7 @@ function InspectorCard({
   const selectedActions = selected
     ? renderSelectedActions({
         selected,
+        canAct,
         stackCards,
         isLocalOwned,
         isLocallyControlled,
@@ -1384,7 +1581,14 @@ function InspectorCard({
 
                 <div className="grid gap-2 sm:grid-cols-2">{selectedActions}</div>
 
+                {!canAct && (isLocalOwned || isLocallyControlled) ? (
+                  <div className="rounded-[1.2rem] border border-ember-400/20 bg-ember-500/8 px-3 py-3 text-sm text-ember-100/90">
+                    The active player is the only one who can move or mark cards right now.
+                  </div>
+                ) : null}
+
                 {selectedPermanent && isLocallyControlled ? (
+                  <fieldset disabled={!canAct} className={canAct ? '' : 'opacity-60'}>
                   <div className="flex flex-wrap gap-2">
                     <InspectorButton
                       onClick={() => onSetFaceDown(selectedPermanent.instanceId, !selectedPermanent.faceDown)}
@@ -1394,6 +1598,7 @@ function InspectorCard({
                       {selectedPermanent.faceDown ? 'Turn face up' : 'Turn face down'}
                     </InspectorButton>
                   </div>
+                  </fieldset>
                 ) : null}
 
                 {selectedPermanent ? (
@@ -1412,7 +1617,7 @@ function InspectorCard({
           </div>
 
           {selectedPermanent && isLocallyControlled ? (
-            <>
+            <fieldset disabled={!canAct} className={canAct ? '' : 'opacity-60'}>
               <InspectorSection
                 title="Counters"
                 icon={<ShieldPlus className="h-4 w-4 text-tide-200" />}
@@ -1522,7 +1727,7 @@ function InspectorCard({
                   ))}
                 </div>
               </InspectorSection>
-            </>
+            </fieldset>
           ) : null}
         </>
       ) : (
@@ -1551,6 +1756,7 @@ function InspectorCard({
 function ZoneBrowser({
   players,
   localPlayerId,
+  canAct,
   focusedPlayer,
   privateState,
   activeZone,
@@ -1565,6 +1771,7 @@ function ZoneBrowser({
 }: {
   players: GamePlayerPublicSnapshot[]
   localPlayerId: string
+  canAct: boolean
   focusedPlayer: GamePlayerPublicSnapshot | null
   privateState: GamePrivatePlayerState | null
   activeZone: BrowseableZone
@@ -1698,6 +1905,11 @@ function ZoneBrowser({
           <p className="text-xs leading-5 text-ink-500">
             Search by name, type, text, set, color, or mana value.
           </p>
+          {!canAct ? (
+            <p className="text-xs leading-5 text-ember-100/80">
+              Browsing stays open off-turn, but moving cards is locked until the turn comes back.
+            </p>
+          ) : null}
         </div>
       ) : null}
 
@@ -1711,7 +1923,7 @@ function ZoneBrowser({
                   'playerId' in selectedCard &&
                   selectedCard.playerId === focusedPlayer?.id &&
                   selectedCard.cardId === card.instanceId
-            const canDrag = card.ownerPlayerId === localPlayerId
+            const canDrag = card.ownerPlayerId === localPlayerId && canAct
 
             return (
               <button
@@ -1759,10 +1971,12 @@ function ZoneBrowser({
 }
 
 function TokenWorkshop({
+  canAct,
   draft,
   onDraftChange,
   onCreateToken,
 }: {
+  canAct: boolean
   draft: {
     name: string
     tokenType: string
@@ -1800,101 +2014,109 @@ function TokenWorkshop({
         </div>
       </div>
 
-      <div className="mt-4 grid gap-2">
-        {TOKEN_PRESETS.map((preset) => (
-          <button
-            key={preset.name}
-            type="button"
-            onClick={() => onCreateToken(preset)}
-            className="flex items-center justify-between rounded-[1.2rem] border border-white/10 bg-white/6 px-3 py-3 text-left transition hover:border-white/20 hover:bg-white/10"
-          >
-            <div>
-              <p className="text-sm font-semibold text-ink-100">{preset.name}</p>
-              <p className="mt-1 text-xs text-ink-400">
-                {preset.power && preset.toughness ? `${preset.power}/${preset.toughness} • ` : ''}
-                {preset.tokenType}
-              </p>
-            </div>
-            <Sparkles className="h-4 w-4 text-ember-200" />
-          </button>
-        ))}
-      </div>
+      {!canAct ? (
+        <div className="mt-4 rounded-[1.4rem] border border-ember-400/20 bg-ember-500/8 px-4 py-3 text-sm text-ember-100/90">
+          Token creation is locked until the turn marker comes back to you.
+        </div>
+      ) : null}
 
-      <div className="mt-4 rounded-[1.5rem] border border-white/10 bg-white/5 p-4">
-        <p className="text-sm font-semibold uppercase tracking-[0.16em] text-ink-300">
-          Custom token
-        </p>
-
-        <div className="mt-3 grid gap-3 sm:grid-cols-2">
-          <input
-            value={draft.name}
-            onChange={(event) => onDraftChange({ ...draft, name: event.target.value })}
-            className="rounded-2xl border border-white/10 bg-ink-950/80 px-3 py-2 text-sm text-ink-100 outline-none transition focus:border-tide-400/35"
-            placeholder="Name"
-          />
-          <input
-            value={draft.tokenType}
-            onChange={(event) => onDraftChange({ ...draft, tokenType: event.target.value })}
-            className="rounded-2xl border border-white/10 bg-ink-950/80 px-3 py-2 text-sm text-ink-100 outline-none transition focus:border-tide-400/35"
-            placeholder="Type"
-          />
-          <input
-            value={draft.power}
-            onChange={(event) => onDraftChange({ ...draft, power: event.target.value })}
-            className="rounded-2xl border border-white/10 bg-ink-950/80 px-3 py-2 text-sm text-ink-100 outline-none transition focus:border-tide-400/35"
-            placeholder="Power"
-          />
-          <input
-            value={draft.toughness}
-            onChange={(event) => onDraftChange({ ...draft, toughness: event.target.value })}
-            className="rounded-2xl border border-white/10 bg-ink-950/80 px-3 py-2 text-sm text-ink-100 outline-none transition focus:border-tide-400/35"
-            placeholder="Toughness"
-          />
+      <fieldset disabled={!canAct} className={`mt-4 grid gap-4 ${canAct ? '' : 'opacity-60'}`}>
+        <div className="grid gap-2">
+          {TOKEN_PRESETS.map((preset) => (
+            <button
+              key={preset.name}
+              type="button"
+              onClick={() => onCreateToken(preset)}
+              className="flex items-center justify-between rounded-[1.2rem] border border-white/10 bg-white/6 px-3 py-3 text-left transition hover:border-white/20 hover:bg-white/10"
+            >
+              <div>
+                <p className="text-sm font-semibold text-ink-100">{preset.name}</p>
+                <p className="mt-1 text-xs text-ink-400">
+                  {preset.power && preset.toughness ? `${preset.power}/${preset.toughness} • ` : ''}
+                  {preset.tokenType}
+                </p>
+              </div>
+              <Sparkles className="h-4 w-4 text-ember-200" />
+            </button>
+          ))}
         </div>
 
-        <textarea
-          value={draft.note}
-          onChange={(event) => onDraftChange({ ...draft, note: event.target.value })}
-          rows={2}
-          className="mt-3 w-full rounded-2xl border border-white/10 bg-ink-950/80 px-3 py-2 text-sm text-ink-100 outline-none transition focus:border-tide-400/35"
-          placeholder="Text"
-        />
+        <div className="rounded-[1.5rem] border border-white/10 bg-white/5 p-4">
+          <p className="text-sm font-semibold uppercase tracking-[0.16em] text-ink-300">
+            Custom token
+          </p>
 
-        <div className="mt-3 flex flex-wrap gap-2">
-          {(['W', 'U', 'B', 'R', 'G'] as CardColor[]).map((color) => {
-            const active = draft.colors.includes(color)
+          <div className="mt-3 grid gap-3 sm:grid-cols-2">
+            <input
+              value={draft.name}
+              onChange={(event) => onDraftChange({ ...draft, name: event.target.value })}
+              className="rounded-2xl border border-white/10 bg-ink-950/80 px-3 py-2 text-sm text-ink-100 outline-none transition focus:border-tide-400/35"
+              placeholder="Name"
+            />
+            <input
+              value={draft.tokenType}
+              onChange={(event) => onDraftChange({ ...draft, tokenType: event.target.value })}
+              className="rounded-2xl border border-white/10 bg-ink-950/80 px-3 py-2 text-sm text-ink-100 outline-none transition focus:border-tide-400/35"
+              placeholder="Type"
+            />
+            <input
+              value={draft.power}
+              onChange={(event) => onDraftChange({ ...draft, power: event.target.value })}
+              className="rounded-2xl border border-white/10 bg-ink-950/80 px-3 py-2 text-sm text-ink-100 outline-none transition focus:border-tide-400/35"
+              placeholder="Power"
+            />
+            <input
+              value={draft.toughness}
+              onChange={(event) => onDraftChange({ ...draft, toughness: event.target.value })}
+              className="rounded-2xl border border-white/10 bg-ink-950/80 px-3 py-2 text-sm text-ink-100 outline-none transition focus:border-tide-400/35"
+              placeholder="Toughness"
+            />
+          </div>
 
-            return (
-              <button
-                key={color}
-                type="button"
-                onClick={() =>
-                  onDraftChange({
-                    ...draft,
-                    colors: active
-                      ? draft.colors.filter((entry) => entry !== color)
-                      : [...draft.colors, color],
-                  })
-                }
-                className={`rounded-full border px-3 py-1.5 text-xs font-semibold transition ${
-                  active
-                    ? 'border-tide-400/35 bg-tide-500/12 text-tide-100'
-                    : 'border-white/10 bg-white/6 text-ink-100 hover:border-white/20'
-                }`}
-              >
-                {color}
-              </button>
-            )
-          })}
+          <textarea
+            value={draft.note}
+            onChange={(event) => onDraftChange({ ...draft, note: event.target.value })}
+            rows={2}
+            className="mt-3 w-full rounded-2xl border border-white/10 bg-ink-950/80 px-3 py-2 text-sm text-ink-100 outline-none transition focus:border-tide-400/35"
+            placeholder="Text"
+          />
+
+          <div className="mt-3 flex flex-wrap gap-2">
+            {(['W', 'U', 'B', 'R', 'G'] as CardColor[]).map((color) => {
+              const active = draft.colors.includes(color)
+
+              return (
+                <button
+                  key={color}
+                  type="button"
+                  onClick={() =>
+                    onDraftChange({
+                      ...draft,
+                      colors: active
+                        ? draft.colors.filter((entry) => entry !== color)
+                        : [...draft.colors, color],
+                    })
+                  }
+                  className={`rounded-full border px-3 py-1.5 text-xs font-semibold transition ${
+                    active
+                      ? 'border-tide-400/35 bg-tide-500/12 text-tide-100'
+                      : 'border-white/10 bg-white/6 text-ink-100 hover:border-white/20'
+                  }`}
+                >
+                  {color}
+                </button>
+              )
+            })}
+          </div>
+
+          <div className="mt-4 flex justify-end">
+            <InspectorButton onClick={() => onCreateToken(draft)} tone="primary">
+              <Sparkles className="h-3.5 w-3.5" />
+              Create token
+            </InspectorButton>
+          </div>
         </div>
-
-        <div className="mt-4 flex justify-end">
-          <InspectorButton onClick={() => onCreateToken(draft)} tone="primary">
-            <Sparkles className="h-3.5 w-3.5" />
-            Create token
-          </InspectorButton>
-        </div>
-      </div>
+      </fieldset>
     </section>
   )
 }
@@ -1903,6 +2125,7 @@ function PlayerStatePanel({
   players,
   focusedPlayer,
   localPlayerId,
+  canAct,
   counterDraft,
   noteDraft,
   onCounterDraftChange,
@@ -1917,6 +2140,7 @@ function PlayerStatePanel({
   players: GamePlayerPublicSnapshot[]
   focusedPlayer: GamePlayerPublicSnapshot | null
   localPlayerId: string
+  canAct: boolean
   counterDraft: string
   noteDraft: string
   onCounterDraftChange: (value: string) => void
@@ -1962,55 +2186,62 @@ function PlayerStatePanel({
               <div className="text-sm text-ink-400">No counters yet.</div>
             ) : null}
           </div>
+          {!canAct ? (
+            <div className="rounded-[1.4rem] border border-ember-400/20 bg-ember-500/8 px-4 py-3 text-sm text-ember-100/90">
+              Player markers are read-only until your turn.
+            </div>
+          ) : null}
 
-          <div className="flex flex-wrap gap-2">
-            {PLAYER_COUNTER_PRESETS.map((preset) => (
-              <button
-                key={preset}
-                type="button"
-                onClick={() => onCounterDraftChange(preset)}
-                className={`rounded-full border px-3 py-1.5 text-xs font-semibold transition ${
-                  counterDraft === preset
-                    ? 'border-tide-400/35 bg-tide-500/12 text-tide-100'
-                    : 'border-white/10 bg-white/6 text-ink-100 hover:border-white/20'
-                }`}
+          <fieldset disabled={!canAct} className={canAct ? '' : 'opacity-60'}>
+            <div className="flex flex-wrap gap-2">
+              {PLAYER_COUNTER_PRESETS.map((preset) => (
+                <button
+                  key={preset}
+                  type="button"
+                  onClick={() => onCounterDraftChange(preset)}
+                  className={`rounded-full border px-3 py-1.5 text-xs font-semibold transition ${
+                    counterDraft === preset
+                      ? 'border-tide-400/35 bg-tide-500/12 text-tide-100'
+                      : 'border-white/10 bg-white/6 text-ink-100 hover:border-white/20'
+                  }`}
+                >
+                  {preset}
+                </button>
+              ))}
+            </div>
+
+            <input
+              value={counterDraft}
+              onChange={(event) => onCounterDraftChange(event.target.value)}
+              className="mt-4 w-full rounded-2xl border border-white/10 bg-ink-950/80 px-3 py-2 text-sm text-ink-100 outline-none transition focus:border-tide-400/35"
+              placeholder="Counter label"
+            />
+
+            <div className="mt-4 flex flex-wrap gap-2">
+              <InspectorButton onClick={() => onAdjustCounter(focusedPlayer.id, counterDraft, -1)}>
+                <Minus className="h-3.5 w-3.5" />
+                Counter -1
+              </InspectorButton>
+              <InspectorButton
+                onClick={() => onAdjustCounter(focusedPlayer.id, counterDraft, +1)}
+                tone="primary"
               >
-                {preset}
-              </button>
-            ))}
-          </div>
-
-          <input
-            value={counterDraft}
-            onChange={(event) => onCounterDraftChange(event.target.value)}
-            className="w-full rounded-2xl border border-white/10 bg-ink-950/80 px-3 py-2 text-sm text-ink-100 outline-none transition focus:border-tide-400/35"
-            placeholder="Counter label"
-          />
-
-          <div className="flex flex-wrap gap-2">
-            <InspectorButton onClick={() => onAdjustCounter(focusedPlayer.id, counterDraft, -1)}>
-              <Minus className="h-3.5 w-3.5" />
-              Counter -1
-            </InspectorButton>
-            <InspectorButton
-              onClick={() => onAdjustCounter(focusedPlayer.id, counterDraft, +1)}
-              tone="primary"
-            >
-              <Plus className="h-3.5 w-3.5" />
-              Counter +1
-            </InspectorButton>
-            <InspectorButton onClick={() => onAdjustCommanderTax(focusedPlayer.id, -2)}>
-              <Minus className="h-3.5 w-3.5" />
-              Tax -2
-            </InspectorButton>
-            <InspectorButton
-              onClick={() => onAdjustCommanderTax(focusedPlayer.id, +2)}
-              tone="primary"
-            >
-              <Plus className="h-3.5 w-3.5" />
-              Tax +2
-            </InspectorButton>
-          </div>
+                <Plus className="h-3.5 w-3.5" />
+                Counter +1
+              </InspectorButton>
+              <InspectorButton onClick={() => onAdjustCommanderTax(focusedPlayer.id, -2)}>
+                <Minus className="h-3.5 w-3.5" />
+                Tax -2
+              </InspectorButton>
+              <InspectorButton
+                onClick={() => onAdjustCommanderTax(focusedPlayer.id, +2)}
+                tone="primary"
+              >
+                <Plus className="h-3.5 w-3.5" />
+                Tax +2
+              </InspectorButton>
+            </div>
+          </fieldset>
 
           <div className="flex flex-wrap gap-2">
             <InfoChip label={`Commander tax ${focusedPlayer.commanderTax}`} tone="warning" />
@@ -2021,96 +2252,98 @@ function PlayerStatePanel({
             ) : null}
           </div>
 
-          <div className="flex flex-wrap gap-2">
-            <InspectorButton
-              onClick={() =>
-                onSetDesignation(
-                  focusedPlayer.id,
-                  'monarch',
-                  !focusedPlayer.designations.monarch,
-                )
-              }
-            >
-              Monarch
-            </InspectorButton>
-            <InspectorButton
-              onClick={() =>
-                onSetDesignation(
-                  focusedPlayer.id,
-                  'initiative',
-                  !focusedPlayer.designations.initiative,
-                )
-              }
-            >
-              Initiative
-            </InspectorButton>
-            <InspectorButton
-              onClick={() =>
-                onSetDesignation(
-                  focusedPlayer.id,
-                  'citys_blessing',
-                  !focusedPlayer.designations.citysBlessing,
-                )
-              }
-            >
-              City's blessing
-            </InspectorButton>
-          </div>
-
-          <div className="grid gap-2">
-            <p className="text-xs font-semibold uppercase tracking-[0.16em] text-ink-400">
-              Commander damage on {focusedPlayer.name}
-            </p>
+          <fieldset disabled={!canAct} className={canAct ? '' : 'opacity-60'}>
             <div className="flex flex-wrap gap-2">
-              {players
-                .filter((player) => player.id !== focusedPlayer.id)
-                .map((player) => {
-                  const amount =
-                    focusedPlayer.commanderDamage.find((entry) => entry.sourcePlayerId === player.id)
-                      ?.amount ?? 0
-
-                  return (
-                    <div
-                      key={player.id}
-                      className="rounded-[1.2rem] border border-white/10 bg-white/5 px-3 py-2"
-                    >
-                      <p className="text-xs font-semibold text-ink-100">{player.name}</p>
-                      <p className="mt-1 text-xs text-ink-400">{amount} damage</p>
-                      <div className="mt-2 flex gap-2">
-                        <button
-                          type="button"
-                          onClick={() => onAdjustCommanderDamage(focusedPlayer.id, player.id, -1)}
-                          className="rounded-full border border-white/10 px-2 py-1 text-xs font-semibold text-ink-100 transition hover:border-white/20"
-                        >
-                          -1
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => onAdjustCommanderDamage(focusedPlayer.id, player.id, +1)}
-                          className="rounded-full border border-tide-400/25 bg-tide-500/12 px-2 py-1 text-xs font-semibold text-tide-100 transition hover:border-tide-400/40"
-                        >
-                          +1
-                        </button>
-                      </div>
-                    </div>
+              <InspectorButton
+                onClick={() =>
+                  onSetDesignation(
+                    focusedPlayer.id,
+                    'monarch',
+                    !focusedPlayer.designations.monarch,
                   )
-                })}
+                }
+              >
+                Monarch
+              </InspectorButton>
+              <InspectorButton
+                onClick={() =>
+                  onSetDesignation(
+                    focusedPlayer.id,
+                    'initiative',
+                    !focusedPlayer.designations.initiative,
+                  )
+                }
+              >
+                Initiative
+              </InspectorButton>
+              <InspectorButton
+                onClick={() =>
+                  onSetDesignation(
+                    focusedPlayer.id,
+                    'citys_blessing',
+                    !focusedPlayer.designations.citysBlessing,
+                  )
+                }
+              >
+                City's blessing
+              </InspectorButton>
             </div>
-          </div>
 
-          <textarea
-            value={noteDraft}
-            onChange={(event) => onNoteDraftChange(event.target.value)}
-            rows={3}
-            className="w-full rounded-2xl border border-white/10 bg-ink-950/80 px-3 py-2 text-sm text-ink-100 outline-none transition focus:border-tide-400/35"
-            placeholder="Note"
-          />
-          <div className="flex justify-end">
-            <InspectorButton onClick={() => onSaveNote(focusedPlayer.id, noteDraft)} tone="primary">
-              <ScrollText className="h-3.5 w-3.5" />
-              Save player note
-            </InspectorButton>
-          </div>
+            <div className="mt-4 grid gap-2">
+              <p className="text-xs font-semibold uppercase tracking-[0.16em] text-ink-400">
+                Commander damage on {focusedPlayer.name}
+              </p>
+              <div className="flex flex-wrap gap-2">
+                {players
+                  .filter((player) => player.id !== focusedPlayer.id)
+                  .map((player) => {
+                    const amount =
+                      focusedPlayer.commanderDamage.find((entry) => entry.sourcePlayerId === player.id)
+                        ?.amount ?? 0
+
+                    return (
+                      <div
+                        key={player.id}
+                        className="rounded-[1.2rem] border border-white/10 bg-white/5 px-3 py-2"
+                      >
+                        <p className="text-xs font-semibold text-ink-100">{player.name}</p>
+                        <p className="mt-1 text-xs text-ink-400">{amount} damage</p>
+                        <div className="mt-2 flex gap-2">
+                          <button
+                            type="button"
+                            onClick={() => onAdjustCommanderDamage(focusedPlayer.id, player.id, -1)}
+                            className="rounded-full border border-white/10 px-2 py-1 text-xs font-semibold text-ink-100 transition hover:border-white/20"
+                          >
+                            -1
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => onAdjustCommanderDamage(focusedPlayer.id, player.id, +1)}
+                            className="rounded-full border border-tide-400/25 bg-tide-500/12 px-2 py-1 text-xs font-semibold text-tide-100 transition hover:border-tide-400/40"
+                          >
+                            +1
+                          </button>
+                        </div>
+                      </div>
+                    )
+                  })}
+              </div>
+            </div>
+
+            <textarea
+              value={noteDraft}
+              onChange={(event) => onNoteDraftChange(event.target.value)}
+              rows={3}
+              className="mt-4 w-full rounded-2xl border border-white/10 bg-ink-950/80 px-3 py-2 text-sm text-ink-100 outline-none transition focus:border-tide-400/35"
+              placeholder="Note"
+            />
+            <div className="mt-4 flex justify-end">
+              <InspectorButton onClick={() => onSaveNote(focusedPlayer.id, noteDraft)} tone="primary">
+                <ScrollText className="h-3.5 w-3.5" />
+                Save player note
+              </InspectorButton>
+            </div>
+          </fieldset>
         </div>
       ) : null}
     </section>
@@ -2121,6 +2354,7 @@ function StackPanel({
   stack,
   selected,
   isLocalOwned,
+  canAct,
   draft,
   onDraftChange,
   onCreateFromSelected,
@@ -2131,6 +2365,7 @@ function StackPanel({
   stack: StackItemSnapshot[]
   selected: SelectedCardData | null
   isLocalOwned: boolean
+  canAct: boolean
   draft: {
     itemType: StackItemSnapshot['itemType']
     label: string
@@ -2170,82 +2405,90 @@ function StackPanel({
           <h2 className="mt-2 text-xl font-semibold text-ink-50">Stack</h2>
         </div>
 
-        {selected && selected.zone !== 'battlefield' && isLocalOwned ? (
-          <InspectorButton
-            onClick={() => onCreateFromSelected(draft.itemType, draft.note, draft.faceDown)}
-            tone="primary"
-          >
-            <WandSparkles className="h-3.5 w-3.5" />
-            Put selected card on stack
-          </InspectorButton>
+        {!canAct ? (
+          <div className="rounded-[1.4rem] border border-ember-400/20 bg-ember-500/8 px-4 py-3 text-sm text-ember-100/90">
+            Stack actions unlock only for the active player.
+          </div>
         ) : null}
 
-        <div className="grid gap-2">
-          <div className="flex flex-wrap gap-2">
-            {(['spell', 'ability', 'trigger'] as const).map((itemType) => (
-              <button
-                key={itemType}
-                type="button"
-                onClick={() => onDraftChange({ ...draft, itemType })}
-                className={`rounded-full border px-3 py-1.5 text-xs font-semibold transition ${
-                  draft.itemType === itemType
-                    ? 'border-tide-400/35 bg-tide-500/12 text-tide-100'
-                    : 'border-white/10 bg-white/6 text-ink-100 hover:border-white/20'
-                }`}
-              >
-                {itemType}
-              </button>
-            ))}
-          </div>
-
-          <input
-            value={draft.label}
-            onChange={(event) => onDraftChange({ ...draft, label: event.target.value })}
-            className="w-full rounded-2xl border border-white/10 bg-ink-950/80 px-3 py-2 text-sm text-ink-100 outline-none transition focus:border-tide-400/35"
-            placeholder="Label"
-          />
-          <input
-            value={draft.targets}
-            onChange={(event) => onDraftChange({ ...draft, targets: event.target.value })}
-            className="w-full rounded-2xl border border-white/10 bg-ink-950/80 px-3 py-2 text-sm text-ink-100 outline-none transition focus:border-tide-400/35"
-            placeholder="Targets"
-          />
-          <textarea
-            value={draft.note}
-            onChange={(event) => onDraftChange({ ...draft, note: event.target.value })}
-            rows={2}
-            className="w-full rounded-2xl border border-white/10 bg-ink-950/80 px-3 py-2 text-sm text-ink-100 outline-none transition focus:border-tide-400/35"
-            placeholder="Note"
-          />
-          <label className="inline-flex items-center gap-2 text-sm text-ink-300">
-            <input
-              type="checkbox"
-              checked={draft.faceDown}
-              onChange={(event) => onDraftChange({ ...draft, faceDown: event.target.checked })}
-            />
-            Face down
-          </label>
-          <div className="flex justify-end">
+        <fieldset disabled={!canAct} className={canAct ? '' : 'opacity-60'}>
+          {selected && selected.zone !== 'battlefield' && isLocalOwned ? (
             <InspectorButton
-              onClick={() =>
-                onCreateManual({
-                  itemType: draft.itemType,
-                  label: draft.label,
-                  note: draft.note,
-                  targets: draft.targets
-                    .split(',')
-                    .map((entry) => entry.trim())
-                    .filter(Boolean),
-                  faceDown: draft.faceDown,
-                })
-              }
+              onClick={() => onCreateFromSelected(draft.itemType, draft.note, draft.faceDown)}
               tone="primary"
             >
               <WandSparkles className="h-3.5 w-3.5" />
-              Add manual stack item
+              Put selected card on stack
             </InspectorButton>
+          ) : null}
+
+          <div className="mt-3 grid gap-2">
+            <div className="flex flex-wrap gap-2">
+              {(['spell', 'ability', 'trigger'] as const).map((itemType) => (
+                <button
+                  key={itemType}
+                  type="button"
+                  onClick={() => onDraftChange({ ...draft, itemType })}
+                  className={`rounded-full border px-3 py-1.5 text-xs font-semibold transition ${
+                    draft.itemType === itemType
+                      ? 'border-tide-400/35 bg-tide-500/12 text-tide-100'
+                      : 'border-white/10 bg-white/6 text-ink-100 hover:border-white/20'
+                  }`}
+                >
+                  {itemType}
+                </button>
+              ))}
+            </div>
+
+            <input
+              value={draft.label}
+              onChange={(event) => onDraftChange({ ...draft, label: event.target.value })}
+              className="w-full rounded-2xl border border-white/10 bg-ink-950/80 px-3 py-2 text-sm text-ink-100 outline-none transition focus:border-tide-400/35"
+              placeholder="Label"
+            />
+            <input
+              value={draft.targets}
+              onChange={(event) => onDraftChange({ ...draft, targets: event.target.value })}
+              className="w-full rounded-2xl border border-white/10 bg-ink-950/80 px-3 py-2 text-sm text-ink-100 outline-none transition focus:border-tide-400/35"
+              placeholder="Targets"
+            />
+            <textarea
+              value={draft.note}
+              onChange={(event) => onDraftChange({ ...draft, note: event.target.value })}
+              rows={2}
+              className="w-full rounded-2xl border border-white/10 bg-ink-950/80 px-3 py-2 text-sm text-ink-100 outline-none transition focus:border-tide-400/35"
+              placeholder="Note"
+            />
+            <label className="inline-flex items-center gap-2 text-sm text-ink-300">
+              <input
+                type="checkbox"
+                checked={draft.faceDown}
+                onChange={(event) => onDraftChange({ ...draft, faceDown: event.target.checked })}
+              />
+              Face down
+            </label>
+            <div className="flex justify-end">
+              <InspectorButton
+                onClick={() =>
+                  onCreateManual({
+                    itemType: draft.itemType,
+                    label: draft.label,
+                    note: draft.note,
+                    targets: draft.targets
+                      .split(',')
+                      .map((entry) => entry.trim())
+                      .filter(Boolean),
+                    faceDown: draft.faceDown,
+                  })
+                }
+                tone="primary"
+              >
+                <WandSparkles className="h-3.5 w-3.5" />
+                Add manual stack item
+              </InspectorButton>
+            </div>
           </div>
-        </div>
+        </fieldset>
 
         <div className="grid max-h-[24rem] gap-2 overflow-y-auto pr-1">
           {stack.map((entry, index) => (
@@ -2261,22 +2504,24 @@ function StackPanel({
                     {entry.sourceCard ? ` • ${entry.sourceCard.card.name}` : ''}
                   </p>
                 </div>
-                <div className="flex gap-2">
-                  <button
-                    type="button"
-                    onClick={() => onResolve(entry.id)}
-                    className="rounded-full border border-tide-400/25 bg-tide-500/12 px-2.5 py-1 text-xs font-semibold text-tide-100 transition hover:border-tide-400/40"
-                  >
-                    Resolve
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => onRemove(entry.id)}
-                    className="rounded-full border border-white/10 px-2.5 py-1 text-xs font-semibold text-ink-100 transition hover:border-white/20"
-                  >
-                    Remove
-                  </button>
-                </div>
+                <fieldset disabled={!canAct} className={canAct ? '' : 'opacity-60'}>
+                  <div className="flex gap-2">
+                    <button
+                      type="button"
+                      onClick={() => onResolve(entry.id)}
+                      className="rounded-full border border-tide-400/25 bg-tide-500/12 px-2.5 py-1 text-xs font-semibold text-tide-100 transition hover:border-tide-400/40"
+                    >
+                      Resolve
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => onRemove(entry.id)}
+                      className="rounded-full border border-white/10 px-2.5 py-1 text-xs font-semibold text-ink-100 transition hover:border-white/20"
+                    >
+                      Remove
+                    </button>
+                  </div>
+                </fieldset>
               </div>
               {entry.targets.length > 0 ? (
                 <p className="mt-2 text-xs text-ink-300">Targets: {entry.targets.join(', ')}</p>
@@ -2769,6 +3014,7 @@ function findSelectedCardData(
 
 function renderSelectedActions({
   selected,
+  canAct,
   stackCards,
   isLocalOwned,
   isLocallyControlled,
@@ -2777,6 +3023,7 @@ function renderSelectedActions({
   onToggleTapped,
 }: {
   selected: SelectedCardData
+  canAct: boolean
   stackCards: BattlefieldPermanentSnapshot[]
   isLocalOwned: boolean
   isLocallyControlled: boolean
@@ -2790,6 +3037,14 @@ function renderSelectedActions({
   onToggleTapped: (cardId: string, tapped: boolean) => void
 }) {
   const selectedPermanent = selected.zone === 'battlefield' ? selected.permanent : null
+
+  if (!canAct && (isLocalOwned || isLocallyControlled)) {
+    return (
+      <div className="rounded-[1.2rem] border border-ember-400/20 bg-ember-500/8 px-3 py-3 text-sm text-ember-100/90 sm:col-span-2">
+        This card is locked until the active player passes the turn.
+      </div>
+    )
+  }
 
   if (selected.zone === 'battlefield' && selectedPermanent) {
     return (

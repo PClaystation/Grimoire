@@ -9,7 +9,6 @@ import type {
   PermanentPosition,
   RoomSettingsInput,
   StackItemType,
-  TurnPhase,
 } from '../src/shared/play.js'
 
 const MAX_CLIENT_STRING_LENGTH = 256
@@ -44,23 +43,6 @@ function isOwnedZone(value: unknown): value is OwnedZone {
 
 function isCardColor(value: unknown): value is CardColor {
   return value === 'W' || value === 'U' || value === 'B' || value === 'R' || value === 'G'
-}
-
-function isTurnPhase(value: unknown): value is TurnPhase {
-  return (
-    value === 'untap' ||
-    value === 'upkeep' ||
-    value === 'draw' ||
-    value === 'main1' ||
-    value === 'begin_combat' ||
-    value === 'declare_attackers' ||
-    value === 'declare_blockers' ||
-    value === 'combat_damage' ||
-    value === 'end_combat' ||
-    value === 'main2' ||
-    value === 'end' ||
-    value === 'cleanup'
-  )
 }
 
 function isStackItemType(value: unknown): value is StackItemType {
@@ -169,12 +151,8 @@ function isClientGameActionPayload(value: unknown): value is ClientGameAction {
     case 'shuffle_library':
     case 'untap_all':
       return true
-    case 'advance_turn_phase':
-      return true
     case 'advance_turn':
       return value.nextPlayerId === undefined || isNonEmptyString(value.nextPlayerId)
-    case 'set_turn_phase':
-      return isTurnPhase(value.phase)
     case 'set_active_player':
       return (
         isNonEmptyString(value.playerId) &&

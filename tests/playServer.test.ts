@@ -476,25 +476,33 @@ test('PlayServer stacks permanents and can unstack them again', () => {
   assert.equal(unstackedCards[1]?.stackId, null)
 })
 
-test('PlayServer tracks turn state, shared stack items, and player tabletop markers', () => {
+test('PlayServer gates tabletop actions to the active player and advances turns cleanly', () => {
   const harness = createHarness()
   const { playServer, gameId } = createStartedGame(harness)
   const initialSnapshot = harness.latestGameSnapshot('session-alice')
   const handCardId = initialSnapshot.privateState?.hand[0]?.instanceId
   const bobPlayer = initialSnapshot.publicState.players.find((player) => player.name === 'Bob')
+  const alicePlayer = initialSnapshot.publicState.players.find((player) => player.name === 'Alice')
 
   assert.ok(handCardId, 'Expected a hand card for Alice.')
   assert.ok(bobPlayer, 'Expected Bob in the game.')
+  assert.ok(alicePlayer, 'Expected Alice in the game.')
   assert.equal(initialSnapshot.publicState.turn.turnNumber, 1)
-  assert.equal(initialSnapshot.publicState.turn.phase, 'untap')
+  assert.equal(initialSnapshot.publicState.turn.activePlayerId, alicePlayer.id)
 
-  playServer.handleMessage('session-alice', {
+  playServer.handleMessage('session-bob', {
     type: 'game_action',
     gameId,
     action: {
-      type: 'advance_turn_phase',
+      type: 'adjust_player_counter',
+      playerId: bobPlayer.id,
+      counterKind: 'poison',
+      delta: 1,
     },
   })
+
+  assert.equal(harness.latestError('session-bob'), "It is currently Alice's turn.")
+
   playServer.handleMessage('session-alice', {
     type: 'game_action',
     gameId,
@@ -539,7 +547,8 @@ test('PlayServer tracks turn state, shared stack items, and player tabletop mark
   const nextSnapshot = harness.latestGameSnapshot('session-alice')
   const nextBob = nextSnapshot.publicState.players.find((player) => player.id === bobPlayer.id)
 
-  assert.equal(nextSnapshot.publicState.turn.phase, 'upkeep')
+  assert.equal(nextSnapshot.publicState.turn.turnNumber, 1)
+  assert.equal(nextSnapshot.publicState.turn.activePlayerId, alicePlayer.id)
   assert.ok(nextBob, 'Expected Bob to remain in the game snapshot.')
   assert.equal(nextBob.counters.find((counter) => counter.kind === 'poison')?.amount, 3)
   assert.equal(nextBob.commanderTax, 2)
@@ -559,6 +568,18 @@ test('PlayServer tracks turn state, shared stack items, and player tabletop mark
   const resolvedSnapshot = harness.latestGameSnapshot('session-alice')
   assert.equal(resolvedSnapshot.publicState.stack.length, 0)
   assert.equal(resolvedSnapshot.publicState.battlefield.length, 1)
+
+  playServer.handleMessage('session-alice', {
+    type: 'game_action',
+    gameId,
+    action: {
+      type: 'advance_turn',
+    },
+  })
+
+  const bobTurnSnapshot = harness.latestGameSnapshot('session-bob')
+  assert.equal(bobTurnSnapshot.publicState.turn.turnNumber, 2)
+  assert.equal(bobTurnSnapshot.publicState.turn.activePlayerId, bobPlayer.id)
 })
 
 test('PlayServer hides face-down permanents from opponents', () => {

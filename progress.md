@@ -158,3 +158,23 @@ Original prompt: You are extending an existing MTG deckbuilder web app into an o
     - `npm run build` passed.
     - `npm run lint` passed.
     - Captured and visually reviewed fresh screenshots for desktop and mobile in `tmp-visual-audit/desktop-home-top.png`, `tmp-visual-audit/desktop-play-home.png`, `tmp-visual-audit/desktop-play-create.png`, `tmp-visual-audit/mobile-home-top.png`, and `tmp-visual-audit/mobile-play-create-top.png`.
+
+2026-03-21
+- Turn-and-board interaction pass:
+  - Removed the old turn phase system from the shared protocol, server turn state, and client UI so the table now tracks only turn number plus the active player.
+  - Added server-side turn ownership enforcement for all game actions; off-turn actions are rejected with a clear active-player message instead of mutating state.
+  - Reworked the game HUD into a turn spotlight with a single pass-turn action, plus clearer “your turn” / “locked until X passes” messaging.
+  - Enlarged each battlefield lane, added an in-lane board rail with visible library / graveyard / command / exile piles, and moved draw / shuffle / untap interactions onto that board rail.
+  - Made the library pile draw directly from the board and styled it as a facedown stacked card pile with an upside-down card-back treatment.
+  - Added graveyard access from the lane pile so clicking it opens the zone list in the sidebar for card selection and movement, instead of relying on external top-level buttons.
+  - Locked major local interaction surfaces off-turn: hand dragging/casting, lane reposition/tap/stack actions, inspector mutations, token creation, stack actions, and player-marker edits now all respect the active turn.
+  - Updated `scripts/validate-play-table.mjs` to match the new create-room label, board pile selectors, turn passing, and self-contained validation card images.
+- Verification:
+  - `npm test` passed.
+  - `npm run lint` passed.
+  - `npm run build` passed.
+  - Ran `node scripts/validate-play-table.mjs http://127.0.0.1:8788` against a built preview server and refreshed `artifacts/playwright/revamp/alice-table.png`, `artifacts/playwright/revamp/bob-table.png`, and `artifacts/playwright/revamp/summary.json`.
+  - Ran the required `develop-web-game` smoke client against `http://127.0.0.1:8788/play` and refreshed `output/web-game/shot-0.png`.
+  - Visually reviewed the refreshed multiplayer screenshots plus the smoke screenshot. The board rail, turn spotlight, off-turn lock state, and local draw/graveyard piles all rendered as expected.
+- Follow-up:
+  - The generic smoke client still records one `403 (Forbidden)` console resource-load message in `output/web-game/errors-0.json`; the gameplay/table validations completed successfully and the message appears unrelated to the new turn/board changes.

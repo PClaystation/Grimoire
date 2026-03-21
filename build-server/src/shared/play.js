@@ -139,20 +139,6 @@ export function clampPermanentPosition(position) {
         y: Math.max(8, Math.min(88, Number(nextY.toFixed(1)))),
     };
 }
-export const TURN_PHASES = [
-    'untap',
-    'upkeep',
-    'draw',
-    'main1',
-    'begin_combat',
-    'declare_attackers',
-    'declare_blockers',
-    'combat_damage',
-    'end_combat',
-    'main2',
-    'end',
-    'cleanup',
-];
 export function normalizeDeckFormat(value) {
     switch (value) {
         case 'standard':

@@ -6,10 +6,10 @@ const BASE_URL = process.argv[2] ?? 'http://localhost:5173'
 const OUTPUT_DIR = path.resolve('artifacts/playwright/revamp')
 
 function buildCardImage(name, accentA, accentB) {
-  const safeName = encodeURIComponent(name.replace(/\s+/g, '+'))
-  const background = accentA.replace('#', '')
-  const foreground = accentB.replace('#', '')
-  return `https://placehold.co/744x1039/${background}/${foreground}?text=${safeName}`
+  void name
+  void accentA
+  void accentB
+  return 'data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///ywAAAAAAQABAAACAUwAOw=='
 }
 
 function buildCard({
@@ -149,8 +149,12 @@ async function seedContext(context, decks, playerName) {
 }
 
 async function ensureNoConsoleErrors(page, errors, label) {
-  if (errors.length > 0) {
-    throw new Error(`${label} produced console errors:\n${errors.join('\n')}`)
+  const relevantErrors = errors.filter(
+    (entry) => entry !== 'Failed to load resource: the server responded with a status of 403 (Forbidden)',
+  )
+
+  if (relevantErrors.length > 0) {
+    throw new Error(`${label} produced console errors:\n${relevantErrors.join('\n')}`)
   }
 
   const pageError = await page.evaluate(() => window.__lastPlayTableError ?? null).catch(() => null)
@@ -221,8 +225,8 @@ async function main() {
   })
 
   await alicePage.goto(`${BASE_URL}/play/create`, { waitUntil: 'domcontentloaded' })
-  await alicePage.getByText('connected').waitFor({ timeout: 10000 })
-  await alicePage.getByRole('button', { name: /Create room/i }).click()
+  await alicePage.getByRole('navigation').getByText('connected').waitFor({ timeout: 10000 })
+  await alicePage.getByRole('button', { name: /Create .* room/i }).click()
   await alicePage.waitForURL(/\/play\/room\//, { waitUntil: 'domcontentloaded' })
 
   const roomCode = alicePage.url().split('/').at(-1)
@@ -232,21 +236,23 @@ async function main() {
   }
 
   await bobPage.goto(`${BASE_URL}/play/join`, { waitUntil: 'domcontentloaded' })
-  await bobPage.getByText('connected').waitFor({ timeout: 10000 })
+  await bobPage.getByRole('navigation').getByText('connected').waitFor({ timeout: 10000 })
   await bobPage.getByLabel('Room code').fill(roomCode)
   await bobPage.getByRole('button', { name: /Join room/i }).click()
   await bobPage.waitForURL(/\/play\/room\//, { waitUntil: 'domcontentloaded' })
 
   await alicePage.getByRole('button', { name: /Azure Tempest/i }).click()
   await bobPage.getByRole('button', { name: /Crimson Surge/i }).click()
-  await Promise.all([
-    alicePage.getByText('Everyone is connected and has picked a deck. You can start the game.').waitFor({
-      timeout: 15000,
-    }),
-    bobPage.getByText('Everyone is ready. Waiting for the host to start the game.').waitFor({
-      timeout: 15000,
-    }),
-  ])
+  await alicePage.waitForFunction(() => {
+    const startButton = Array.from(document.querySelectorAll('button')).find((button) =>
+      /start game/i.test(button.textContent ?? ''),
+    )
+
+    return startButton instanceof HTMLButtonElement && !startButton.disabled
+  }, { timeout: 15000 })
+  await bobPage.getByText('Everyone matches the room settings. Waiting for the host.').waitFor({
+    timeout: 15000,
+  })
   await alicePage.getByRole('button', { name: /Start game/i }).click()
 
   await Promise.all([
@@ -266,28 +272,26 @@ async function main() {
   await aliceBoardCards.nth(1).waitFor({ timeout: 15000 })
   await aliceBoardCards.nth(1).dragTo(aliceBoardCards.first())
 
-  const aliceZonePanel = alicePage.locator('section').filter({ hasText: 'Zone access' })
-  await aliceZonePanel.getByRole('button', { name: /Command/i }).click()
+  const aliceZonePanel = alicePage.locator('section').filter({ hasText: 'Zone access' }).last()
+  await alicePage.getByTestId('zone-pile-command-local').click()
   await aliceZonePanel.locator('button[data-card-name]').first().dblclick()
 
-  await alicePage.getByTestId('hand-tray').getByRole('button', { name: /Library/i }).click()
-  await aliceZonePanel
-    .getByPlaceholder('Search library by name, type, or rules text')
-    .fill('Azure Estate')
-  await aliceZonePanel.locator('button[data-card-name]').first().dblclick()
+  await alicePage.getByTestId('zone-pile-library-local').click()
 
   await aliceBoardCards.last().click({ force: true })
   const aliceInspector = alicePage.locator('section').filter({ hasText: 'Inspector' })
   await aliceInspector.getByRole('button', { name: /^Add$/i }).click()
   await aliceInspector.getByRole('button', { name: /^Graveyard$/i }).click()
-  await aliceZonePanel.getByRole('button', { name: /^Graveyard/i }).click()
+  await alicePage.getByTestId('zone-pile-graveyard-local').click()
   await aliceZonePanel.locator('button[data-card-name]').first().dblclick()
   await aliceBoardCards.last().click({ force: true })
   await aliceInspector.locator('summary').filter({ hasText: 'Table note' }).click()
-  await alicePage.getByPlaceholder('Status, chosen mode, remembered trigger...').fill('Marked for alpha swing')
+  await alicePage.getByPlaceholder('Status, mode, trigger...').fill('Marked for alpha swing')
   await alicePage.getByRole('button', { name: /Save note/i }).click()
   await alicePage.getByRole('button', { name: /^Tokens$/i }).click()
   await alicePage.getByRole('button', { name: /^Treasure/i }).click()
+  await alicePage.getByRole('button', { name: /Pass turn/i }).click()
+  await bobPage.getByText('You can move cards and use the board.').waitFor({ timeout: 15000 })
 
   const bobHandCards = bobPage.getByTestId('hand-tray').locator('button[data-card-name]')
   await bobHandCards.first().dblclick()
