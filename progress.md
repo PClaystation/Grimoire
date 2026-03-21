@@ -222,3 +222,14 @@ Original prompt: You are extending an existing MTG deckbuilder web app into an o
   - Ran `node scripts/validate-play-table.mjs http://127.0.0.1:8787` and refreshed `artifacts/playwright/revamp/alice-table.png`, `artifacts/playwright/revamp/bob-table.png`, and `artifacts/playwright/revamp/summary.json`.
   - Ran the required `develop-web-game` smoke client against `http://127.0.0.1:8787/play` and captured `output/web-game/full-art-smoke/shot-0.png`.
   - Ran a direct Playwright pass on the deckbuilder and visually confirmed a real card detail modal in `output/web-game/card-detail-smoke/shot-0.png`.
+
+2026-03-21
+- Zone rail merge pass:
+  - Reworked each battlefield lane into a single merged shell so the play field and zone rail read as one connected table surface instead of two separate panels.
+  - Increased the rail column width and the pile art footprint so the zone cards feel wider rather than being visually shrunk inside a narrow sidebar.
+  - Kept the rail non-dropable by leaving all placement handling on the play field pane only.
+- Verification:
+  - `npm run build` passed.
+  - `npm run lint` passed.
+  - Ran `node scripts/validate-play-table.mjs http://127.0.0.1:8787` and refreshed `artifacts/playwright/revamp/alice-table.png` and `artifacts/playwright/revamp/bob-table.png`.
+  - Ran the required `develop-web-game` smoke client against `http://127.0.0.1:8787/play` and captured `output/web-game/rail-merged-smoke/shot-0.png`.

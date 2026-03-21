@@ -968,178 +968,182 @@ function BattlefieldLane({
         </div>
       </div>
 
-      <div className={`mt-4 grid gap-3 ${laneHeight} xl:grid-cols-[minmax(0,1fr)_18.5rem] 2xl:grid-cols-[minmax(0,1fr)_20rem]`}>
-        <div
-          data-testid={`lane-board-${isLocalLane ? 'local' : player.name.toLowerCase().replace(/\s+/g, '-')}`}
-          data-lane-dropzone="true"
-          className="relative h-full overflow-hidden rounded-[2rem] border border-white/[0.08] bg-[linear-gradient(180deg,rgba(18,48,58,0.84),rgba(8,25,32,0.94))] shadow-[inset_0_1px_0_rgba(255,255,255,0.06)]"
-          onDragOver={(event) => event.preventDefault()}
-          onDrop={handleDrop}
-        >
-          <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top_left,rgba(29,150,167,0.12),transparent_22%),radial-gradient(circle_at_bottom_right,rgba(240,125,39,0.08),transparent_30%),linear-gradient(rgba(255,255,255,0.04)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.04)_1px,transparent_1px)] bg-[length:auto,auto,28px_28px,28px_28px]" />
-          <div className="pointer-events-none absolute inset-x-0 bottom-0 h-[31%] border-t border-white/10 bg-[linear-gradient(180deg,rgba(255,255,255,0.03),rgba(223,107,11,0.1))]" />
-          <div className="pointer-events-none absolute left-4 top-3 text-[0.65rem] font-semibold uppercase tracking-[0.16em] text-ink-500">
-            Play field
-          </div>
-          <div className="pointer-events-none absolute right-4 bottom-3 text-[0.65rem] font-semibold uppercase tracking-[0.16em] text-ember-200/80">
-            Mana shelf
-          </div>
-
-          {permanents.length === 0 ? (
-            <div className="absolute inset-0 flex items-center justify-center px-8 text-center text-sm text-ink-400">
-              {isLocalLane
-                ? isLocalPlayersTurn
-                  ? 'Drag cards here. Drop one permanent onto another to stack them.'
-                  : `Waiting for the active player. Your board unlocks on your turn.`
-                : 'No permanents in this lane yet.'}
+      <div
+        className={`mt-4 overflow-hidden rounded-[2rem] border border-white/[0.08] bg-[linear-gradient(180deg,rgba(8,22,29,0.56),rgba(5,13,17,0.86))] shadow-[inset_0_1px_0_rgba(255,255,255,0.04)] ${laneHeight}`}
+      >
+        <div className="grid h-full gap-0 xl:grid-cols-[minmax(0,1fr)_24rem] 2xl:grid-cols-[minmax(0,1fr)_26rem]">
+          <div
+            data-testid={`lane-board-${isLocalLane ? 'local' : player.name.toLowerCase().replace(/\s+/g, '-')}`}
+            data-lane-dropzone="true"
+            className="relative h-full min-h-[22rem] overflow-hidden border-b border-white/[0.08] bg-[linear-gradient(180deg,rgba(18,48,58,0.84),rgba(8,25,32,0.94))] xl:border-b-0 xl:border-r"
+            onDragOver={(event) => event.preventDefault()}
+            onDrop={handleDrop}
+          >
+            <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top_left,rgba(29,150,167,0.12),transparent_22%),radial-gradient(circle_at_bottom_right,rgba(240,125,39,0.08),transparent_30%),linear-gradient(rgba(255,255,255,0.04)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.04)_1px,transparent_1px)] bg-[length:auto,auto,28px_28px,28px_28px]" />
+            <div className="pointer-events-none absolute inset-x-0 bottom-0 h-[31%] border-t border-white/10 bg-[linear-gradient(180deg,rgba(255,255,255,0.03),rgba(223,107,11,0.1))]" />
+            <div className="pointer-events-none absolute left-4 top-3 text-[0.65rem] font-semibold uppercase tracking-[0.16em] text-ink-500">
+              Play field
             </div>
-          ) : null}
+            <div className="pointer-events-none absolute right-4 bottom-3 text-[0.65rem] font-semibold uppercase tracking-[0.16em] text-ember-200/80">
+              Mana shelf
+            </div>
 
-          {stackGroups.map((group, index) => {
-            const stackWidth = 192 + (group.cards.length - 1) * stackOffsetX
-            const stackHeight = 212 + (group.cards.length - 1) * stackOffsetY
+            {permanents.length === 0 ? (
+              <div className="absolute inset-0 flex items-center justify-center px-8 text-center text-sm text-ink-400">
+                {isLocalLane
+                  ? isLocalPlayersTurn
+                    ? 'Drag cards here. Drop one permanent onto another to stack them.'
+                    : `Waiting for the active player. Your board unlocks on your turn.`
+                  : 'No permanents in this lane yet.'}
+              </div>
+            ) : null}
 
-            return (
-              <div
-                key={group.id}
-                style={{
-                  left: `${group.position.x}%`,
-                  top: `${group.position.y}%`,
-                  zIndex: index + 2,
-                }}
-                className="absolute -translate-x-1/2 -translate-y-1/2 text-left"
-              >
+            {stackGroups.map((group, index) => {
+              const stackWidth = 192 + (group.cards.length - 1) * stackOffsetX
+              const stackHeight = 212 + (group.cards.length - 1) * stackOffsetY
+
+              return (
                 <div
-                  className="relative"
+                  key={group.id}
                   style={{
-                    width: `${stackWidth}px`,
-                    height: `${stackHeight}px`,
+                    left: `${group.position.x}%`,
+                    top: `${group.position.y}%`,
+                    zIndex: index + 2,
                   }}
+                  className="absolute -translate-x-1/2 -translate-y-1/2 text-left"
                 >
-                  {group.cards.length > 1 ? (
-                    <div className="absolute left-2 top-2 z-30 rounded-full border border-tide-400/25 bg-ink-950/85 px-2.5 py-1 text-[0.62rem] font-semibold uppercase tracking-[0.14em] text-tide-100 shadow-lg">
-                      {group.cards.length} card stack
-                    </div>
-                  ) : null}
+                  <div
+                    className="relative"
+                    style={{
+                      width: `${stackWidth}px`,
+                      height: `${stackHeight}px`,
+                    }}
+                  >
+                    {group.cards.length > 1 ? (
+                      <div className="absolute left-2 top-2 z-30 rounded-full border border-tide-400/25 bg-ink-950/85 px-2.5 py-1 text-[0.62rem] font-semibold uppercase tracking-[0.14em] text-tide-100 shadow-lg">
+                        {group.cards.length} card stack
+                      </div>
+                    ) : null}
 
-                  {group.cards.map((permanent, stackIndex) => {
-                    const canControl =
-                      isLocalPlayersTurn &&
-                      (permanent.ownerPlayerId === localPlayerId ||
-                        permanent.controllerPlayerId === localPlayerId)
+                    {group.cards.map((permanent, stackIndex) => {
+                      const canControl =
+                        isLocalPlayersTurn &&
+                        (permanent.ownerPlayerId === localPlayerId ||
+                          permanent.controllerPlayerId === localPlayerId)
 
-                    return (
-                      <div
-                        key={permanent.instanceId}
-                        style={{
-                          left: `${stackIndex * stackOffsetX}px`,
-                          top: `${stackIndex * stackOffsetY}px`,
-                          zIndex: stackIndex + 1,
-                        }}
-                        className="absolute"
-                      >
-                        <div className="relative h-[13.25rem] w-[12rem]">
-                          {canControl ? (
+                      return (
+                        <div
+                          key={permanent.instanceId}
+                          style={{
+                            left: `${stackIndex * stackOffsetX}px`,
+                            top: `${stackIndex * stackOffsetY}px`,
+                            zIndex: stackIndex + 1,
+                          }}
+                          className="absolute"
+                        >
+                          <div className="relative h-[13.25rem] w-[12rem]">
+                            {canControl ? (
+                              <button
+                                type="button"
+                                onClick={(event) => {
+                                  event.stopPropagation()
+                                  onToggleTapped(permanent.instanceId, !permanent.tapped)
+                                }}
+                                className={`absolute right-1 top-1 z-20 rounded-full border px-2.5 py-1 text-[0.62rem] font-semibold uppercase tracking-[0.14em] transition ${
+                                  permanent.tapped
+                                    ? 'border-emerald-400/25 bg-emerald-500/12 text-emerald-100 hover:border-emerald-400/40'
+                                    : 'border-ember-400/25 bg-ember-500/12 text-ember-100 hover:border-ember-400/40'
+                                }`}
+                              >
+                                {permanent.tapped ? 'Untap' : 'Tap'}
+                              </button>
+                            ) : null}
+
                             <button
                               type="button"
-                              onClick={(event) => {
-                                event.stopPropagation()
-                                onToggleTapped(permanent.instanceId, !permanent.tapped)
+                              data-card-name={permanent.card.name}
+                              draggable={canControl}
+                              onDragStart={(event) =>
+                                event.dataTransfer.setData(
+                                  'application/x-grimoire-card',
+                                  JSON.stringify({
+                                    cardId: permanent.instanceId,
+                                    fromZone: 'battlefield',
+                                    controllerPlayerId: permanent.controllerPlayerId,
+                                  } satisfies DragPayload),
+                                )
+                              }
+                              onDragOver={(event) => {
+                                if (
+                                  canControl &&
+                                  event.dataTransfer.types.includes('application/x-grimoire-card')
+                                ) {
+                                  event.preventDefault()
+                                }
                               }}
-                              className={`absolute right-1 top-1 z-20 rounded-full border px-2.5 py-1 text-[0.62rem] font-semibold uppercase tracking-[0.14em] transition ${
-                                permanent.tapped
-                                  ? 'border-emerald-400/25 bg-emerald-500/12 text-emerald-100 hover:border-emerald-400/40'
-                                  : 'border-ember-400/25 bg-ember-500/12 text-ember-100 hover:border-ember-400/40'
-                              }`}
-                            >
-                              {permanent.tapped ? 'Untap' : 'Tap'}
-                            </button>
-                          ) : null}
+                              onDrop={(event) => {
+                                if (!isLocalPlayersTurn) {
+                                  return
+                                }
 
-                          <button
-                            type="button"
-                            data-card-name={permanent.card.name}
-                            draggable={canControl}
-                            onDragStart={(event) =>
-                              event.dataTransfer.setData(
-                                'application/x-grimoire-card',
-                                JSON.stringify({
-                                  cardId: permanent.instanceId,
-                                  fromZone: 'battlefield',
-                                  controllerPlayerId: permanent.controllerPlayerId,
-                                } satisfies DragPayload),
-                              )
-                            }
-                            onDragOver={(event) => {
-                              if (
-                                canControl &&
-                                event.dataTransfer.types.includes('application/x-grimoire-card')
-                              ) {
+                                const payload = parseDragPayload(
+                                  event.dataTransfer.getData('application/x-grimoire-card'),
+                                )
+
+                                if (
+                                  !payload ||
+                                  payload.fromZone !== 'battlefield' ||
+                                  payload.cardId === permanent.instanceId
+                                ) {
+                                  return
+                                }
+
                                 event.preventDefault()
+                                event.stopPropagation()
+
+                                onStackCard(payload.cardId, permanent.instanceId)
+                              }}
+                              onClick={() => onSelectPermanent(permanent.instanceId)}
+                              onDoubleClick={() =>
+                                canControl
+                                  ? onToggleTapped(permanent.instanceId, !permanent.tapped)
+                                  : undefined
                               }
-                            }}
-                            onDrop={(event) => {
-                              if (!isLocalPlayersTurn) {
-                                return
-                              }
-
-                              const payload = parseDragPayload(
-                                event.dataTransfer.getData('application/x-grimoire-card'),
-                              )
-
-                              if (
-                                !payload ||
-                                payload.fromZone !== 'battlefield' ||
-                                payload.cardId === permanent.instanceId
-                              ) {
-                                return
-                              }
-
-                              event.preventDefault()
-                              event.stopPropagation()
-
-                              onStackCard(payload.cardId, permanent.instanceId)
-                            }}
-                            onClick={() => onSelectPermanent(permanent.instanceId)}
-                            onDoubleClick={() =>
-                              canControl
-                                ? onToggleTapped(permanent.instanceId, !permanent.tapped)
-                                : undefined
-                            }
-                            className="absolute inset-0 flex items-center justify-center text-left"
-                          >
-                            <TableCard
-                              card={permanent.card}
-                              variant="battlefield"
-                              tapped={permanent.tapped}
-                              selected={selectedCardId === permanent.instanceId}
-                              counters={permanent.counters}
-                              note={permanent.note}
-                              badge={permanent.isToken ? 'Token' : undefined}
-                            />
-                          </button>
+                              className="absolute inset-0 flex items-center justify-center text-left"
+                            >
+                              <TableCard
+                                card={permanent.card}
+                                variant="battlefield"
+                                tapped={permanent.tapped}
+                                selected={selectedCardId === permanent.instanceId}
+                                counters={permanent.counters}
+                                note={permanent.note}
+                                badge={permanent.isToken ? 'Token' : undefined}
+                              />
+                            </button>
+                          </div>
                         </div>
-                      </div>
-                    )
-                  })}
+                      )
+                    })}
+                  </div>
                 </div>
-              </div>
-            )
-          })}
-        </div>
+              )
+            })}
+          </div>
 
-        <LaneZoneDock
-          player={player}
-          privateState={isLocalLane ? privateState : null}
-          isLocalLane={isLocalLane}
-          isActiveTurnPlayer={isActiveTurnPlayer}
-          isLocalPlayersTurn={isLocalPlayersTurn}
-          onOpenZone={onOpenZone}
-          onDrawCard={onDrawCard}
-          onBrowseLocalLibrary={onBrowseLocalLibrary}
-          onShuffle={onShuffle}
-          onUntapAll={onUntapAll}
-        />
+          <LaneZoneDock
+            player={player}
+            privateState={isLocalLane ? privateState : null}
+            isLocalLane={isLocalLane}
+            isActiveTurnPlayer={isActiveTurnPlayer}
+            isLocalPlayersTurn={isLocalPlayersTurn}
+            onOpenZone={onOpenZone}
+            onDrawCard={onDrawCard}
+            onBrowseLocalLibrary={onBrowseLocalLibrary}
+            onShuffle={onShuffle}
+            onUntapAll={onUntapAll}
+          />
+        </div>
       </div>
     </section>
   )
@@ -1175,7 +1179,7 @@ function LaneZoneDock({
   const exileTopCard = player.exile[player.exile.length - 1]?.card.imageUrl
 
   return (
-    <aside className="relative flex h-full flex-col overflow-hidden rounded-[2rem] border border-white/[0.08] bg-[linear-gradient(180deg,rgba(6,18,23,0.6),rgba(5,13,17,0.88))] p-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.04)]">
+    <aside className="flex h-full flex-col bg-[linear-gradient(180deg,rgba(6,18,23,0.68),rgba(5,13,17,0.9))] p-4 sm:p-5">
       <div>
         <p className="text-[0.65rem] font-semibold uppercase tracking-[0.16em] text-ink-500">
           Zone rail
@@ -1291,13 +1295,13 @@ function BoardZonePile({
   const canActivate = Boolean(onClick) && !disabled
 
   return (
-    <article className="rounded-[1.65rem] border border-white/[0.08] bg-[linear-gradient(180deg,rgba(255,255,255,0.05),rgba(255,255,255,0.025))] p-3">
+    <article className="rounded-[1.65rem] border border-white/[0.08] bg-[linear-gradient(180deg,rgba(255,255,255,0.05),rgba(255,255,255,0.025))] p-4">
       <button
         type="button"
         data-testid={dataTestId}
         onClick={canActivate ? onClick : undefined}
         disabled={!canActivate}
-        className={`w-full rounded-[1.35rem] border px-3.5 py-3.5 text-left transition ${
+        className={`w-full rounded-[1.35rem] border px-4 py-4 text-left transition ${
           canActivate
             ? 'border-white/[0.08] bg-[linear-gradient(180deg,rgba(7,18,24,0.78),rgba(7,18,24,0.96))] hover:border-tide-400/30 hover:bg-ink-900/95'
             : 'cursor-not-allowed border-white/[0.08] bg-[linear-gradient(180deg,rgba(7,18,24,0.48),rgba(7,18,24,0.72))] text-ink-500'
@@ -1346,7 +1350,7 @@ function BoardPileVisual({
   const layers = faceDown ? [0, 1, 2] : [0, 1]
 
   return (
-    <div className="relative h-[10rem] w-[7rem]">
+    <div className="relative h-[11.75rem] w-[8.4rem]">
       {layers.map((layer) => {
         const isTopLayer = layer === layers.length - 1
 
@@ -1354,7 +1358,7 @@ function BoardPileVisual({
         <div
           key={layer}
           style={{
-            transform: `translate(${layer * 8}px, ${layer * 6}px) ${faceDown ? 'rotate(180deg)' : 'rotate(0deg)'}`,
+            transform: `translate(${layer * 10}px, ${layer * 7}px) ${faceDown ? 'rotate(180deg)' : 'rotate(0deg)'}`,
           }}
           className="absolute inset-0 overflow-hidden rounded-[0.95rem] border border-white/10 bg-[#120f0b] shadow-card"
         >
