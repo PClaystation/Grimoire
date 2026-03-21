@@ -85,7 +85,7 @@ export function DeckStats({ stats }: DeckStatsProps) {
         <div className="min-w-0 rounded-[1.3rem] border border-white/10 bg-ink-800/55 p-4">
           <p className="text-xs font-semibold uppercase tracking-[0.18em] text-ink-400">Main Avg. MV</p>
           <p className="mt-2 text-2xl font-semibold text-ink-50">{stats.mainboard.averageManaValue}</p>
-          <p className="mt-1 text-sm text-ink-400">weighted by copies</p>
+          <p className="mt-1 text-sm text-ink-400">Weighted by copies</p>
         </div>
         <div className="min-w-0 rounded-[1.3rem] border border-white/10 bg-ink-800/55 p-4">
           <p className="text-xs font-semibold uppercase tracking-[0.18em] text-ink-400">Unique</p>

@@ -212,8 +212,7 @@ export function SettingsPage() {
                 Tune how this browser opens and behaves.
               </h1>
               <p className="mt-3 max-w-2xl text-sm leading-7 text-ink-300 sm:text-base">
-                These settings stay local to this browser. Account profile, security, and session
-                controls still live in the main Continental ID dashboard.
+                These settings stay local to this browser.
               </p>
             </div>
 
@@ -243,23 +242,23 @@ export function SettingsPage() {
             <SettingCard
               icon={LayoutPanelTop}
               title="Startup"
-              description="Choose how the deckbuilder opens in this browser."
+              description="Pick the default deckbuilder view."
             >
               <ChoiceButton
                 isActive={settings.defaultDeckWorkspaceTab === 'browser'}
                 label="Search"
-                description="Open directly into card search and filtering."
+                description="Open search by default."
                 onClick={() => updateDefaultDeckWorkspaceTab('browser')}
               />
               <ChoiceButton
                 isActive={settings.defaultDeckWorkspaceTab === 'deck'}
                 label="Gallery"
-                description="Open directly into the visual full-card deck gallery."
+                description="Open the gallery by default."
                 onClick={() => updateDefaultDeckWorkspaceTab('deck')}
               />
               <ToggleRow
                 label="Remember last workspace"
-                description="Update the startup view automatically when you switch between Search and Gallery."
+                description="Use the last workspace you opened."
                 enabled={settings.rememberLastDeckWorkspaceTab}
                 onToggle={toggleRememberLastDeckWorkspaceTab}
               />
@@ -268,23 +267,23 @@ export function SettingsPage() {
             <SettingCard
               icon={Sparkles}
               title="Home layout"
-              description="Show or hide the extra deckbuilder chrome."
+              description="Show or hide extra home panels."
             >
               <ToggleRow
                 label="Deckbuilder hero"
-                description="Show the large stat header at the top of the main page."
+                description="Show the large header."
                 enabled={settings.showDeckbuilderHero}
                 onToggle={toggleShowDeckbuilderHero}
               />
               <ToggleRow
                 label="Account status panel"
-                description="Show the Continental ID sync panel under the hero."
+                description="Show the account panel."
                 enabled={settings.showAccountStatusPanel}
                 onToggle={toggleShowAccountStatusPanel}
               />
               <ToggleRow
                 label="Workspace helper text"
-                description="Show the short description beside the Search and Gallery switcher."
+                description="Show the helper line beside the tab switcher."
                 enabled={settings.showWorkspaceHelperText}
                 onToggle={toggleShowWorkspaceHelperText}
               />
@@ -293,18 +292,18 @@ export function SettingsPage() {
             <SettingCard
               icon={ExternalLink}
               title="Dashboard link behavior"
-              description="Control how Grimoire opens the Continental ID dashboard from menus and settings."
+              description="Choose how the dashboard opens."
             >
               <ChoiceButton
                 isActive={settings.dashboardLinkTarget === 'new-tab'}
                 label="Open in new tab"
-                description="Keep Grimoire open while the account dashboard opens separately."
+                description="Keep Grimoire open."
                 onClick={() => updateDashboardLinkTarget('new-tab')}
               />
               <ChoiceButton
                 isActive={settings.dashboardLinkTarget === 'same-tab'}
                 label="Open in same tab"
-                description="Leave Grimoire and continue directly into the dashboard."
+                description="Switch straight to the dashboard."
                 onClick={() => updateDashboardLinkTarget('same-tab')}
               />
             </SettingCard>
@@ -312,23 +311,23 @@ export function SettingsPage() {
             <SettingCard
               icon={Paintbrush}
               title="Appearance"
-              description="Adjust the overall look and motion."
+              description="Adjust the look and motion."
             >
               <ChoiceButton
                 isActive={settings.interfaceBackdrop === 'atmospheric'}
                 label="Atmospheric"
-                description="Keep the layered gradients and grid texture."
+                description="Use the layered background."
                 onClick={() => updateInterfaceBackdrop('atmospheric')}
               />
               <ChoiceButton
                 isActive={settings.interfaceBackdrop === 'minimal'}
                 label="Minimal"
-                description="Use a flatter background with less visual texture."
+                description="Use a flatter background."
                 onClick={() => updateInterfaceBackdrop('minimal')}
               />
               <ToggleRow
                 label="Reduced motion"
-                description="Minimize transitions and animation across the interface."
+                description="Reduce transitions and animation."
                 enabled={settings.reducedMotion}
                 onToggle={() => updateReducedMotion(!settings.reducedMotion)}
               />
@@ -344,8 +343,7 @@ export function SettingsPage() {
                 <div className="min-w-0 flex-1">
                   <h2 className="text-base font-semibold text-ink-50">Continental ID</h2>
                   <p className="mt-1 text-sm leading-6 text-ink-300">
-                    Grimoire-specific preferences live here. Core account controls live in the
-                    dashboard.
+                    Account details live in the dashboard.
                   </p>
                 </div>
               </div>
@@ -431,14 +429,8 @@ export function SettingsPage() {
             <section className="rounded-[1.5rem] border border-white/10 bg-[linear-gradient(180deg,rgba(18,33,41,0.95),rgba(10,22,29,0.99))] p-5 shadow-panel ring-1 ring-white/5">
               <h2 className="text-base font-semibold text-ink-50">What lives where</h2>
               <div className="mt-4 space-y-3 text-sm leading-6 text-ink-300">
-                <p>
-                  Grimoire settings here control this browser only: the default deckbuilder view,
-                  motion, backdrop style, and how dashboard links open.
-                </p>
-                <p>
-                  The Continental ID dashboard handles profile edits, security changes,
-                  notifications, active sessions, exports, and other account-wide settings.
-                </p>
+                <p>These settings only affect this browser.</p>
+                <p>Account changes still live in the Continental ID dashboard.</p>
               </div>
             </section>
           </aside>

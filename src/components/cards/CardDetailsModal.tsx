@@ -151,7 +151,7 @@ export function CardDetailsModal({
             <div className="rounded-[1.5rem] border border-white/10 bg-white/5 p-4">
               <p className="text-sm font-medium uppercase tracking-[0.18em] text-ink-400">Oracle text</p>
               <p className="mt-3 whitespace-pre-line text-sm leading-7 text-ink-200">
-                {activeCard.oracleText || 'No rules text available.'}
+                {activeCard.oracleText || 'No rules text.'}
               </p>
             </div>
 
@@ -162,9 +162,7 @@ export function CardDetailsModal({
                     Print selection
                   </p>
                   <p className="text-xs text-ink-400">
-                    {isLoadingPrints
-                      ? 'Loading prints...'
-                      : `${visiblePrints.length} printings`}
+                    {isLoadingPrints ? 'Loading prints...' : `${visiblePrints.length} printings`}
                   </p>
                 </div>
                 <div className="mt-3 flex flex-wrap gap-2">

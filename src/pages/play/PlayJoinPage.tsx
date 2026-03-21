@@ -35,8 +35,8 @@ export function PlayJoinPage() {
   return (
     <PlayFrame
       eyebrow="Join Room"
-      title="Drop into an existing room from another device."
-      description="Enter the room code from the host, pick a display name for this browser, and you’ll land in the shared lobby to choose one of your saved decks."
+      title="Join an existing room."
+      description="Enter the code, pick a name, and join the lobby."
       connectionStatus={connectionStatus}
       error={error}
       onDismissError={clearError}

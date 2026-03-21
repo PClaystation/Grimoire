@@ -47,13 +47,13 @@ export function PlayRoomPage() {
       <PlayFrame
         eyebrow="Lobby"
         title="Looking for that room."
-        description="If this browser is already connected to a room, it will appear here automatically after the socket sync finishes."
+        description="If this browser is already connected, it will appear here after sync."
         connectionStatus={connectionStatus}
         error={error}
         onDismissError={clearError}
       >
         <section className="rounded-[2rem] border border-white/10 bg-[linear-gradient(180deg,rgba(18,33,41,0.96),rgba(11,24,31,0.99))] p-6 shadow-panel ring-1 ring-white/5">
-          <p className="text-sm text-ink-300">No matching room is loaded in this browser right now.</p>
+          <p className="text-sm text-ink-300">No matching room is loaded.</p>
           <div className="mt-4 flex flex-wrap gap-3">
             <Link
               to="/play/create"
@@ -83,7 +83,7 @@ export function PlayRoomPage() {
     <PlayFrame
       eyebrow="Room Lobby"
       title={`Room ${room.code}`}
-      description="Players join from their own browsers, choose one saved deck each, and the host starts the shared tabletop once everyone is ready. Signed-in browsers can pull from the synced Continental ID deck list."
+      description="Players join, pick a deck, and the host starts when everyone is ready."
       connectionStatus={connectionStatus}
       error={error}
       onDismissError={clearError}
@@ -95,9 +95,7 @@ export function PlayRoomPage() {
               void (async () => {
                 const didCopy = await copyTextToClipboard(room.code)
                 setStatusMessage(
-                  didCopy
-                    ? `Copied room code ${room.code}.`
-                    : 'Unable to copy the room code in this browser.',
+                  didCopy ? `Copied ${room.code}.` : 'Could not copy the room code.',
                 )
               })()
             }}
@@ -199,9 +197,9 @@ export function PlayRoomPage() {
             <p className="text-sm text-ink-300">
               {everyoneReady
                 ? isHost
-                  ? 'Everyone is connected and has picked a deck. You can start the game.'
-                  : 'Everyone is ready. Waiting for the host to start the game.'
-                : `Need at least ${PLAY_MIN_PLAYERS} connected players, and every player must choose a deck before the host can start.`}
+                  ? 'Everyone is ready. You can start the game.'
+                  : 'Everyone is ready. Waiting for the host.'
+                : `Need at least ${PLAY_MIN_PLAYERS} connected players and a deck from everyone.`}
             </p>
           </div>
 
@@ -232,7 +230,7 @@ export function PlayRoomPage() {
           {isSavedDecksLoading ? (
             <div className="mt-5 rounded-[1.6rem] border border-white/10 bg-white/[0.04] p-5">
               <p className="text-sm text-ink-300">
-                Loading the current deck repository for this browser session.
+                Loading saved decks.
               </p>
             </div>
           ) : savedDecks.length > 0 ? (
@@ -281,9 +279,7 @@ export function PlayRoomPage() {
           ) : (
             <div className="mt-5 rounded-[1.6rem] border border-white/10 bg-white/[0.04] p-5">
               <p className="text-sm text-ink-300">
-                This browser does not have any saved decks available yet. Build one in the
-                deckbuilder first, then come back and select it here. If you are signed in, synced
-                Continental ID decks will appear automatically after the next refresh.
+                No saved decks yet. Build one first. Signed-in Continental ID decks appear after refresh.
               </p>
               <Link
                 to="/"

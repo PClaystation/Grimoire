@@ -34,8 +34,8 @@ export function PlayCreatePage() {
   return (
     <PlayFrame
       eyebrow="Create Room"
-      title="Open a private tabletop room and invite the pod."
-      description="Rooms are lightweight and friend-oriented. Pick a display name for this browser, create the room, and your friends can join with the room code."
+      title="Open a private tabletop room."
+      description="Pick a display name, create the room, and share the code."
       connectionStatus={connectionStatus}
       error={error}
       onDismissError={clearError}

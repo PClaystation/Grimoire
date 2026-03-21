@@ -176,7 +176,7 @@ export function FilterBar({
   return (
     <SectionPanel
       title="Search Cards"
-      subtitle="Start with a fast Scryfall query, then open advanced filters only when you need to narrow the pool further."
+      subtitle="Start with a Scryfall query, then open more filters only when needed."
       actions={
         <div className="inline-flex items-center gap-2 rounded-full border border-ember-400/25 bg-ember-500/10 px-3 py-1 text-xs font-medium text-ember-100">
           <Sparkles className="h-3.5 w-3.5" />
@@ -253,8 +253,7 @@ export function FilterBar({
             <div>
               <p className="text-sm font-semibold text-ink-100">Advanced Search</p>
               <p className="mt-1 max-w-3xl text-sm leading-6 text-ink-400">
-                Use this when you need exact text, subtype tags, color, set filters, prices,
-                release windows, and print treatments.
+                Exact text, sets, prices, and print filters.
               </p>
             </div>
 
@@ -641,9 +640,7 @@ export function FilterBar({
             {setsError ? (
               <p className="text-sm text-ember-300">{setsError}</p>
             ) : (
-              <p className="max-w-2xl text-sm leading-6 text-ink-400">
-                Set data and images are loaded live from Scryfall.
-              </p>
+              <p className="max-w-2xl text-sm leading-6 text-ink-400">Set data and images come from Scryfall.</p>
             )}
           </div>
         </div>

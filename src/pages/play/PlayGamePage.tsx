@@ -243,13 +243,13 @@ export function PlayGamePage() {
       <PlayFrame
         eyebrow="Game Table"
         title="Waiting for the game state."
-        description="If this browser belongs to an active room, the game snapshot will appear here as soon as the play server sync completes."
+        description="If this browser is in an active room, the game will appear after sync."
         connectionStatus={connectionStatus}
         error={error}
         onDismissError={clearError}
       >
         <section className="rounded-[2rem] border border-white/10 bg-ink-900/82 p-6 shadow-panel">
-          <p className="text-sm text-ink-300">No matching game is loaded in this browser session.</p>
+          <p className="text-sm text-ink-300">No matching game is loaded.</p>
           <Link
             to="/play"
             className="mt-4 inline-flex items-center gap-2 rounded-2xl border border-white/10 bg-white/6 px-4 py-3 text-sm font-semibold text-ink-100 transition hover:bg-white/10"
@@ -757,8 +757,7 @@ function TableHud({
               Table {gameId.slice(0, 8)}
             </h1>
             <p className="mt-2 max-w-3xl text-sm text-ink-300 sm:text-base">
-              Drag cards onto your lane, double-click your permanents to tap them, and manage the
-              rest from the inspector without losing sight of the board.
+              Drag cards to the board, tap permanents, and use the inspector for the rest.
             </p>
           </div>
 
@@ -1010,7 +1009,7 @@ function BattlefieldLane({
         {permanents.length === 0 ? (
           <div className="absolute inset-0 flex items-center justify-center px-8 text-center text-sm text-ink-400">
             {isLocalLane
-              ? 'Drag cards from your hand, library, graveyard, exile, or command zone here. Drop one permanent onto another to build stacks.'
+              ? 'Drag cards here. Drop one permanent onto another to stack them.'
               : 'No permanents in this lane yet.'}
           </div>
         ) : null}
@@ -1197,7 +1196,7 @@ function HandTray({
             {privateState.hand.length} cards in hand
           </h2>
           <p className="mt-1 text-sm text-ink-400">
-            Drag to the board or double-click for a quick cast.
+            Drag to the board or double-click to cast.
           </p>
         </div>
 
@@ -1256,8 +1255,7 @@ function HandTray({
         </div>
       ) : (
         <div className="mt-5 rounded-[1.5rem] border border-white/10 bg-white/5 px-4 py-5 text-sm text-ink-300">
-          Your hand is empty. Draw cards, recover cards from public zones, or create new board
-          material from the token workshop.
+          Your hand is empty. Draw cards or use the token workshop.
         </div>
       )}
     </section>
@@ -1336,7 +1334,7 @@ function InspectorCard({
               ? `${selected.zone === 'battlefield' ? 'Battlefield' : zoneLabel(selected.zone)} • ${
                   selected.card.card.typeLine
                 }`
-              : 'Select any card to inspect it, move it, or tune the board around it.'}
+              : 'Select a card to inspect or move it.'}
           </p>
         </div>
         {selected ? (
@@ -1400,8 +1398,7 @@ function InspectorCard({
 
                 {selectedPermanent ? (
                   <p className="text-xs leading-5 text-ink-400">
-                    Drag this permanent onto another permanent in the same lane to stack them.
-                    Dragging any card in a stack moves the whole stack.
+                    Drag onto another permanent to stack cards. Dragging any card moves the stack.
                   </p>
                 ) : null}
               </div>
@@ -1423,7 +1420,7 @@ function InspectorCard({
               >
                 <div className="flex items-center gap-2">
                   <p className="text-xs font-medium text-ink-300">
-                    Track shields, stuns, loyalty, or any custom counter without leaving the board.
+                    Track shields, stuns, loyalty, or custom counters here.
                   </p>
                 </div>
 
@@ -1491,7 +1488,7 @@ function InspectorCard({
                   onChange={(event) => onNoteDraftChange(event.target.value)}
                   rows={3}
                   className="mt-3 w-full rounded-2xl border border-white/10 bg-ink-950/80 px-3 py-2 text-sm text-ink-100 outline-none transition focus:border-tide-400/35"
-                  placeholder="Status, chosen mode, remembered trigger..."
+                  placeholder="Status, mode, trigger..."
                 />
                 <div className="mt-3 flex justify-end">
                   <InspectorButton
@@ -1533,17 +1530,17 @@ function InspectorCard({
           <OverviewStat
             icon={<Hand className="h-4 w-4" />}
             title="Direct interaction"
-            body="Drag from hand, library, command zone, graveyard, or exile onto your lane. Drop a permanent onto another one to build stacks."
+            body="Drag cards to the lane. Drop one permanent onto another to stack."
           />
           <OverviewStat
             icon={<ShieldPlus className="h-4 w-4" />}
             title="Board tools"
-            body="Use the inspector to add counters, write table notes, or hand control of permanents to another player."
+            body="Use the inspector for counters, notes, and control changes."
           />
           <OverviewStat
             icon={<WandSparkles className="h-4 w-4" />}
             title="Token workshop"
-            body="Spin up common tokens without cluttering the main table UI."
+            body="Create tokens without leaving the table."
           />
         </div>
       )}
@@ -1671,7 +1668,7 @@ function ZoneBrowser({
                 <input
                   value={librarySearch}
                   onChange={(event) => setLibrarySearch(event.target.value)}
-                  placeholder='Search library or use name:, type:, text:, set:, rarity:, color:, id:, mv>=3'
+                  placeholder='Search or use name:, type:, text:, set:, color:, id:, mv>=3'
                   className="w-full border-none bg-transparent text-sm text-ink-100 outline-none placeholder:text-ink-500"
                 />
                 <span className="text-[0.65rem] font-semibold uppercase tracking-[0.16em] text-ink-500">
@@ -1699,9 +1696,7 @@ function ZoneBrowser({
           </div>
 
           <p className="text-xs leading-5 text-ink-500">
-            Fielded search works here too:{' '}
-            <code>name:sol</code>, <code>type:land</code>, <code>text:&quot;draw a card&quot;</code>,{' '}
-            <code>set:fdn</code>, <code>color:g</code>, <code>id:ug</code>, <code>mv&lt;=3</code>.
+            Search by name, type, text, set, color, or mana value.
           </p>
         </div>
       ) : null}
@@ -1801,7 +1796,7 @@ function TokenWorkshop({
           <p className="text-xs font-semibold uppercase tracking-[0.2em] text-ink-400">
             Token workshop
           </p>
-          <h2 className="mt-1 text-xl font-semibold text-ink-50">Common board pieces</h2>
+          <h2 className="mt-1 text-xl font-semibold text-ink-50">Tokens</h2>
         </div>
       </div>
 
@@ -1835,13 +1830,13 @@ function TokenWorkshop({
             value={draft.name}
             onChange={(event) => onDraftChange({ ...draft, name: event.target.value })}
             className="rounded-2xl border border-white/10 bg-ink-950/80 px-3 py-2 text-sm text-ink-100 outline-none transition focus:border-tide-400/35"
-            placeholder="Token name"
+            placeholder="Name"
           />
           <input
             value={draft.tokenType}
             onChange={(event) => onDraftChange({ ...draft, tokenType: event.target.value })}
             className="rounded-2xl border border-white/10 bg-ink-950/80 px-3 py-2 text-sm text-ink-100 outline-none transition focus:border-tide-400/35"
-            placeholder="Type line"
+            placeholder="Type"
           />
           <input
             value={draft.power}
@@ -1862,7 +1857,7 @@ function TokenWorkshop({
           onChange={(event) => onDraftChange({ ...draft, note: event.target.value })}
           rows={2}
           className="mt-3 w-full rounded-2xl border border-white/10 bg-ink-950/80 px-3 py-2 text-sm text-ink-100 outline-none transition focus:border-tide-400/35"
-          placeholder="Rules text or reminder text"
+          placeholder="Text"
         />
 
         <div className="mt-3 flex flex-wrap gap-2">
@@ -1964,7 +1959,7 @@ function PlayerStatePanel({
               <InfoChip key={counter.kind} label={`${counter.kind} ${counter.amount}`} tone="info" />
             ))}
             {focusedPlayer.counters.length === 0 ? (
-              <div className="text-sm text-ink-400">No player counters yet.</div>
+              <div className="text-sm text-ink-400">No counters yet.</div>
             ) : null}
           </div>
 
@@ -1989,7 +1984,7 @@ function PlayerStatePanel({
             value={counterDraft}
             onChange={(event) => onCounterDraftChange(event.target.value)}
             className="w-full rounded-2xl border border-white/10 bg-ink-950/80 px-3 py-2 text-sm text-ink-100 outline-none transition focus:border-tide-400/35"
-            placeholder="Player counter label"
+            placeholder="Counter label"
           />
 
           <div className="flex flex-wrap gap-2">
@@ -2108,7 +2103,7 @@ function PlayerStatePanel({
             onChange={(event) => onNoteDraftChange(event.target.value)}
             rows={3}
             className="w-full rounded-2xl border border-white/10 bg-ink-950/80 px-3 py-2 text-sm text-ink-100 outline-none transition focus:border-tide-400/35"
-            placeholder="Player note"
+            placeholder="Note"
           />
           <div className="flex justify-end">
             <InspectorButton onClick={() => onSaveNote(focusedPlayer.id, noteDraft)} tone="primary">
@@ -2172,7 +2167,7 @@ function StackPanel({
       <div className="space-y-3">
         <div>
           <p className="text-xs font-semibold uppercase tracking-[0.2em] text-ink-400">Shared stack</p>
-          <h2 className="mt-2 text-xl font-semibold text-ink-50">Spells and abilities</h2>
+          <h2 className="mt-2 text-xl font-semibold text-ink-50">Stack</h2>
         </div>
 
         {selected && selected.zone !== 'battlefield' && isLocalOwned ? (
@@ -2207,20 +2202,20 @@ function StackPanel({
             value={draft.label}
             onChange={(event) => onDraftChange({ ...draft, label: event.target.value })}
             className="w-full rounded-2xl border border-white/10 bg-ink-950/80 px-3 py-2 text-sm text-ink-100 outline-none transition focus:border-tide-400/35"
-            placeholder="Manual stack label"
+            placeholder="Label"
           />
           <input
             value={draft.targets}
             onChange={(event) => onDraftChange({ ...draft, targets: event.target.value })}
             className="w-full rounded-2xl border border-white/10 bg-ink-950/80 px-3 py-2 text-sm text-ink-100 outline-none transition focus:border-tide-400/35"
-            placeholder="Targets, comma separated"
+            placeholder="Targets"
           />
           <textarea
             value={draft.note}
             onChange={(event) => onDraftChange({ ...draft, note: event.target.value })}
             rows={2}
             className="w-full rounded-2xl border border-white/10 bg-ink-950/80 px-3 py-2 text-sm text-ink-100 outline-none transition focus:border-tide-400/35"
-            placeholder="Stack note"
+            placeholder="Note"
           />
           <label className="inline-flex items-center gap-2 text-sm text-ink-300">
             <input
@@ -2903,13 +2898,12 @@ function renderSelectedActions({
       ) : null}
       {selected.zone === 'hand' ? (
         <div className="rounded-[1.2rem] border border-white/10 bg-white/5 px-3 py-3 text-sm text-ink-300">
-          Drag onto your lane or double-click from the hand tray for a fast battlefield move.
+          Drag to your lane or double-click to move it.
         </div>
       ) : null}
       {selected.zone === 'library' ? (
         <div className="rounded-[1.2rem] border border-white/10 bg-white/5 px-3 py-3 text-sm text-ink-300">
-          Search by name, type, or rules text, then move the card directly to the zone you need.
-          Shuffle when your effect calls for it.
+          Search by name, type, or rules text, then move it where needed.
         </div>
       ) : null}
     </>

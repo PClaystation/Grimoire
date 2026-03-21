@@ -38,7 +38,7 @@ export function DeckCardList({
       {cards.length === 0 ? (
         <EmptyState
           title={`No cards in the ${section}`}
-          description={`Add cards directly to the ${section}, or move cards from the other section.`}
+          description="Move cards between sections."
         />
       ) : (
         <div className="space-y-3">

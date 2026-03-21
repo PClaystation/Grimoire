@@ -30,7 +30,7 @@ export function DeckValidationList({ issues }: DeckValidationListProps) {
     return (
       <EmptyState
         title="No validation feedback"
-        description="Add more cards to generate deckbuilding guidance."
+        description="Add more cards to generate feedback."
         icon={<Info className="h-5 w-5" />}
       />
     )

@@ -32,7 +32,7 @@ export function DeckRecommendationsList({
     return (
       <EmptyState
         title="No tuning suggestions yet"
-        description="Add a few more cards and Grimoire will start surfacing structural hints."
+        description="Add more cards to surface suggestions."
         icon={<Info className="h-5 w-5" />}
       />
     )

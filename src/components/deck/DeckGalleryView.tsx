@@ -205,7 +205,7 @@ export function DeckGalleryView({
         {totalCards === 0 ? (
           <EmptyState
             title="No deck to display"
-            description="Add cards to the mainboard or sideboard and this view will render the deck as a visual gallery."
+            description="Add cards to the mainboard or sideboard to show the gallery."
             icon={<Layers3 className="h-5 w-5" />}
           />
         ) : (
@@ -235,7 +235,7 @@ export function DeckGalleryView({
                 <p className="mt-2 text-2xl font-semibold text-ink-50">
                   {formatUsdPrice(stats.totalEstimatedValueUsd)}
                 </p>
-                <p className="mt-1 text-sm text-ink-400">Cards render at a larger size for direct reading</p>
+                <p className="mt-1 text-sm text-ink-400">Large card art</p>
               </div>
             </div>
 

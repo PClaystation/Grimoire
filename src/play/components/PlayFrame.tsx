@@ -64,15 +64,15 @@ export function PlayFrame({
                 </div>
                 <div className="rounded-[1.4rem] border border-white/10 bg-white/[0.04] px-4 py-3 text-ink-100">
                   <p className="text-[0.68rem] font-semibold uppercase tracking-[0.18em] text-ink-400">
-                    Hidden Data
+                    Hidden
                   </p>
-                  <p className="mt-2 text-sm font-semibold">Hands stay private per browser.</p>
+                  <p className="mt-2 text-sm font-semibold">Hands stay private.</p>
                 </div>
                 <div className="rounded-[1.4rem] border border-white/10 bg-white/[0.04] px-4 py-3 text-ink-100">
                   <p className="text-[0.68rem] font-semibold uppercase tracking-[0.18em] text-ink-400">
-                    Shared Zones
+                    Shared
                   </p>
-                  <p className="mt-2 text-sm font-semibold">Battlefield and public zones sync live.</p>
+                  <p className="mt-2 text-sm font-semibold">Public zones sync live.</p>
                 </div>
               </div>
             </div>

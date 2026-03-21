@@ -55,16 +55,16 @@ export function ContinentalAccountPanel({
       ? 'Checking session'
       : 'Local only'
   const summaryMessage = status === 'loading'
-    ? 'Checking whether this browser already has a Continental ID session.'
+    ? 'Checking for a Continental ID session.'
     : isAuthenticated
       ? isCloudSyncEnabled
         ? isUsingCloudCache
-          ? 'Continental ID is connected. Grimoire is showing cached decks until sync recovers.'
+          ? 'Continental ID is connected. Showing cached decks until sync recovers.'
           : isSyncPending
-            ? `Continental ID is connected. ${syncState.pendingDeckCount} deck${syncState.pendingDeckCount === 1 ? '' : 's'} ${syncState.pendingDeckCount === 1 ? 'is' : 'are'} still waiting to sync.`
-            : 'Continental ID is connected. Saved decks sync automatically across devices.'
-        : 'Continental ID is connected for this browser session.'
-      : 'Continental ID is optional. Use the sign-in control in the navigation to sync saved decks across devices.'
+            ? `${syncState.pendingDeckCount} deck${syncState.pendingDeckCount === 1 ? '' : 's'} still waiting to sync.`
+            : 'Continental ID is connected. Saved decks sync across devices.'
+        : 'Continental ID is connected.'
+      : 'Continental ID is optional. Use sign in to sync saved decks.'
   const detailMessage = errorMessage ?? syncState.message
   const BadgeIcon = badgeIcon
 

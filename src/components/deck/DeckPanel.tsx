@@ -110,7 +110,7 @@ export function DeckPanel({
       <div className="space-y-6 xl:sticky xl:top-6">
         <SectionPanel
           title="Current Deck"
-          subtitle="Tune format rules, import lists, export in multiple forms, and goldfish the build without leaving the editor."
+          subtitle="Import, export, and test without leaving the editor."
           actions={
             <span className="inline-flex items-center rounded-full border border-white/10 bg-white/5 px-3 py-1 text-xs font-semibold uppercase tracking-[0.18em] text-ink-300">
               {activeDeckId ? 'Saved deck' : 'Draft'}
@@ -158,7 +158,7 @@ export function DeckPanel({
                   const nextValue = event.target.value
                   onBudgetTargetChange(nextValue ? Number.parseFloat(nextValue) : null)
                 }}
-                placeholder="Optional cap for the total deck value"
+                placeholder="Optional total value cap"
                 className="w-full rounded-2xl border border-white/10 bg-ink-800/80 px-4 py-3 text-sm text-ink-50 outline-none transition focus:border-tide-400 focus:ring-2 focus:ring-tide-400/30"
               />
             </label>
@@ -273,7 +273,7 @@ export function DeckPanel({
                 <textarea
                   value={notes}
                   onChange={(event) => onNotesChange(event.target.value)}
-                  placeholder="Core game plan, flex slots, or metagame notes"
+                  placeholder="Game plan or notes"
                   className="min-h-32 w-full rounded-2xl border border-white/10 bg-ink-800/80 px-4 py-3 text-sm text-ink-50 outline-none transition focus:border-tide-400 focus:ring-2 focus:ring-tide-400/30"
                 />
               </label>
@@ -291,7 +291,7 @@ export function DeckPanel({
 
             <DeckCardList
               title="Mainboard"
-              description="Primary game plan cards. Use the move action to send single copies into the sideboard."
+              description="Primary game-plan cards."
               section="mainboard"
               cards={mainboard}
               onIncrease={onIncrease}
@@ -302,7 +302,7 @@ export function DeckPanel({
 
             <DeckCardList
               title="Sideboard"
-              description="Flexible matchup cards. Move them back to mainboard one copy at a time when tuning."
+              description="Matchup cards and flex slots."
               section="sideboard"
               cards={sideboard}
               onIncrease={onIncrease}

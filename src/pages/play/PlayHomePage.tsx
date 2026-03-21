@@ -11,8 +11,8 @@ export function PlayHomePage() {
   return (
     <PlayFrame
       eyebrow="Online Tabletop"
-      title="Spin up a shared MTG table without turning the site into a rules engine."
-      description="Create a private room, bring a saved deck from this browser, and play with synchronized public zones while each player keeps their own hand hidden."
+      title="Run a shared MTG table without the rules engine."
+      description="Create a room, bring a saved deck, and keep public zones in sync."
       connectionStatus={connectionStatus}
       error={error}
       onDismissError={clearError}
@@ -41,17 +41,17 @@ export function PlayHomePage() {
             <FeatureCard
               icon={<EyeOff className="h-4 w-4" />}
               title="Private hand sync"
-              description="Each browser only receives that player’s hand contents. Everyone else sees hand counts only."
+              description="Only the active browser sees its own hand."
             />
             <FeatureCard
               icon={<Rows3 className="h-4 w-4" />}
               title="Shared table state"
-              description="Battlefield, graveyard, exile, life totals, and library counts stay synchronized over WebSockets."
+              description="Battlefield, graveyard, exile, life, and library counts sync live."
             />
             <FeatureCard
               icon={<WandSparkles className="h-4 w-4" />}
               title="Manual first"
-              description="Players move cards, tap permanents, and adjust life totals without a full MTG rules engine."
+              description="Move cards, tap permanents, and adjust life totals manually."
             />
           </div>
         </section>
@@ -64,22 +64,20 @@ export function PlayHomePage() {
           {game ? (
             <ResumeCard
               title="Active game found"
-              description="Your browser already has an active multiplayer table open."
+              description="This browser already has an active table."
               href={`/play/game/${game.gameId}`}
               actionLabel="Resume game"
             />
           ) : room ? (
             <ResumeCard
               title="Lobby in progress"
-              description={`Room ${room.code} is already tied to this browser session.`}
+              description={`Room ${room.code} is already open here.`}
               href={`/play/room/${room.roomId}`}
               actionLabel="Open lobby"
             />
           ) : (
             <div className="mt-4 rounded-[1.5rem] border border-white/10 bg-white/[0.04] p-4">
-              <p className="text-sm text-ink-300">
-                No active room is attached to this browser right now.
-              </p>
+              <p className="text-sm text-ink-300">No active room is attached to this browser.</p>
             </div>
           )}
         </section>

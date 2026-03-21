@@ -16,7 +16,7 @@ interface SavedDeckListProps {
 export function SavedDeckList({
   decks,
   isLoading = false,
-  emptyDescription = 'Use Save Deck to keep local snapshots with both mainboard and sideboard state.',
+  emptyDescription = 'Save a deck to keep a local snapshot.',
   activeDeckId,
   onLoad,
   onDelete,
@@ -25,7 +25,7 @@ export function SavedDeckList({
     return (
       <EmptyState
         title="Loading saved decks"
-        description="Reading the current deck repository for this browser session."
+        description="Loading saved decks."
       />
     )
   }
