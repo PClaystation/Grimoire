@@ -83,6 +83,7 @@ const COUNTER_PRESETS = ['+1/+1', 'loyalty', 'shield', 'stun']
 const PLAYER_COUNTER_PRESETS = ['poison', 'energy', 'experience', 'rad']
 const PUBLIC_ZONE_ORDER: PublicZone[] = ['command', 'graveyard', 'exile']
 const LOCAL_ZONE_ORDER: BrowseableZone[] = ['library', 'command', 'graveyard', 'exile']
+const MTG_CARD_BACK_URL = '/Magic_card_back-removebg.png'
 const LIBRARY_SORT_OPTIONS: Array<{ value: LibraryCardSortOption; label: string }> = [
   { value: 'DECK_ORDER', label: 'Deck order' },
   { value: 'NAME', label: 'Name A-Z' },
@@ -141,7 +142,8 @@ export function PlayGamePage() {
   const [selectedCard, setSelectedCard] = useState<TableSelection | null>(null)
   const [focusedPlayerId, setFocusedPlayerId] = useState<string | null>(null)
   const [activeZone, setActiveZone] = useState<BrowseableZone>('graveyard')
-  const [utilityPanel, setUtilityPanel] = useState<'zones' | 'players' | 'stack' | 'tokens' | 'log'>('zones')
+  const [isZoneOverlayOpen, setIsZoneOverlayOpen] = useState(false)
+  const [utilityPanel, setUtilityPanel] = useState<'players' | 'stack' | 'tokens' | 'log'>('players')
   const [counterDraft, setCounterDraft] = useState(COUNTER_PRESETS[0])
   const [playerCounterDraft, setPlayerCounterDraft] = useState(PLAYER_COUNTER_PRESETS[0])
   const [noteEditor, setNoteEditor] = useState<{ cardId: string | null; value: string }>({
@@ -283,7 +285,7 @@ export function PlayGamePage() {
 
     setFocusedPlayerId(playerId)
     setActiveZone(zone)
-    setUtilityPanel('zones')
+    setIsZoneOverlayOpen(true)
   }
 
   function selectZoneCard(playerId: string, zone: PublicZone, cardId: string) {
@@ -332,8 +334,12 @@ export function PlayGamePage() {
           </div>
         ) : null}
 
-        <div className="grid gap-5 2xl:grid-cols-[minmax(0,1fr)_22rem]">
-          <div className="grid gap-5">
+        <div className="grid gap-5 2xl:grid-cols-[minmax(0,1fr)_17.5rem]">
+          <div className="relative">
+            <section className="relative overflow-hidden rounded-[2.5rem] border border-white/10 bg-[linear-gradient(180deg,rgba(11,26,33,0.98),rgba(7,18,24,0.99))] p-5 shadow-panel lg:p-6">
+              <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top,rgba(29,150,167,0.15),transparent_28%),radial-gradient(circle_at_bottom,rgba(223,107,11,0.13),transparent_28%),linear-gradient(rgba(255,255,255,0.03)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.03)_1px,transparent_1px)] bg-[length:auto,auto,34px_34px,34px_34px]" />
+              <div className="pointer-events-none absolute inset-x-10 top-0 h-24 rounded-full bg-[radial-gradient(circle,rgba(255,255,255,0.08),transparent_68%)] blur-2xl" />
+              <div className="relative grid gap-6">
             {opponentPlayers.length > 0 ? (
               <section
                 className={`grid gap-4 ${opponentPlayers.length > 1 ? 'xl:grid-cols-2' : ''}`}
@@ -472,6 +478,28 @@ export function PlayGamePage() {
                 onQuickCast={(cardId) => moveOwnedCard('hand', 'battlefield', cardId)}
               />
             ) : null}
+              </div>
+            </section>
+
+            {isZoneOverlayOpen ? (
+              <ZoneOverlay
+                players={players}
+                localPlayerId={localPlayerId}
+                canAct={isLocalPlayersTurn}
+                focusedPlayer={focusedPlayer}
+                privateState={localPrivatePlayer}
+                activeZone={activeZone}
+                cards={zoneCards}
+                selectedCard={activeSelection}
+                onClose={() => setIsZoneOverlayOpen(false)}
+                onFocusPlayer={(playerId) => setFocusedPlayerId(playerId)}
+                onZoneChange={setActiveZone}
+                onOpenZone={openZone}
+                onSelectCard={selectZoneCard}
+                onSelectLibraryCard={(cardId) => setSelectedCard({ zone: 'library', cardId })}
+                onMoveOwnedCard={moveOwnedCard}
+              />
+            ) : null}
           </div>
 
           <aside className="grid gap-4 2xl:sticky 2xl:top-4 2xl:h-fit">
@@ -539,9 +567,8 @@ export function PlayGamePage() {
               isLocalOwned={isSelectedCardLocalOwned}
             />
             <section className="rounded-[1.9rem] border border-white/10 bg-ink-900/90 p-3 shadow-panel">
-              <div className="grid grid-cols-3 gap-2">
+              <div className="grid grid-cols-2 gap-2">
                 {[
-                  ['zones', 'Zones'],
                   ['players', 'Players'],
                   ['stack', 'Stack'],
                   ['tokens', 'Tokens'],
@@ -551,7 +578,7 @@ export function PlayGamePage() {
                     key={value}
                     type="button"
                     onClick={() =>
-                      setUtilityPanel(value as 'zones' | 'players' | 'stack' | 'tokens' | 'log')
+                      setUtilityPanel(value as 'players' | 'stack' | 'tokens' | 'log')
                     }
                     className={`rounded-2xl border px-3 py-2 text-sm font-semibold transition ${
                       utilityPanel === value
@@ -565,25 +592,6 @@ export function PlayGamePage() {
               </div>
 
               <div className="mt-3">
-                {utilityPanel === 'zones' ? (
-                  <ZoneBrowser
-                    players={players}
-                    localPlayerId={localPlayerId}
-                    canAct={isLocalPlayersTurn}
-                    focusedPlayer={focusedPlayer}
-                    privateState={localPrivatePlayer}
-                    activeZone={activeZone}
-                    cards={zoneCards}
-                    selectedCard={activeSelection}
-                    onFocusPlayer={(playerId) => setFocusedPlayerId(playerId)}
-                    onZoneChange={setActiveZone}
-                    onOpenZone={openZone}
-                    onSelectCard={selectZoneCard}
-                    onSelectLibraryCard={(cardId) => setSelectedCard({ zone: 'library', cardId })}
-                    onQuickCast={(zone, cardId) => moveOwnedCard(zone, 'battlefield', cardId)}
-                  />
-                ) : null}
-
                 {utilityPanel === 'players' ? (
                   <PlayerStatePanel
                     players={players}
@@ -750,7 +758,7 @@ function TableHud({
               Table {gameId.slice(0, 8)}
             </h1>
             <p className="mt-2 max-w-3xl text-sm text-ink-300 sm:text-base">
-              The active player owns the table controls. Draw from the library pile on the board and open zones from the lane piles.
+              The active player owns the table controls. Draw from the library pile on the board and open graveyards, command, and exile directly as table overlays.
             </p>
           </div>
 
@@ -848,7 +856,7 @@ function BattlefieldLane({
   onStackCard: (cardId: string, stackWithCardId: string | null) => void
 }) {
   const isLocalLane = player.id === localPlayerId
-  const laneHeight = compact ? 'min-h-[19rem]' : 'min-h-[23rem]'
+  const laneHeight = compact ? 'min-h-[22rem]' : 'min-h-[27rem]'
   const stackGroups = buildBattlefieldStackGroups(permanents)
   const stackOffsetX = compact ? 10 : 12
   const stackOffsetY = compact ? 6 : 8
@@ -880,10 +888,10 @@ function BattlefieldLane({
     <section
       data-lane-owner={player.name}
       data-local-lane={isLocalLane ? 'true' : 'false'}
-      className={`rounded-[1.8rem] border px-4 py-4 shadow-panel ${
+      className={`rounded-[2rem] border px-5 py-5 ${
         isLocalLane
-          ? 'border-tide-400/30 bg-ink-900/92'
-          : 'border-white/10 bg-ink-900/82'
+          ? 'border-tide-400/18 bg-[linear-gradient(180deg,rgba(8,26,34,0.55),rgba(7,18,24,0.26))] shadow-[inset_0_1px_0_rgba(255,255,255,0.06)]'
+          : 'border-white/[0.08] bg-[linear-gradient(180deg,rgba(8,22,29,0.38),rgba(7,17,24,0.16))] shadow-[inset_0_1px_0_rgba(255,255,255,0.04)]'
       }`}
     >
       <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
@@ -953,16 +961,16 @@ function BattlefieldLane({
         </div>
       </div>
 
-      <div className={`mt-4 grid gap-3 ${laneHeight} xl:grid-cols-[minmax(0,1fr)_14rem]`}>
+      <div className={`mt-4 grid gap-3 ${laneHeight} xl:grid-cols-[minmax(0,1fr)_12.5rem]`}>
         <div
           data-testid={`lane-board-${isLocalLane ? 'local' : player.name.toLowerCase().replace(/\s+/g, '-')}`}
           data-lane-dropzone="true"
-          className="relative h-full overflow-hidden rounded-[1.7rem] border border-white/10 bg-[linear-gradient(180deg,rgba(17,37,45,0.94),rgba(12,27,34,0.94))]"
+          className="relative h-full overflow-hidden rounded-[2rem] border border-white/[0.08] bg-[linear-gradient(180deg,rgba(18,48,58,0.84),rgba(8,25,32,0.94))] shadow-[inset_0_1px_0_rgba(255,255,255,0.06)]"
           onDragOver={(event) => event.preventDefault()}
           onDrop={handleDrop}
         >
-          <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top_left,rgba(29,150,167,0.08),transparent_22%),linear-gradient(rgba(255,255,255,0.04)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.04)_1px,transparent_1px)] bg-[length:auto,28px_28px,28px_28px]" />
-          <div className="pointer-events-none absolute inset-x-0 bottom-0 h-[31%] border-t border-white/10 bg-[linear-gradient(180deg,rgba(255,255,255,0.04),rgba(223,107,11,0.08))]" />
+          <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top_left,rgba(29,150,167,0.12),transparent_22%),radial-gradient(circle_at_bottom_right,rgba(240,125,39,0.08),transparent_30%),linear-gradient(rgba(255,255,255,0.04)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.04)_1px,transparent_1px)] bg-[length:auto,auto,28px_28px,28px_28px]" />
+          <div className="pointer-events-none absolute inset-x-0 bottom-0 h-[31%] border-t border-white/10 bg-[linear-gradient(180deg,rgba(255,255,255,0.03),rgba(223,107,11,0.1))]" />
           <div className="pointer-events-none absolute left-4 top-3 text-[0.65rem] font-semibold uppercase tracking-[0.16em] text-ink-500">
             Play field
           </div>
@@ -1160,10 +1168,10 @@ function LaneZoneDock({
   const exileTopCard = player.exile[player.exile.length - 1]?.card.imageUrl
 
   return (
-    <aside className="flex h-full flex-col rounded-[1.7rem] border border-white/10 bg-ink-950/70 p-3 shadow-card">
+    <aside className="flex h-full flex-col rounded-[2rem] border border-white/[0.08] bg-[linear-gradient(180deg,rgba(6,18,23,0.55),rgba(5,13,17,0.84))] p-3 shadow-[inset_0_1px_0_rgba(255,255,255,0.04)]">
       <div>
         <p className="text-[0.65rem] font-semibold uppercase tracking-[0.16em] text-ink-500">
-          Board rail
+          Zone rail
         </p>
         <h3 className="mt-2 text-lg font-semibold text-ink-50">
           {isLocalLane ? 'Your piles' : `${player.name}'s piles`}
@@ -1171,11 +1179,11 @@ function LaneZoneDock({
         <p className="mt-2 text-sm leading-5 text-ink-400">
           {isLocalLane
             ? isLocalPlayersTurn
-              ? 'Click the library pile to draw. Open piles to browse the zone list.'
+              ? 'Click the library pile to draw. Open any pile to throw its cards over the table as an overlay.'
               : 'Piles stay visible, but only the active player can use the board controls.'
             : isActiveTurnPlayer
               ? 'This player currently has the turn.'
-              : 'Public zones stay visible from here.'}
+              : 'Public piles stay on the same shared table from here.'}
         </p>
       </div>
 
@@ -1186,13 +1194,13 @@ function LaneZoneDock({
           count={libraryCount}
           faceDown
           imageUrl={null}
-          actionLabel={isLocalLane ? 'Draw' : 'Hidden'}
+          actionLabel={isLocalLane ? 'Draw 1' : 'Hidden'}
           onClick={isLocalLane ? onDrawCard : undefined}
           disabled={!isLocalLane || !isLocalPlayersTurn}
           secondaryAction={
             isLocalLane
               ? {
-                  label: 'Browse',
+                  label: 'Open',
                   dataTestId: `zone-pile-library-browse-${laneSlug}`,
                   onClick: onBrowseLocalLibrary,
                 }
@@ -1276,16 +1284,16 @@ function BoardZonePile({
   const canActivate = Boolean(onClick) && !disabled
 
   return (
-    <article className="rounded-[1.35rem] border border-white/10 bg-white/5 p-2.5">
+    <article className="rounded-[1.5rem] border border-white/[0.08] bg-[linear-gradient(180deg,rgba(255,255,255,0.04),rgba(255,255,255,0.02))] p-2.5">
       <button
         type="button"
         data-testid={dataTestId}
         onClick={canActivate ? onClick : undefined}
         disabled={!canActivate}
-        className={`w-full rounded-[1rem] border px-3 py-3 text-left transition ${
+        className={`w-full rounded-[1.2rem] border px-3 py-3 text-left transition ${
           canActivate
-            ? 'border-white/10 bg-ink-950/70 hover:border-tide-400/35 hover:bg-ink-900/90'
-            : 'cursor-not-allowed border-white/10 bg-ink-950/45 text-ink-500'
+            ? 'border-white/[0.08] bg-[linear-gradient(180deg,rgba(7,18,24,0.78),rgba(7,18,24,0.96))] hover:border-tide-400/30 hover:bg-ink-900/95'
+            : 'cursor-not-allowed border-white/[0.08] bg-[linear-gradient(180deg,rgba(7,18,24,0.48),rgba(7,18,24,0.72))] text-ink-500'
         }`}
       >
         <div className="flex items-start justify-between gap-3">
@@ -1328,39 +1336,36 @@ function BoardPileVisual({
   imageUrl: string | null
   title: string
 }) {
+  const layers = faceDown ? [0, 1, 2] : [0, 1]
+
   return (
-    <div className="relative h-[7.6rem] w-[5.3rem]">
-      {[0, 1].map((layer) => (
+    <div className="relative h-[8.2rem] w-[5.8rem]">
+      {layers.map((layer) => {
+        const isTopLayer = layer === layers.length - 1
+
+        return (
         <div
           key={layer}
           style={{
-            transform: `translate(${layer * 6}px, ${layer * 4}px) ${faceDown ? 'rotate(180deg)' : 'rotate(0deg)'}`,
+            transform: `translate(${layer * 7}px, ${layer * 5}px) ${faceDown ? 'rotate(180deg)' : 'rotate(0deg)'}`,
           }}
-          className="absolute inset-0 rounded-[0.9rem] border border-white/10 bg-ink-950/80 shadow-card"
-        />
-      ))}
-      <div
-        style={{
-          transform: `translate(12px, 8px) ${faceDown ? 'rotate(180deg)' : 'rotate(0deg)'}`,
-        }}
-        className="absolute inset-0 overflow-hidden rounded-[0.9rem] border border-white/10 shadow-card"
-      >
-        {faceDown ? (
-          <div className="relative h-full w-full bg-[radial-gradient(circle_at_center,rgba(86,151,171,0.95),rgba(31,53,84,0.96)_38%,rgba(14,20,34,1)_78%)]">
-            <div className="absolute inset-2 rounded-[0.7rem] border border-[#d6c079]/45" />
-            <div className="absolute inset-[22%] rounded-full border border-[#d6c079]/50 bg-[radial-gradient(circle_at_center,rgba(17,24,39,0.25),rgba(17,24,39,0.72))]" />
-            <div className="absolute inset-x-4 top-4 rounded-full border border-white/10 bg-black/20 py-1 text-center text-[0.52rem] font-semibold uppercase tracking-[0.24em] text-white/80">
-              Library
+          className="absolute inset-0 overflow-hidden rounded-[0.95rem] border border-white/10 bg-[#120f0b] shadow-card"
+        >
+          {faceDown ? (
+            <>
+              <img src={MTG_CARD_BACK_URL} alt={`${title} card back`} className="h-full w-full object-cover" />
+              {!isTopLayer ? <div className="absolute inset-0 bg-black/20" /> : null}
+            </>
+          ) : isTopLayer && imageUrl ? (
+            <img src={imageUrl} alt={title} className="h-full w-full object-cover" />
+          ) : (
+            <div className="flex h-full items-center justify-center bg-[linear-gradient(180deg,rgba(21,32,44,0.92),rgba(12,18,27,0.98))] px-3 text-center text-[0.68rem] font-semibold uppercase tracking-[0.18em] text-ink-300">
+              {title}
             </div>
-          </div>
-        ) : imageUrl ? (
-          <img src={imageUrl} alt={title} className="h-full w-full object-cover" />
-        ) : (
-          <div className="flex h-full items-center justify-center bg-[linear-gradient(180deg,rgba(21,32,44,0.92),rgba(12,18,27,0.98))] px-3 text-center text-[0.68rem] font-semibold uppercase tracking-[0.18em] text-ink-300">
-            {title}
-          </div>
-        )}
-      </div>
+          )}
+        </div>
+        )
+      })}
     </div>
   )
 }
@@ -1383,7 +1388,7 @@ function HandTray({
   return (
     <section
       data-testid="hand-tray"
-      className="rounded-[1.9rem] border border-white/10 bg-ink-900/94 px-4 py-4 shadow-panel"
+      className="rounded-[2rem] border border-white/[0.08] bg-[linear-gradient(180deg,rgba(9,22,29,0.58),rgba(5,14,19,0.84))] px-5 py-5 shadow-[inset_0_1px_0_rgba(255,255,255,0.05)]"
     >
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div>
@@ -1753,7 +1758,7 @@ function InspectorCard({
   )
 }
 
-function ZoneBrowser({
+function ZoneOverlay({
   players,
   localPlayerId,
   canAct,
@@ -1762,12 +1767,13 @@ function ZoneBrowser({
   activeZone,
   cards,
   selectedCard,
+  onClose,
   onFocusPlayer,
   onZoneChange,
   onOpenZone,
   onSelectCard,
   onSelectLibraryCard,
-  onQuickCast,
+  onMoveOwnedCard,
 }: {
   players: GamePlayerPublicSnapshot[]
   localPlayerId: string
@@ -1777,12 +1783,18 @@ function ZoneBrowser({
   activeZone: BrowseableZone
   cards: TableCardSnapshot[]
   selectedCard: TableSelection | null
+  onClose: () => void
   onFocusPlayer: (playerId: string) => void
   onZoneChange: (zone: BrowseableZone) => void
   onOpenZone: (playerId: string, zone: BrowseableZone) => void
   onSelectCard: (playerId: string, zone: PublicZone, cardId: string) => void
   onSelectLibraryCard: (cardId: string) => void
-  onQuickCast: (zone: OwnedZone, cardId: string) => void
+  onMoveOwnedCard: (
+    fromZone: OwnedZone,
+    toZone: OwnedZone,
+    cardId: string,
+    position?: PermanentPosition,
+  ) => void
 }) {
   const [librarySearch, setLibrarySearch] = useState('')
   const [librarySortBy, setLibrarySortBy] = useState<LibraryCardSortOption>('DECK_ORDER')
@@ -1792,181 +1804,258 @@ function ZoneBrowser({
   const normalizedLibrarySearch = deferredLibrarySearch.trim()
   const visibleCards =
     activeZone === 'library' ? filterLibraryCards(cards, deferredLibrarySearch, librarySortBy) : cards
+  const currentZoneCount =
+    activeZone === 'library'
+      ? privateState?.library.length ?? 0
+      : focusedPlayer?.zoneCounts[activeZone] ?? 0
+
+  useEffect(() => {
+    function handleKeyDown(event: KeyboardEvent) {
+      if (event.key === 'Escape') {
+        onClose()
+      }
+    }
+
+    window.addEventListener('keydown', handleKeyDown)
+    return () => window.removeEventListener('keydown', handleKeyDown)
+  }, [onClose])
 
   return (
-    <section className="rounded-[1.9rem] border border-white/10 bg-ink-900/90 p-4 shadow-panel">
-      <div className="flex items-center gap-2">
-        <BookOpen className="h-4 w-4 text-tide-200" />
-        <div>
-          <p className="text-xs font-semibold uppercase tracking-[0.2em] text-ink-400">
-            Zone access
-          </p>
-          <h2 className="mt-1 text-xl font-semibold text-ink-50">
-            {activeZone === 'library' ? 'Your library' : focusedPlayer ? focusedPlayer.name : 'No player selected'}
-          </h2>
-        </div>
-      </div>
+    <div className="absolute inset-0 z-30 p-3 sm:p-5">
+      <button
+        type="button"
+        aria-label="Close zone overlay"
+        onClick={onClose}
+        className="absolute inset-0 rounded-[2.3rem] bg-ink-950/76"
+      />
 
-      <div className="mt-4 flex flex-wrap gap-2">
-        {players.map((player) => (
-          <button
-            key={player.id}
-            type="button"
-            onClick={() => {
-              onFocusPlayer(player.id)
-
-              if (activeZone === 'library' && player.id !== localPlayerId) {
-                onZoneChange('graveyard')
-                onOpenZone(player.id, 'graveyard')
-              }
-            }}
-            className={`rounded-full border px-3 py-1.5 text-xs font-semibold transition ${
-              focusedPlayer?.id === player.id
-                ? 'border-tide-400/35 bg-tide-500/12 text-tide-100'
-                : 'border-white/10 bg-white/6 text-ink-100 hover:border-white/20'
-            }`}
-          >
-            {player.name}
-          </button>
-        ))}
-      </div>
-
-      <div className="mt-4 flex flex-wrap gap-2">
-        {visibleZones.map((zone) => (
-          <button
-            key={zone}
-            type="button"
-            onClick={() => {
-              onZoneChange(zone)
-              if (zone === 'library') {
-                if (focusedPlayer) {
-                  onOpenZone(focusedPlayer.id, zone)
-                }
-                return
-              }
-
-              if (focusedPlayer) {
-                onOpenZone(focusedPlayer.id, zone)
-              }
-            }}
-            className={`rounded-full border px-3 py-1.5 text-xs font-semibold transition ${
-              activeZone === zone
-                ? 'border-ember-400/30 bg-ember-500/12 text-ember-100'
-                : 'border-white/10 bg-white/6 text-ink-100 hover:border-white/20'
-            }`}
-          >
-            {zoneLabel(zone)}{' '}
-            {zone === 'library'
-              ? privateState?.library.length ?? 0
-              : focusedPlayer
-                ? focusedPlayer.zoneCounts[zone]
-                : 0}
-          </button>
-        ))}
-      </div>
-
-      {activeZone === 'library' ? (
-        <div className="mt-4 space-y-3">
-          <div className="grid gap-3 lg:grid-cols-[minmax(0,1fr)_13rem]">
-            <label className="block">
-              <span className="sr-only">Search library</span>
-              <div className="flex items-center gap-3 rounded-2xl border border-white/10 bg-ink-950/80 px-4 py-3 focus-within:border-tide-400/35">
-                <Search className="h-4 w-4 text-ink-400" />
-                <input
-                  value={librarySearch}
-                  onChange={(event) => setLibrarySearch(event.target.value)}
-                  placeholder='Search or use name:, type:, text:, set:, color:, id:, mv>=3'
-                  className="w-full border-none bg-transparent text-sm text-ink-100 outline-none placeholder:text-ink-500"
-                />
-                <span className="text-[0.65rem] font-semibold uppercase tracking-[0.16em] text-ink-500">
-                  {visibleCards.length}/{privateState?.library.length ?? 0}
-                </span>
+      <section className="relative z-10 flex h-full flex-col overflow-hidden rounded-[2.2rem] border border-white/10 bg-[linear-gradient(180deg,rgba(9,23,31,0.97),rgba(5,14,19,0.98))] shadow-[0_30px_80px_rgba(0,0,0,0.45)]">
+        <div className="border-b border-white/10 px-5 py-5">
+          <div className="flex flex-wrap items-start justify-between gap-4">
+            <div className="flex items-start gap-3">
+              <div className="inline-flex h-11 w-11 items-center justify-center rounded-2xl border border-tide-400/20 bg-tide-500/12 text-tide-100">
+                <BookOpen className="h-4 w-4" />
               </div>
-            </label>
+              <div>
+                <p className="text-xs font-semibold uppercase tracking-[0.2em] text-ink-400">
+                  Table overlay
+                </p>
+                <h2 className="mt-1 text-2xl font-semibold text-ink-50">
+                  {focusedPlayer ? `${focusedPlayer.name} • ${zoneLabel(activeZone)}` : zoneLabel(activeZone)}
+                </h2>
+                <p className="mt-2 max-w-2xl text-sm text-ink-300">
+                  {canAct
+                    ? 'Pick a card and move it directly from the table overlay.'
+                    : 'Browsing stays open off-turn, but only the active player can move cards.'}
+                </p>
+              </div>
+            </div>
 
-            <label className="space-y-2">
-              <span className="text-xs font-semibold uppercase tracking-[0.16em] text-ink-500">
-                Result order
-              </span>
-              <select
-                value={librarySortBy}
-                onChange={(event) => setLibrarySortBy(event.target.value as LibraryCardSortOption)}
-                className="w-full rounded-2xl border border-white/10 bg-ink-950/80 px-4 py-3 text-sm text-ink-100 outline-none transition focus:border-tide-400 focus:ring-2 focus:ring-tide-400/30"
-              >
-                {LIBRARY_SORT_OPTIONS.map((option) => (
-                  <option key={option.value} value={option.value}>
-                    {option.label}
-                  </option>
-                ))}
-              </select>
-            </label>
+            <button
+              type="button"
+              onClick={onClose}
+              className="rounded-full border border-white/10 bg-white/6 px-4 py-2 text-sm font-semibold text-ink-100 transition hover:border-white/20 hover:bg-white/10"
+            >
+              Close
+            </button>
           </div>
 
-          <p className="text-xs leading-5 text-ink-500">
-            Search by name, type, text, set, color, or mana value.
-          </p>
-          {!canAct ? (
-            <p className="text-xs leading-5 text-ember-100/80">
-              Browsing stays open off-turn, but moving cards is locked until the turn comes back.
-            </p>
+          <div className="mt-4 flex flex-wrap gap-2">
+            {players.map((player) => (
+              <button
+                key={player.id}
+                type="button"
+                onClick={() => {
+                  onFocusPlayer(player.id)
+
+                  if (activeZone === 'library' && player.id !== localPlayerId) {
+                    onZoneChange('graveyard')
+                    onOpenZone(player.id, 'graveyard')
+                    return
+                  }
+
+                  onOpenZone(player.id, activeZone)
+                }}
+                className={`rounded-full border px-3 py-1.5 text-xs font-semibold transition ${
+                  focusedPlayer?.id === player.id
+                    ? 'border-tide-400/35 bg-tide-500/12 text-tide-100'
+                    : 'border-white/10 bg-white/6 text-ink-100 hover:border-white/20'
+                }`}
+              >
+                {player.name}
+                {player.id === localPlayerId ? ' • You' : ''}
+              </button>
+            ))}
+          </div>
+
+          <div className="mt-3 flex flex-wrap items-center gap-2">
+            {visibleZones.map((zone) => (
+              <button
+                key={zone}
+                type="button"
+                onClick={() => {
+                  onZoneChange(zone)
+
+                  if (!focusedPlayer) {
+                    return
+                  }
+
+                  if (zone === 'library') {
+                    onOpenZone(localPlayerId, zone)
+                    return
+                  }
+
+                  onOpenZone(focusedPlayer.id, zone)
+                }}
+                className={`rounded-full border px-3 py-1.5 text-xs font-semibold transition ${
+                  activeZone === zone
+                    ? 'border-ember-400/30 bg-ember-500/12 text-ember-100'
+                    : 'border-white/10 bg-white/6 text-ink-100 hover:border-white/20'
+                }`}
+              >
+                {zoneLabel(zone)}{' '}
+                {zone === 'library'
+                  ? privateState?.library.length ?? 0
+                  : focusedPlayer
+                    ? focusedPlayer.zoneCounts[zone]
+                    : 0}
+              </button>
+            ))}
+
+            <InfoChip label={`${currentZoneCount} cards`} tone="info" />
+            <InfoChip label={activeZone === 'library' ? 'Private zone' : 'Public zone'} />
+          </div>
+
+          {activeZone === 'library' ? (
+            <div className="mt-4 space-y-3">
+              <div className="grid gap-3 lg:grid-cols-[minmax(0,1fr)_14rem]">
+                <label className="block">
+                  <span className="sr-only">Search library</span>
+                  <div className="flex items-center gap-3 rounded-2xl border border-white/10 bg-ink-950/80 px-4 py-3 focus-within:border-tide-400/35">
+                    <Search className="h-4 w-4 text-ink-400" />
+                    <input
+                      value={librarySearch}
+                      onChange={(event) => setLibrarySearch(event.target.value)}
+                      placeholder='Search or use name:, type:, text:, set:, color:, id:, mv>=3'
+                      className="w-full border-none bg-transparent text-sm text-ink-100 outline-none placeholder:text-ink-500"
+                    />
+                    <span className="text-[0.65rem] font-semibold uppercase tracking-[0.16em] text-ink-500">
+                      {visibleCards.length}/{privateState?.library.length ?? 0}
+                    </span>
+                  </div>
+                </label>
+
+                <label className="space-y-2">
+                  <span className="text-xs font-semibold uppercase tracking-[0.16em] text-ink-500">
+                    Result order
+                  </span>
+                  <select
+                    value={librarySortBy}
+                    onChange={(event) => setLibrarySortBy(event.target.value as LibraryCardSortOption)}
+                    className="w-full rounded-2xl border border-white/10 bg-ink-950/80 px-4 py-3 text-sm text-ink-100 outline-none transition focus:border-tide-400 focus:ring-2 focus:ring-tide-400/30"
+                  >
+                    {LIBRARY_SORT_OPTIONS.map((option) => (
+                      <option key={option.value} value={option.value}>
+                        {option.label}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+              </div>
+
+              <p className="text-xs leading-5 text-ink-500">
+                Search by name, type, text, set, color, or mana value.
+              </p>
+            </div>
           ) : null}
         </div>
-      ) : null}
 
-      {visibleCards.length > 0 ? (
-        <div className="mt-4 grid max-h-[18rem] grid-cols-2 gap-3 overflow-y-auto pr-1">
-          {visibleCards.map((card) => {
-            const isSelected =
-              activeZone === 'library'
-                ? selectedCard?.zone === 'library' && selectedCard.cardId === card.instanceId
-                : selectedCard?.zone === activeZone &&
-                  'playerId' in selectedCard &&
-                  selectedCard.playerId === focusedPlayer?.id &&
-                  selectedCard.cardId === card.instanceId
-            const canDrag = card.ownerPlayerId === localPlayerId && canAct
-
-            return (
-              <button
-                key={card.instanceId}
-                type="button"
-                data-card-name={card.card.name}
-                draggable={canDrag}
-                onDragStart={(event) =>
-                  canDrag
-                    ? event.dataTransfer.setData(
-                        'application/x-grimoire-card',
-                        JSON.stringify({
-                          cardId: card.instanceId,
-                          fromZone: activeZone,
-                        } satisfies DragPayload),
-                      )
-                    : undefined
-                }
-                onClick={() =>
+        <div className="min-h-0 flex-1 overflow-y-auto px-5 py-5">
+          {visibleCards.length > 0 ? (
+            <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+              {visibleCards.map((card) => {
+                const isSelected =
                   activeZone === 'library'
-                    ? onSelectLibraryCard(card.instanceId)
-                    : focusedPlayer && onSelectCard(focusedPlayer.id, activeZone, card.instanceId)
-                }
-                onDoubleClick={() => (canDrag ? onQuickCast(activeZone, card.instanceId) : undefined)}
-              >
-                <TableCard
-                  card={card.card}
-                  variant="zone"
-                  selected={isSelected}
-                  badge={activeZone === 'library' ? 'Private' : canDrag ? 'Drag' : 'Public'}
-                />
-              </button>
-            )
-          })}
+                    ? selectedCard?.zone === 'library' && selectedCard.cardId === card.instanceId
+                    : selectedCard?.zone === activeZone &&
+                      'playerId' in selectedCard &&
+                      selectedCard.playerId === focusedPlayer?.id &&
+                      selectedCard.cardId === card.instanceId
+                const canMoveCard = card.ownerPlayerId === localPlayerId && canAct
+                const moveTargets = (['battlefield', 'hand', 'graveyard', 'command', 'exile'] as OwnedZone[]).filter(
+                  (zone) => zone !== activeZone,
+                )
+
+                return (
+                  <article
+                    key={card.instanceId}
+                    className={`rounded-[1.6rem] border p-3 transition ${
+                      isSelected
+                        ? 'border-tide-300/40 bg-tide-500/[0.08]'
+                        : 'border-white/10 bg-white/[0.04]'
+                    }`}
+                  >
+                    <button
+                      type="button"
+                      data-card-name={card.card.name}
+                      onClick={() =>
+                        activeZone === 'library'
+                          ? onSelectLibraryCard(card.instanceId)
+                          : focusedPlayer && onSelectCard(focusedPlayer.id, activeZone, card.instanceId)
+                      }
+                      className="w-full text-left"
+                    >
+                      <TableCard
+                        card={card.card}
+                        variant="zone"
+                        selected={isSelected}
+                        badge={activeZone === 'library' ? 'Private' : card.ownerPlayerId === localPlayerId ? 'Yours' : 'Public'}
+                      />
+                    </button>
+
+                    <div className="mt-3 flex flex-wrap items-center gap-2 text-[0.7rem] font-semibold uppercase tracking-[0.14em] text-ink-400">
+                      <span>{formatTypeLine(card.card.typeLine)}</span>
+                      {card.card.manaCost ? <span>{formatManaCost(card.card.manaCost)}</span> : null}
+                    </div>
+
+                    {card.ownerPlayerId === localPlayerId ? (
+                      <div className="mt-3 flex flex-wrap gap-2">
+                        {moveTargets.map((zone) => (
+                          <ZoneActionButton
+                            key={zone}
+                            tone={zone === 'battlefield' ? 'primary' : zone === 'exile' ? 'danger' : 'secondary'}
+                            disabled={!canMoveCard}
+                            onClick={() => onMoveOwnedCard(activeZone, zone, card.instanceId)}
+                          >
+                            {zoneLabel(zone)}
+                          </ZoneActionButton>
+                        ))}
+                      </div>
+                    ) : (
+                      <div className="mt-3 rounded-[1.1rem] border border-white/10 bg-white/[0.04] px-3 py-2 text-sm text-ink-300">
+                        Public card. You can inspect it here, but only its owner can move it.
+                      </div>
+                    )}
+
+                    {card.ownerPlayerId === localPlayerId && !canAct ? (
+                      <p className="mt-3 text-xs text-ember-100/80">
+                        Locked until the active player passes the turn.
+                      </p>
+                    ) : null}
+                  </article>
+                )
+              })}
+            </div>
+          ) : (
+            <div className="rounded-[1.5rem] border border-white/10 bg-white/5 px-4 py-5 text-sm text-ink-300">
+              {activeZone === 'library' && normalizedLibrarySearch
+                ? 'No library cards matched that search.'
+                : 'No cards in this zone right now.'}
+            </div>
+          )}
         </div>
-      ) : (
-        <div className="mt-4 rounded-[1.5rem] border border-white/10 bg-white/5 px-4 py-5 text-sm text-ink-300">
-          {activeZone === 'library' && normalizedLibrarySearch
-            ? 'No library cards matched that search.'
-            : 'No cards in this zone right now.'}
-        </div>
-      )}
-    </section>
+      </section>
+    </div>
   )
 }
 
@@ -2787,6 +2876,38 @@ function InspectorButton({
       type="button"
       onClick={onClick}
       className={`inline-flex items-center gap-2 rounded-2xl border px-3 py-2 text-sm font-semibold transition ${toneClassName}`}
+    >
+      {children}
+    </button>
+  )
+}
+
+function ZoneActionButton({
+  children,
+  tone = 'secondary',
+  disabled = false,
+  onClick,
+}: {
+  children: ReactNode
+  tone?: 'secondary' | 'primary' | 'danger'
+  disabled?: boolean
+  onClick: () => void
+}) {
+  const toneClassName =
+    tone === 'primary'
+      ? 'border-tide-400/25 bg-tide-500/12 text-tide-100 hover:border-tide-400/40'
+      : tone === 'danger'
+        ? 'border-rose-400/25 bg-rose-500/12 text-rose-100 hover:border-rose-400/40'
+        : 'border-white/10 bg-white/6 text-ink-100 hover:border-white/20'
+
+  return (
+    <button
+      type="button"
+      disabled={disabled}
+      onClick={disabled ? undefined : onClick}
+      className={`inline-flex items-center gap-2 rounded-full border px-3 py-1.5 text-xs font-semibold transition ${
+        disabled ? 'cursor-not-allowed border-white/10 bg-white/5 text-ink-500' : toneClassName
+      }`}
     >
       {children}
     </button>

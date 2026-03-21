@@ -272,9 +272,15 @@ async function main() {
   await aliceBoardCards.nth(1).waitFor({ timeout: 15000 })
   await aliceBoardCards.nth(1).dragTo(aliceBoardCards.first())
 
-  const aliceZonePanel = alicePage.locator('section').filter({ hasText: 'Zone access' }).last()
+  const aliceZoneOverlay = alicePage.locator('section').filter({ hasText: 'Table overlay' }).last()
   await alicePage.getByTestId('zone-pile-command-local').click()
-  await aliceZonePanel.locator('button[data-card-name]').first().dblclick()
+  const aliceCommandOverlayCard = aliceZoneOverlay.locator('button[data-card-name]').first()
+  await aliceCommandOverlayCard.waitFor({ timeout: 15000 })
+  await aliceCommandOverlayCard
+    .locator('xpath=ancestor::article[1]')
+    .getByRole('button', { name: /^Battlefield$/i })
+    .click()
+  await aliceZoneOverlay.getByRole('button', { name: /^Close$/i }).click()
 
   await alicePage.getByTestId('zone-pile-library-local').click()
 
@@ -283,7 +289,13 @@ async function main() {
   await aliceInspector.getByRole('button', { name: /^Add$/i }).click()
   await aliceInspector.getByRole('button', { name: /^Graveyard$/i }).click()
   await alicePage.getByTestId('zone-pile-graveyard-local').click()
-  await aliceZonePanel.locator('button[data-card-name]').first().dblclick()
+  const aliceGraveyardOverlayCard = aliceZoneOverlay.locator('button[data-card-name]').first()
+  await aliceGraveyardOverlayCard.waitFor({ timeout: 15000 })
+  await aliceGraveyardOverlayCard
+    .locator('xpath=ancestor::article[1]')
+    .getByRole('button', { name: /^Battlefield$/i })
+    .click()
+  await aliceZoneOverlay.getByRole('button', { name: /^Close$/i }).click()
   await aliceBoardCards.last().click({ force: true })
   await aliceInspector.locator('summary').filter({ hasText: 'Table note' }).click()
   await alicePage.getByPlaceholder('Status, mode, trigger...').fill('Marked for alpha swing')
@@ -298,6 +310,9 @@ async function main() {
   await bobHandCards.nth(1).dragTo(bobPage.getByTestId('lane-board-local'), {
     targetPosition: { x: 360, y: 120 },
   })
+
+  await alicePage.getByTestId('zone-pile-library-browse-local').click()
+  await aliceZoneOverlay.getByText('Private zone').waitFor({ timeout: 15000 })
 
   await alicePage.waitForTimeout(1200)
   await bobPage.waitForTimeout(1200)
@@ -327,6 +342,8 @@ async function main() {
   await ensureNoConsoleErrors(alicePage, aliceErrors, 'Alice page')
   await ensureNoConsoleErrors(bobPage, bobErrors, 'Bob page')
 
+  await aliceContext.close()
+  await bobContext.close()
   await browser.close()
 }
 

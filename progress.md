@@ -178,3 +178,19 @@ Original prompt: You are extending an existing MTG deckbuilder web app into an o
   - Visually reviewed the refreshed multiplayer screenshots plus the smoke screenshot. The board rail, turn spotlight, off-turn lock state, and local draw/graveyard piles all rendered as expected.
 - Follow-up:
   - The generic smoke client still records one `403 (Forbidden)` console resource-load message in `output/web-game/errors-0.json`; the gameplay/table validations completed successfully and the message appears unrelated to the new turn/board changes.
+
+2026-03-21
+- Board overlay and table-cohesion pass:
+  - Replaced the remaining below-board zone browser path with an absolute in-table `ZoneOverlay`, so clicking graveyard / command / exile piles now opens cards directly over the board instead of in the old lower utility section.
+  - Removed the sidebar `Zones` tab and kept zone interaction on the board rail and overlay flow only.
+  - Swapped the faux facedown library art for the real MTG card back from `public/Magic_card_back-removebg.png`, using it for stacked face-down pile rendering.
+  - Opened up the table proportions: widened the board vs sidebar split, increased lane/playmat height, softened lane shells, and tuned the board rail/hand tray styling so both players read more like seats at one shared table instead of isolated panels.
+  - Updated `scripts/validate-play-table.mjs` for the overlay workflow, including per-card move buttons inside the overlay, a final screenshot with the overlay visible, and explicit Playwright context teardown so the validator exits cleanly.
+- Verification:
+  - `npm run build` passed.
+  - `npm run lint` passed.
+  - `npm test` passed.
+  - `node scripts/validate-play-table.mjs http://127.0.0.1:8788` passed and refreshed `artifacts/playwright/revamp/alice-table.png`, `artifacts/playwright/revamp/bob-table.png`, and `artifacts/playwright/revamp/summary.json`.
+  - Ran the required `develop-web-game` smoke client against `http://127.0.0.1:8788/play` and refreshed `output/web-game/shot-0.png`.
+- Follow-up:
+  - The generic smoke client still records the same unrelated `403 (Forbidden)` resource-load console message in `output/web-game/errors-0.json`.
