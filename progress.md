@@ -118,6 +118,14 @@ Original prompt: You are extending an existing MTG deckbuilder web app into an o
 
 2026-03-19
 - Continental ID cloud-sync hardening pass:
+
+2026-03-21
+- Opponent zone-rail compression pass:
+  - Added a compact rail mode for non-local battlefield lanes so opponent pile access stays available but the rail reads much smaller than the local seat.
+  - Shrunk the opponent lane rail column, reduced pile card footprints, tightened rail spacing, and muted the opponent rail copy so it no longer competes with the board.
+  - Verification:
+    - `npm run build` passed.
+    - Visually reviewed the refreshed opponent-lane layout in `artifacts/playwright/revamp/alice-table.png`.
   - Reviewed the authenticated deck sync path end-to-end and tightened the storage model so anonymous local decks, per-account cloud caches, and retryable pending imports are kept in separate local-storage buckets.
   - Fixed the retry path for failed cloud imports: pending deck uploads are now tracked per Continental ID account and still upload later even if newer cloud activity advances the account-wide `lastSyncedAt`.
   - Extended the deck repository result model to expose sync health (`ready`, `pending`, `offline`) plus user-facing sync messaging, then surfaced that state in the deckbuilder/account UI so public users can tell when decks are fully synced versus queued locally for retry.

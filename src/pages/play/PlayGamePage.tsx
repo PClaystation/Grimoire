@@ -385,11 +385,11 @@ export function PlayGamePage() {
                 {battlefieldByController
                   .filter(({ player }) => player.id !== localPlayerId)
                   .map(({ player, permanents }) => (
-                    <BattlefieldLane
-                      key={player.id}
-                      player={player}
-                      permanents={permanents}
-                      localPlayerId={localPlayerId}
+                  <BattlefieldLane
+                    key={player.id}
+                    player={player}
+                    permanents={permanents}
+                    localPlayerId={localPlayerId}
                       isActiveTurnPlayer={activeTurnPlayer?.id === player.id}
                       isLocalPlayersTurn={isLocalPlayersTurn}
                       compact
@@ -436,10 +436,10 @@ export function PlayGamePage() {
                           type: 'set_permanent_stack',
                           cardId,
                           stackWithCardId,
-                        })
-                      }
-                    />
-                  ))}
+                      })
+                    }
+                  />
+                ))}
               </section>
             ) : null}
 
@@ -499,6 +499,7 @@ export function PlayGamePage() {
                       stackWithCardId,
                     })
                   }
+                  compactRail={false}
                 />
               ))}
 
@@ -904,12 +905,14 @@ function BattlefieldLane({
   onDropCard,
   onToggleTapped,
   onStackCard,
+  compactRail = false,
 }: {
   player: GamePlayerPublicSnapshot
   permanents: BattlefieldPermanentSnapshot[]
   localPlayerId: string
   privateState?: GamePrivatePlayerState | null
   compact?: boolean
+  compactRail?: boolean
   isActiveTurnPlayer: boolean
   isLocalPlayersTurn: boolean
   selectedCardId: string | null
@@ -929,6 +932,7 @@ function BattlefieldLane({
   const stackGroups = buildBattlefieldStackGroups(permanents)
   const stackOffsetX = compact ? 10 : 12
   const stackOffsetY = compact ? 6 : 8
+  const railCompact = compactRail && !isLocalLane
 
   function handleDrop(event: DragEvent<HTMLDivElement>) {
     if (!isLocalPlayersTurn) {
@@ -1033,7 +1037,13 @@ function BattlefieldLane({
       <div
         className={`mt-4 overflow-hidden rounded-[2rem] border border-white/[0.08] bg-[linear-gradient(180deg,rgba(8,22,29,0.56),rgba(5,13,17,0.86))] shadow-[inset_0_1px_0_rgba(255,255,255,0.04)] ${laneHeight}`}
       >
-        <div className="grid h-full gap-0 xl:grid-cols-[minmax(0,1fr)_24rem] 2xl:grid-cols-[minmax(0,1fr)_26rem]">
+        <div
+          className={`grid h-full gap-0 ${
+            railCompact
+              ? 'xl:grid-cols-[minmax(0,1fr)_13.25rem] 2xl:grid-cols-[minmax(0,1fr)_14.5rem]'
+              : 'xl:grid-cols-[minmax(0,1fr)_24rem] 2xl:grid-cols-[minmax(0,1fr)_26rem]'
+          }`}
+        >
           <div
             data-testid={`lane-board-${isLocalLane ? 'local' : player.name.toLowerCase().replace(/\s+/g, '-')}`}
             data-lane-dropzone="true"
@@ -1199,6 +1209,7 @@ function BattlefieldLane({
             isLocalLane={isLocalLane}
             isActiveTurnPlayer={isActiveTurnPlayer}
             isLocalPlayersTurn={isLocalPlayersTurn}
+            compactRail={railCompact}
             onOpenZone={onOpenZone}
             onDrawCard={onDrawCard}
             onBrowseLocalLibrary={onBrowseLocalLibrary}
@@ -1217,6 +1228,7 @@ function LaneZoneDock({
   isLocalLane,
   isActiveTurnPlayer,
   isLocalPlayersTurn,
+  compactRail = false,
   onOpenZone,
   onDrawCard,
   onBrowseLocalLibrary,
@@ -1228,6 +1240,7 @@ function LaneZoneDock({
   isLocalLane: boolean
   isActiveTurnPlayer: boolean
   isLocalPlayersTurn: boolean
+  compactRail?: boolean
   onOpenZone: (playerId: string, zone: BrowseableZone) => void
   onDrawCard: () => void
   onBrowseLocalLibrary: () => void
@@ -1239,28 +1252,37 @@ function LaneZoneDock({
   const graveyardTopCard = player.graveyard[player.graveyard.length - 1]?.card.imageUrl
   const commandTopCard = player.command[player.command.length - 1]?.card.imageUrl
   const exileTopCard = player.exile[player.exile.length - 1]?.card.imageUrl
+  const railClassName = compactRail
+    ? 'flex h-full flex-col bg-[linear-gradient(180deg,rgba(6,18,23,0.5),rgba(5,13,17,0.8))] p-3 sm:p-3.5'
+    : 'flex h-full flex-col bg-[linear-gradient(180deg,rgba(6,18,23,0.68),rgba(5,13,17,0.9))] p-4 sm:p-5'
 
   return (
-    <aside className="flex h-full flex-col bg-[linear-gradient(180deg,rgba(6,18,23,0.68),rgba(5,13,17,0.9))] p-4 sm:p-5">
+    <aside className={railClassName}>
       <div>
-        <p className="text-[0.65rem] font-semibold uppercase tracking-[0.16em] text-ink-500">
+        <p className={`font-semibold uppercase tracking-[0.16em] text-ink-500 ${compactRail ? 'text-[0.55rem]' : 'text-[0.65rem]'}`}>
           Zone rail
         </p>
-        <h3 className="mt-2 text-lg font-semibold text-ink-50">
+        <h3 className={`mt-2 font-semibold text-ink-50 ${compactRail ? 'text-sm' : 'text-lg'}`}>
           {isLocalLane ? 'Your piles' : `${player.name}'s piles`}
         </h3>
-        <p className="mt-2 text-sm leading-5 text-ink-400">
-          {isLocalLane
-            ? isLocalPlayersTurn
-              ? 'Click the library pile to draw. Open any pile to throw its cards over the table as an overlay.'
-              : 'Piles stay visible, but only the active player can use the board controls.'
-            : isActiveTurnPlayer
-              ? 'This player currently has the turn.'
-              : 'Public piles stay on the same shared table from here.'}
-        </p>
+        {compactRail ? (
+          <p className="mt-1 text-[0.72rem] leading-4 text-ink-500">
+            Quick access to public piles.
+          </p>
+        ) : (
+          <p className="mt-2 text-sm leading-5 text-ink-400">
+            {isLocalLane
+              ? isLocalPlayersTurn
+                ? 'Click the library pile to draw. Open any pile to throw its cards over the table as an overlay.'
+                : 'Piles stay visible, but only the active player can use the board controls.'
+              : isActiveTurnPlayer
+                ? 'This player currently has the turn.'
+                : 'Public piles stay on the same shared table from here.'}
+          </p>
+        )}
       </div>
 
-      <div className="mt-4 grid grid-cols-2 gap-3">
+      <div className={`mt-4 grid grid-cols-2 ${compactRail ? 'gap-2' : 'gap-3'}`}>
         <BoardZonePile
           dataTestId={`zone-pile-library-${laneSlug}`}
           title="Library"
@@ -1270,6 +1292,7 @@ function LaneZoneDock({
           actionLabel={isLocalLane ? 'Draw 1' : 'Hidden'}
           onClick={isLocalLane ? onDrawCard : undefined}
           disabled={!isLocalLane || !isLocalPlayersTurn}
+          compact={compactRail}
           secondaryAction={
             isLocalLane
               ? {
@@ -1287,6 +1310,7 @@ function LaneZoneDock({
           imageUrl={graveyardTopCard ?? null}
           actionLabel="Open"
           onClick={() => onOpenZone(player.id, 'graveyard')}
+          compact={compactRail}
         />
         <BoardZonePile
           dataTestId={`zone-pile-command-${laneSlug}`}
@@ -1295,6 +1319,7 @@ function LaneZoneDock({
           imageUrl={commandTopCard ?? null}
           actionLabel="Open"
           onClick={() => onOpenZone(player.id, 'command')}
+          compact={compactRail}
         />
         <BoardZonePile
           dataTestId={`zone-pile-exile-${laneSlug}`}
@@ -1303,6 +1328,7 @@ function LaneZoneDock({
           imageUrl={exileTopCard ?? null}
           actionLabel="Open"
           onClick={() => onOpenZone(player.id, 'exile')}
+          compact={compactRail}
         />
       </div>
 
@@ -1342,6 +1368,7 @@ function BoardZonePile({
   actionLabel,
   onClick,
   disabled = false,
+  compact = false,
   secondaryAction,
 }: {
   dataTestId: string
@@ -1352,18 +1379,25 @@ function BoardZonePile({
   actionLabel: string
   onClick?: () => void
   disabled?: boolean
+  compact?: boolean
   secondaryAction?: { label: string; dataTestId?: string; onClick: () => void }
 }) {
   const canActivate = Boolean(onClick) && !disabled
 
   return (
-    <article className="rounded-[1.65rem] border border-white/[0.08] bg-[linear-gradient(180deg,rgba(255,255,255,0.05),rgba(255,255,255,0.025))] p-4">
+    <article
+      className={`rounded-[1.65rem] border border-white/[0.08] bg-[linear-gradient(180deg,rgba(255,255,255,0.05),rgba(255,255,255,0.025))] ${
+        compact ? 'p-2.5' : 'p-4'
+      }`}
+    >
       <button
         type="button"
         data-testid={dataTestId}
         onClick={canActivate ? onClick : undefined}
         disabled={!canActivate}
-        className={`w-full rounded-[1.35rem] border px-4 py-4 text-left transition ${
+        className={`w-full rounded-[1.35rem] border text-left transition ${
+          compact ? 'px-3 py-3' : 'px-4 py-4'
+        } ${
           canActivate
             ? 'border-white/[0.08] bg-[linear-gradient(180deg,rgba(7,18,24,0.78),rgba(7,18,24,0.96))] hover:border-tide-400/30 hover:bg-ink-900/95'
             : 'cursor-not-allowed border-white/[0.08] bg-[linear-gradient(180deg,rgba(7,18,24,0.48),rgba(7,18,24,0.72))] text-ink-500'
@@ -1371,18 +1405,22 @@ function BoardZonePile({
       >
         <div className="flex items-start justify-between gap-3">
           <div>
-            <p className="text-[0.62rem] font-semibold uppercase tracking-[0.16em] text-ink-500">
+            <p className={`font-semibold uppercase tracking-[0.16em] text-ink-500 ${compact ? 'text-[0.53rem]' : 'text-[0.62rem]'}`}>
               {title}
             </p>
-            <p className="mt-1 text-lg font-semibold text-ink-50">{count}</p>
+            <p className={`mt-1 font-semibold text-ink-50 ${compact ? 'text-base' : 'text-lg'}`}>{count}</p>
           </div>
-          <span className="rounded-full border border-white/10 bg-white/6 px-2 py-1 text-[0.58rem] font-semibold uppercase tracking-[0.14em] text-ink-200">
+          <span
+            className={`rounded-full border border-white/10 bg-white/6 font-semibold uppercase tracking-[0.14em] text-ink-200 ${
+              compact ? 'px-1.5 py-0.5 text-[0.5rem]' : 'px-2 py-1 text-[0.58rem]'
+            }`}
+          >
             {actionLabel}
           </span>
         </div>
 
-        <div className="mt-3 flex justify-center">
-          <BoardPileVisual faceDown={faceDown} imageUrl={imageUrl} title={title} />
+        <div className={`mt-3 flex justify-center ${compact ? 'mt-2' : ''}`}>
+          <BoardPileVisual faceDown={faceDown} imageUrl={imageUrl} title={title} compact={compact} />
         </div>
       </button>
 
@@ -1404,39 +1442,44 @@ function BoardPileVisual({
   faceDown,
   imageUrl,
   title,
+  compact = false,
 }: {
   faceDown: boolean
   imageUrl: string | null
   title: string
+  compact?: boolean
 }) {
   const layers = faceDown ? [0, 1, 2] : [0, 1]
+  const frameClassName = compact ? 'relative h-[7.65rem] w-[5.45rem]' : 'relative h-[11.75rem] w-[8.4rem]'
+  const layerStepX = compact ? 6 : 10
+  const layerStepY = compact ? 4 : 7
 
   return (
-    <div className="relative h-[11.75rem] w-[8.4rem]">
+    <div className={frameClassName}>
       {layers.map((layer) => {
         const isTopLayer = layer === layers.length - 1
 
         return (
-        <div
-          key={layer}
-          style={{
-            transform: `translate(${layer * 10}px, ${layer * 7}px) ${faceDown ? 'rotate(180deg)' : 'rotate(0deg)'}`,
-          }}
-          className="absolute inset-0 overflow-hidden rounded-[0.95rem] border border-white/10 bg-[#120f0b] shadow-card"
-        >
-          {faceDown ? (
-            <>
-              <img src={MTG_CARD_BACK_URL} alt={`${title} card back`} className="h-full w-full object-contain" />
-              {!isTopLayer ? <div className="absolute inset-0 bg-black/20" /> : null}
-            </>
-          ) : isTopLayer && imageUrl ? (
-            <img src={imageUrl} alt={title} className="h-full w-full object-contain" />
-          ) : (
-            <div className="flex h-full items-center justify-center bg-[linear-gradient(180deg,rgba(21,32,44,0.92),rgba(12,18,27,0.98))] px-3 text-center text-[0.68rem] font-semibold uppercase tracking-[0.18em] text-ink-300">
-              {title}
-            </div>
-          )}
-        </div>
+          <div
+            key={layer}
+            style={{
+              transform: `translate(${layer * layerStepX}px, ${layer * layerStepY}px) ${faceDown ? 'rotate(180deg)' : 'rotate(0deg)'}`,
+            }}
+            className="absolute inset-0 overflow-hidden rounded-[0.95rem] border border-white/10 bg-[#120f0b] shadow-card"
+          >
+            {faceDown ? (
+              <>
+                <img src={MTG_CARD_BACK_URL} alt={`${title} card back`} className="h-full w-full object-contain" />
+                {!isTopLayer ? <div className="absolute inset-0 bg-black/20" /> : null}
+              </>
+            ) : isTopLayer && imageUrl ? (
+              <img src={imageUrl} alt={title} className="h-full w-full object-contain" />
+            ) : (
+              <div className="flex h-full items-center justify-center bg-[linear-gradient(180deg,rgba(21,32,44,0.92),rgba(12,18,27,0.98))] px-3 text-center text-[0.68rem] font-semibold uppercase tracking-[0.18em] text-ink-300">
+                {title}
+              </div>
+            )}
+          </div>
         )
       })}
     </div>
