@@ -1,6 +1,7 @@
 import {
   useDeferredValue,
   useEffect,
+  useLayoutEffect,
   useRef,
   useState,
   type CSSProperties,
@@ -81,6 +82,11 @@ interface BattlefieldStackGroup {
   id: string
   position: PermanentPosition
   cards: BattlefieldPermanentSnapshot[]
+}
+
+interface ZoneOverlayAnchor {
+  left: number
+  top: number
 }
 
 const COUNTER_PRESETS = ['+1/+1', 'loyalty', 'shield', 'stun']
@@ -1872,6 +1878,24 @@ function ZoneOverlay({
         selectedCard.zone === activeZone))
       ? selectedCard.cardId
       : null
+  const selectedZoneCard =
+    selectedZoneCardId !== null
+      ? visibleCards.find((card) => card.instanceId === selectedZoneCardId) ?? null
+      : null
+  const selectedZoneCardHasActions =
+    selectedZoneCard !== null &&
+    activeZone !== 'library' &&
+    selectedZoneCard.ownerPlayerId === localPlayerId &&
+    canAct
+  const selectedZoneCardInstanceId = selectedZoneCard?.instanceId ?? null
+  const selectedZoneCardMoveTargets = selectedZoneCardHasActions
+    ? (['battlefield', 'hand', 'graveyard', 'command', 'exile'] as OwnedZone[]).filter(
+        (zone) => zone !== activeZone,
+      )
+    : []
+  const cardsContainerRef = useRef<HTMLDivElement | null>(null)
+  const selectedCardRef = useRef<HTMLButtonElement | null>(null)
+  const [selectedTrayAnchor, setSelectedTrayAnchor] = useState<ZoneOverlayAnchor | null>(null)
 
   useEffect(() => {
     function handleKeyDown(event: KeyboardEvent) {
@@ -1884,78 +1908,112 @@ function ZoneOverlay({
     return () => window.removeEventListener('keydown', handleKeyDown)
   }, [onClose])
 
+  useLayoutEffect(() => {
+    if (!selectedZoneCardHasActions || !selectedCardRef.current) {
+      return
+    }
+
+    function syncSelectedTrayAnchor() {
+      const cardButton = selectedCardRef.current
+      if (!cardButton) {
+        setSelectedTrayAnchor(null)
+        return
+      }
+
+      const rect = cardButton.getBoundingClientRect()
+      const trayWidthEstimate = Math.min(240, window.innerWidth - 24)
+      const trayHeightEstimate = 104
+      const centeredLeft = rect.left + rect.width / 2
+      const trayLeft = Math.min(
+        Math.max(centeredLeft, trayWidthEstimate / 2 + 12),
+        window.innerWidth - trayWidthEstimate / 2 - 12,
+      )
+      const belowTop = rect.bottom + 12
+      const trayTop =
+        belowTop + trayHeightEstimate <= window.innerHeight - 12
+          ? belowTop
+          : Math.max(12, rect.top - trayHeightEstimate - 12)
+
+      setSelectedTrayAnchor({
+        left: trayLeft,
+        top: trayTop,
+      })
+    }
+
+    syncSelectedTrayAnchor()
+
+    const cardsContainer = cardsContainerRef.current
+    window.addEventListener('resize', syncSelectedTrayAnchor)
+    cardsContainer?.addEventListener('scroll', syncSelectedTrayAnchor, { passive: true })
+
+    return () => {
+      window.removeEventListener('resize', syncSelectedTrayAnchor)
+      cardsContainer?.removeEventListener('scroll', syncSelectedTrayAnchor)
+    }
+  }, [activeZone, canAct, focusedPlayer?.id, selectedZoneCardHasActions, selectedZoneCardId, visibleCards.length])
+
   return (
     <div
-      className={`absolute inset-0 z-30 zone-overlay-root ${isClosing ? 'zone-overlay-closing' : ''}`}
+      className={`fixed inset-0 z-50 zone-overlay-root ${isClosing ? 'zone-overlay-closing' : ''}`}
       data-testid="zone-overlay"
-    >
-      <button
-        type="button"
-        aria-label="Close zone overlay"
-        onClick={onClose}
-        className="zone-overlay-backdrop absolute inset-0 z-0"
-      />
+      onPointerDownCapture={(event) => {
+        if (!(event.target instanceof Element)) {
+          return
+        }
 
-      <div className="zone-overlay-panel pointer-events-none relative z-10 flex h-full w-full items-start justify-center p-3 pt-7 sm:p-5 sm:pt-8">
+        if (event.target.closest('[data-zone-overlay-surface="true"]')) {
+          return
+        }
+
+        onClose()
+      }}
+    >
+      <div aria-hidden="true" className="zone-overlay-backdrop absolute inset-0 z-0" />
+
+      <div className="zone-overlay-panel pointer-events-none relative z-10 flex h-full w-full items-start justify-center px-3 pt-5 sm:px-5 sm:pt-6">
         <div
+          ref={cardsContainerRef}
+          data-zone-overlay-surface="true"
           key={`${activeZone}-${focusedPlayer?.id ?? 'none'}-${animationToken}`}
-          className={`zone-overlay-cards pointer-events-auto flex max-h-[88vh] w-full max-w-[84rem] flex-wrap items-start justify-center gap-3 overflow-y-auto rounded-[2.25rem] border border-white/[0.04] bg-[linear-gradient(180deg,rgba(8,20,27,0.26),rgba(6,14,18,0.18))] px-4 py-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.03)] sm:px-5 sm:py-5 ${
+          className={`zone-overlay-cards pointer-events-auto flex max-h-[calc(100vh-4.5rem)] ${
+            visibleCards.length > 0
+              ? 'w-fit max-w-[calc(100vw-1.5rem)]'
+              : 'min-w-[18rem] min-h-[11rem] w-fit'
+          } flex-wrap items-start justify-center gap-2.5 overflow-y-auto rounded-[1.8rem] border border-white/[0.04] bg-[linear-gradient(180deg,rgba(8,20,27,0.28),rgba(6,14,18,0.18))] px-2.5 py-2.5 shadow-[inset_0_1px_0_rgba(255,255,255,0.03)] sm:px-3 sm:py-3 ${
             visibleCards.length === 0 ? 'zone-overlay-empty' : ''
           }`}
         >
           {visibleCards.length > 0 ? (
             visibleCards.map((card, index) => {
-                const isSelected = selectedZoneCardId === card.instanceId
-                const canMoveCard = card.ownerPlayerId === localPlayerId && canAct
-                const moveTargets = (['battlefield', 'hand', 'graveyard', 'command', 'exile'] as OwnedZone[]).filter(
-                  (zone) => zone !== activeZone,
-                )
+              const isSelected = selectedZoneCardId === card.instanceId
 
-                const animationStyle = {
-                  animationDelay: `${index * 54}ms`,
-                } as CSSProperties
+              const animationStyle = {
+                animationDelay: `${index * 54}ms`,
+              } as CSSProperties
 
-                return (
-                  <article
-                    key={card.instanceId}
-                    style={animationStyle}
-                    className={`zone-card-fly-in w-[12rem] shrink-0 rounded-[1.6rem] border p-3 transition ${
-                      isSelected
-                        ? 'border-tide-300/40 bg-tide-500/[0.08]'
-                        : 'border-white/10 bg-white/[0.04]'
-                    }`}
+              return (
+                <article
+                  key={card.instanceId}
+                  style={animationStyle}
+                  className={`zone-card-fly-in relative w-[12rem] shrink-0 ${isSelected ? 'z-20' : 'z-0'}`}
+                >
+                  <button
+                    ref={selectedZoneCardHasActions && isSelected ? selectedCardRef : undefined}
+                    type="button"
+                    data-card-name={card.card.name}
+                    aria-pressed={isSelected}
+                    onClick={() =>
+                      activeZone === 'library'
+                        ? onSelectLibraryCard(card.instanceId)
+                        : focusedPlayer && onSelectCard(focusedPlayer.id, activeZone, card.instanceId)
+                    }
+                    className="block w-full text-left"
                   >
-                    <button
-                      type="button"
-                      data-card-name={card.card.name}
-                      aria-pressed={isSelected}
-                      onClick={() =>
-                        activeZone === 'library'
-                          ? onSelectLibraryCard(card.instanceId)
-                          : focusedPlayer && onSelectCard(focusedPlayer.id, activeZone, card.instanceId)
-                      }
-                      className="w-full text-left"
-                    >
-                      <TableCard card={card.card} variant="zone" selected={isSelected} />
-                    </button>
-
-                    <div className="mt-3 grid min-h-[5.5rem] grid-cols-2 gap-2">
-                      {isSelected && card.ownerPlayerId === localPlayerId
-                        ? moveTargets.map((zone) => (
-                            <ZoneActionButton
-                              key={zone}
-                              tone={zone === 'battlefield' ? 'primary' : zone === 'exile' ? 'danger' : 'secondary'}
-                              disabled={!canMoveCard}
-                              onClick={() => onMoveOwnedCard(activeZone, zone, card.instanceId)}
-                            >
-                              {zoneLabel(zone)}
-                            </ZoneActionButton>
-                          ))
-                        : null}
-                    </div>
-                  </article>
-                )
-              })
+                    <TableCard card={card.card} variant="zone" selected={isSelected} />
+                  </button>
+                </article>
+              )
+            })
           ) : (
             <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
               <div className="text-center">
@@ -1969,6 +2027,36 @@ function ZoneOverlay({
             </div>
           )}
         </div>
+
+        {selectedZoneCardHasActions && selectedTrayAnchor ? (
+          <div
+            data-zone-overlay-surface="true"
+            className="zone-overlay-tray pointer-events-auto absolute z-20"
+            style={{
+              left: `${selectedTrayAnchor.left}px`,
+              top: `${selectedTrayAnchor.top}px`,
+              transform: 'translateX(-50%)',
+            }}
+          >
+            <div className="grid w-[14rem] grid-cols-2 gap-2 rounded-[1.2rem] border border-white/10 bg-[linear-gradient(180deg,rgba(8,20,27,0.92),rgba(6,14,18,0.96))] p-2.5 shadow-[0_18px_44px_rgba(0,0,0,0.34)]">
+              {selectedZoneCardMoveTargets.map((zone) => (
+                <ZoneActionButton
+                  key={zone}
+                  tone={zone === 'battlefield' ? 'primary' : zone === 'exile' ? 'danger' : 'secondary'}
+                  onClick={() => {
+                    if (selectedZoneCardInstanceId === null) {
+                      return
+                    }
+
+                    onMoveOwnedCard(activeZone, zone, selectedZoneCardInstanceId)
+                  }}
+                >
+                  {zoneLabel(zone)}
+                </ZoneActionButton>
+              ))}
+            </div>
+          </div>
+        ) : null}
       </div>
     </div>
   )

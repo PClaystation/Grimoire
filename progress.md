@@ -198,6 +198,17 @@ Original prompt: You are extending an existing MTG deckbuilder web app into an o
 2026-03-21
 - Hidden sandbox room pass:
   - Added a private `/play/lab` entry point that is not linked from the normal play nav.
+2026-03-21
+- Zone overlay compactness pass:
+  - Reworked the zone overlay into a viewport-fixed layer with capture-phase outside-click dismissal so clicks outside the card surface reliably close it.
+  - Removed the in-flow selected-card action tray. The move buttons now float under the selected card as an anchored overlay, so selecting a card no longer stretches the pile frame or shifts nearby cards.
+  - Tightened the overlay shell padding, reduced the card cluster spacing, and kept the faint zone-tinted backdrop plus empty-pile watermark.
+  - Verification:
+    - `npm run lint`
+    - `npm run build`
+    - Browser validation through a temporary Playwright flow that unlocked the hidden lab, started the debug game, moved a card to graveyard, opened the graveyard overlay, selected the card, and closed it by clicking outside.
+  - Follow-up:
+    - The browser runs still surface the known unrelated `403 (Forbidden)` resource warning, but the overlay behavior itself passed the visual check.
   - Added a server-side debug unlock flow with a password gate. The server accepts `PLAY_DEBUG_ROOM_SECRET` and falls back to `grimoire-lab` when that env var is unset.
   - Added a hidden debug room mode that is always private, never appears in the public room directory, and rejects joins from sessions that have not unlocked the debug password.
   - Added placeholder lobby seats that are marked explicitly in the room snapshot, carry synthetic decks, and can be added or removed from the room lobby without extra accounts.
