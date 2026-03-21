@@ -17,7 +17,6 @@ import {
   Minus,
   Plus,
   RefreshCcw,
-  Search,
   ScrollText,
   ShieldPlus,
   Shuffle,
@@ -45,10 +44,6 @@ import type {
 } from '@/shared/play'
 import type { CardColor, MagicCard } from '@/types/scryfall'
 import { formatManaCost, formatTypeLine } from '@/utils/format'
-import {
-  filterLibraryCards,
-  type LibraryCardSortOption,
-} from '@/utils/playCardLibrarySearch'
 
 type PublicZone = 'graveyard' | 'exile' | 'command'
 type PrivateZone = 'hand' | 'library'
@@ -89,16 +84,7 @@ interface BattlefieldStackGroup {
 
 const COUNTER_PRESETS = ['+1/+1', 'loyalty', 'shield', 'stun']
 const PLAYER_COUNTER_PRESETS = ['poison', 'energy', 'experience', 'rad']
-const PUBLIC_ZONE_ORDER: PublicZone[] = ['command', 'graveyard', 'exile']
-const LOCAL_ZONE_ORDER: BrowseableZone[] = ['library', 'command', 'graveyard', 'exile']
 const MTG_CARD_BACK_URL = '/Magic_card_back-removebg.png'
-const LIBRARY_SORT_OPTIONS: Array<{ value: LibraryCardSortOption; label: string }> = [
-  { value: 'DECK_ORDER', label: 'Deck order' },
-  { value: 'NAME', label: 'Name A-Z' },
-  { value: 'MANA_VALUE', label: 'Mana value' },
-  { value: 'TYPE', label: 'Type line' },
-  { value: 'NEWEST', label: 'Newest print' },
-]
 const TOKEN_PRESETS: TokenPreset[] = [
   {
     name: 'Treasure',
@@ -497,23 +483,18 @@ export function PlayGamePage() {
 
             {isZoneOverlayOpen ? (
               <ZoneOverlay
-                players={players}
                 localPlayerId={localPlayerId}
                 canAct={isLocalPlayersTurn}
                 focusedPlayer={focusedPlayer}
-                privateState={localPrivatePlayer}
                 activeZone={activeZone}
                 cards={zoneCards}
                 selectedCard={activeSelection}
                 onClose={() => setIsZoneOverlayOpen(false)}
-                onFocusPlayer={(playerId) => setFocusedPlayerId(playerId)}
-                onZoneChange={setActiveZone}
-                onOpenZone={openZone}
-              onSelectCard={selectZoneCard}
-              onSelectLibraryCard={(cardId) => setSelectedCard({ zone: 'library', cardId })}
-              onMoveOwnedCard={moveOwnedCard}
-              animationToken={zoneOverlayAnimationToken}
-            />
+                onSelectCard={selectZoneCard}
+                onSelectLibraryCard={(cardId) => setSelectedCard({ zone: 'library', cardId })}
+                onMoveOwnedCard={moveOwnedCard}
+                animationToken={zoneOverlayAnimationToken}
+              />
             ) : null}
           </div>
 
@@ -1811,35 +1792,25 @@ function InspectorCard({
 }
 
 function ZoneOverlay({
-  players,
   localPlayerId,
   canAct,
   focusedPlayer,
-  privateState,
   activeZone,
   cards,
   selectedCard,
   onClose,
-  onFocusPlayer,
-  onZoneChange,
-  onOpenZone,
   onSelectCard,
   onSelectLibraryCard,
   onMoveOwnedCard,
   animationToken,
 }: {
-  players: GamePlayerPublicSnapshot[]
   localPlayerId: string
   canAct: boolean
   focusedPlayer: GamePlayerPublicSnapshot | null
-  privateState: GamePrivatePlayerState | null
   activeZone: BrowseableZone
   cards: TableCardSnapshot[]
   selectedCard: TableSelection | null
   onClose: () => void
-  onFocusPlayer: (playerId: string) => void
-  onZoneChange: (zone: BrowseableZone) => void
-  onOpenZone: (playerId: string, zone: BrowseableZone) => void
   onSelectCard: (playerId: string, zone: PublicZone, cardId: string) => void
   onSelectLibraryCard: (cardId: string) => void
   onMoveOwnedCard: (
@@ -1850,18 +1821,7 @@ function ZoneOverlay({
   ) => void
   animationToken: number
 }) {
-  const [librarySearch, setLibrarySearch] = useState('')
-  const [librarySortBy, setLibrarySortBy] = useState<LibraryCardSortOption>('DECK_ORDER')
-  const hasLibraryAccess = focusedPlayer?.id === localPlayerId && Boolean(privateState)
-  const visibleZones = hasLibraryAccess ? LOCAL_ZONE_ORDER : PUBLIC_ZONE_ORDER
-  const deferredLibrarySearch = useDeferredValue(librarySearch)
-  const normalizedLibrarySearch = deferredLibrarySearch.trim()
-  const visibleCards =
-    activeZone === 'library' ? filterLibraryCards(cards, deferredLibrarySearch, librarySortBy) : cards
-  const currentZoneCount =
-    activeZone === 'library'
-      ? privateState?.library.length ?? 0
-      : focusedPlayer?.zoneCounts[activeZone] ?? 0
+  const visibleCards = cards
   const selectedZoneCardId =
     selectedCard &&
     ((activeZone === 'library' && selectedCard.zone === 'library') ||
@@ -1884,159 +1844,21 @@ function ZoneOverlay({
   }, [onClose])
 
   return (
-    <div className="absolute inset-0 z-30 flex items-center justify-center p-3 sm:p-5">
+    <div className="absolute inset-0 z-30" data-testid="zone-overlay">
       <button
         type="button"
         aria-label="Close zone overlay"
         onClick={onClose}
-        className="absolute inset-0 rounded-[2.3rem] bg-ink-950/52"
+        className="absolute inset-0 bg-ink-950/62"
       />
 
-      <section className="relative z-10 flex h-[min(88vh,46rem)] w-full max-w-[84rem] flex-col overflow-hidden rounded-[2rem] border border-white/10 bg-[linear-gradient(180deg,rgba(9,23,31,0.88),rgba(5,14,19,0.9))] shadow-[0_30px_80px_rgba(0,0,0,0.42)]">
-        <div className="border-b border-white/10 px-4 py-4 sm:px-5 sm:py-5">
-          <div className="flex flex-wrap items-start justify-between gap-4">
-            <div className="flex items-start gap-3">
-              <div className="inline-flex h-11 w-11 items-center justify-center rounded-2xl border border-tide-400/20 bg-tide-500/12 text-tide-100">
-                <BookOpen className="h-4 w-4" />
-              </div>
-              <div>
-                <p className="text-xs font-semibold uppercase tracking-[0.2em] text-ink-400">
-                  Table overlay
-                </p>
-                <h2 className="mt-1 text-xl font-semibold text-ink-50 sm:text-2xl">
-                  {focusedPlayer ? `${focusedPlayer.name} • ${zoneLabel(activeZone)}` : zoneLabel(activeZone)}
-                </h2>
-                <p className="mt-2 max-w-2xl text-sm text-ink-300">
-                  {canAct
-                    ? 'Pick a card and move it directly from the table overlay.'
-                    : 'Browsing stays open off-turn, but only the active player can move cards.'}
-                </p>
-              </div>
-            </div>
-
-            <button
-              type="button"
-              onClick={onClose}
-              className="rounded-full border border-white/10 bg-white/6 px-4 py-2 text-sm font-semibold text-ink-100 transition hover:border-white/20 hover:bg-white/10"
-            >
-              Close
-            </button>
-          </div>
-
-          <div className="mt-4 flex flex-wrap gap-2">
-            {players.map((player) => (
-              <button
-                key={player.id}
-                type="button"
-                onClick={() => {
-                  onFocusPlayer(player.id)
-
-                  if (activeZone === 'library' && player.id !== localPlayerId) {
-                    onZoneChange('graveyard')
-                    onOpenZone(player.id, 'graveyard')
-                    return
-                  }
-
-                  onOpenZone(player.id, activeZone)
-                }}
-                className={`rounded-full border px-3 py-1.5 text-xs font-semibold transition ${
-                  focusedPlayer?.id === player.id
-                    ? 'border-tide-400/35 bg-tide-500/12 text-tide-100'
-                    : 'border-white/10 bg-white/6 text-ink-100 hover:border-white/20'
-                }`}
-              >
-                {player.name}
-                {player.id === localPlayerId ? ' • You' : ''}
-              </button>
-            ))}
-          </div>
-
-          <div className="mt-3 flex flex-wrap items-center gap-2">
-            {visibleZones.map((zone) => (
-              <button
-                key={zone}
-                type="button"
-                onClick={() => {
-                  onZoneChange(zone)
-
-                  if (!focusedPlayer) {
-                    return
-                  }
-
-                  if (zone === 'library') {
-                    onOpenZone(localPlayerId, zone)
-                    return
-                  }
-
-                  onOpenZone(focusedPlayer.id, zone)
-                }}
-                className={`rounded-full border px-3 py-1.5 text-xs font-semibold transition ${
-                  activeZone === zone
-                    ? 'border-ember-400/30 bg-ember-500/12 text-ember-100'
-                    : 'border-white/10 bg-white/6 text-ink-100 hover:border-white/20'
-                }`}
-              >
-                {zoneLabel(zone)}{' '}
-                {zone === 'library'
-                  ? privateState?.library.length ?? 0
-                  : focusedPlayer
-                    ? focusedPlayer.zoneCounts[zone]
-                    : 0}
-              </button>
-            ))}
-
-            <InfoChip label={`${currentZoneCount} cards`} tone="info" />
-            <InfoChip label={activeZone === 'library' ? 'Private zone' : 'Public zone'} />
-          </div>
-
-          {activeZone === 'library' ? (
-            <div className="mt-4 space-y-3">
-              <div className="grid gap-3 lg:grid-cols-[minmax(0,1fr)_14rem]">
-                <label className="block">
-                  <span className="sr-only">Search library</span>
-                  <div className="flex items-center gap-3 rounded-2xl border border-white/10 bg-ink-950/80 px-4 py-3 focus-within:border-tide-400/35">
-                    <Search className="h-4 w-4 text-ink-400" />
-                    <input
-                      value={librarySearch}
-                      onChange={(event) => setLibrarySearch(event.target.value)}
-                      placeholder='Search or use name:, type:, text:, set:, color:, id:, mv>=3'
-                      className="w-full border-none bg-transparent text-sm text-ink-100 outline-none placeholder:text-ink-500"
-                    />
-                    <span className="text-[0.65rem] font-semibold uppercase tracking-[0.16em] text-ink-500">
-                      {visibleCards.length}/{privateState?.library.length ?? 0}
-                    </span>
-                  </div>
-                </label>
-
-                <label className="space-y-2">
-                  <span className="text-xs font-semibold uppercase tracking-[0.16em] text-ink-500">
-                    Result order
-                  </span>
-                  <select
-                    value={librarySortBy}
-                    onChange={(event) => setLibrarySortBy(event.target.value as LibraryCardSortOption)}
-                    className="w-full rounded-2xl border border-white/10 bg-ink-950/80 px-4 py-3 text-sm text-ink-100 outline-none transition focus:border-tide-400 focus:ring-2 focus:ring-tide-400/30"
-                  >
-                    {LIBRARY_SORT_OPTIONS.map((option) => (
-                      <option key={option.value} value={option.value}>
-                        {option.label}
-                      </option>
-                    ))}
-                  </select>
-                </label>
-              </div>
-
-              <p className="text-xs leading-5 text-ink-500">
-                Search by name, type, text, set, color, or mana value.
-              </p>
-            </div>
-          ) : null}
-        </div>
-
-        <div className="min-h-0 flex-1 overflow-y-auto px-4 py-4 sm:px-5 sm:py-5">
-          {visibleCards.length > 0 ? (
-            <div key={`${activeZone}-${focusedPlayer?.id ?? 'none'}-${animationToken}`} className="flex flex-wrap items-start gap-3">
-              {visibleCards.map((card, index) => {
+      <div className="relative z-10 flex h-full w-full items-center justify-center p-3 sm:p-5">
+        <div
+          key={`${activeZone}-${focusedPlayer?.id ?? 'none'}-${animationToken}`}
+          className="flex max-h-[88vh] w-full max-w-[84rem] flex-wrap items-start justify-center gap-3 overflow-y-auto"
+        >
+          {visibleCards.length > 0
+            ? visibleCards.map((card, index) => {
                 const isSelected = selectedZoneCardId === card.instanceId
                 const canMoveCard = card.ownerPlayerId === localPlayerId && canAct
                 const moveTargets = (['battlefield', 'hand', 'graveyard', 'command', 'exile'] as OwnedZone[]).filter(
@@ -2087,17 +1909,10 @@ function ZoneOverlay({
                     ) : null}
                   </article>
                 )
-              })}
-            </div>
-          ) : (
-            <div className="rounded-[1.5rem] border border-white/10 bg-white/5 px-4 py-5 text-sm text-ink-300">
-              {activeZone === 'library' && normalizedLibrarySearch
-                ? 'No library cards matched that search.'
-                : 'No cards in this zone right now.'}
-            </div>
-          )}
+              })
+            : null}
         </div>
-      </section>
+      </div>
     </div>
   )
 }

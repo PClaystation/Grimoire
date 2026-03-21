@@ -272,7 +272,7 @@ async function main() {
   await aliceBoardCards.nth(1).waitFor({ timeout: 15000 })
   await aliceBoardCards.nth(1).dragTo(aliceBoardCards.first())
 
-  const aliceZoneOverlay = alicePage.locator('section').filter({ hasText: 'Table overlay' }).last()
+  const aliceZoneOverlay = alicePage.getByTestId('zone-overlay')
   await alicePage.getByTestId('zone-pile-command-local').click()
   const aliceCommandOverlayCard = aliceZoneOverlay.locator('button[data-card-name]').first()
   await aliceCommandOverlayCard.waitFor({ timeout: 15000 })
@@ -280,8 +280,8 @@ async function main() {
   await aliceCommandOverlayCard
     .locator('xpath=ancestor::article[1]')
     .getByRole('button', { name: /^Battlefield$/i })
-    .click()
-  await aliceZoneOverlay.getByRole('button', { name: /^Close$/i }).click()
+    .click({ force: true })
+  await alicePage.keyboard.press('Escape')
 
   await alicePage.getByTestId('zone-pile-library-local').click()
 
@@ -296,8 +296,8 @@ async function main() {
   await aliceGraveyardOverlayCard
     .locator('xpath=ancestor::article[1]')
     .getByRole('button', { name: /^Battlefield$/i })
-    .click()
-  await aliceZoneOverlay.getByRole('button', { name: /^Close$/i }).click()
+    .click({ force: true })
+  await alicePage.keyboard.press('Escape')
   await aliceBoardCards.last().click({ force: true })
   await aliceInspector.locator('summary').filter({ hasText: 'Table note' }).click()
   await alicePage.getByPlaceholder('Status, mode, trigger...').fill('Marked for alpha swing')
@@ -314,7 +314,7 @@ async function main() {
   })
 
   await alicePage.getByTestId('zone-pile-library-browse-local').click()
-  await aliceZoneOverlay.getByText('Private zone').waitFor({ timeout: 15000 })
+  await aliceZoneOverlay.locator('button[data-card-name]').first().waitFor({ timeout: 15000 })
 
   await alicePage.waitForTimeout(1200)
   await bobPage.waitForTimeout(1200)
