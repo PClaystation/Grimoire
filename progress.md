@@ -199,6 +199,17 @@ Original prompt: You are extending an existing MTG deckbuilder web app into an o
 - Hidden sandbox room pass:
   - Added a private `/play/lab` entry point that is not linked from the normal play nav.
 2026-03-21
+- Zone overlay interaction refinement:
+  - Replaced the viewport-anchored per-card action tray with an in-card tray so move buttons stay centered under the selected card and remain visible when the pile wraps onto multiple rows.
+  - Made zone cards read more like art-only cards by removing the extra mini-panel shell from the zone variant and using only a light selected glow plus card shadow.
+  - Added click-to-toggle selection on overlay cards so tapping the same card again collapses its action tray.
+  - Verification:
+    - `npm run lint`
+    - `npm run build`
+    - Playwright browser checks against the live preview server for:
+      - multi-row graveyard overlay with a selected first-row card and a second row beneath it
+      - outside-click close after opening the overlay
+2026-03-21
 - Zone overlay compactness pass:
   - Reworked the zone overlay into a viewport-fixed layer with capture-phase outside-click dismissal so clicks outside the card surface reliably close it.
   - Removed the in-flow selected-card action tray. The move buttons now float under the selected card as an anchored overlay, so selecting a card no longer stretches the pile frame or shifts nearby cards.
