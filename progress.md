@@ -210,3 +210,15 @@ Original prompt: You are extending an existing MTG deckbuilder web app into an o
   - Ran a Playwright browser pass against `http://127.0.0.1:8787/play/lab`, unlocked the lab with `grimoire-lab`, opened the sandbox room, added an extra placeholder seat, and started a debug game.
   - Captured and reviewed screenshots in `artifacts/playwright/debug-lab/room-default.png`, `artifacts/playwright/debug-lab/room-with-extra-seat.png`, and `artifacts/playwright/debug-lab/game-sandbox.png`.
   - The browser pass only reported the same unrelated `403 (Forbidden)` resource-load console message seen in earlier smoke checks.
+
+2026-03-21
+- Full-art card rendering pass:
+  - Switched all visible card renderers to contained art so no card image is cropped in the browser UI.
+  - Updated the play-table zone rail, table-card surfaces, inspector preview, and both card-detail modals to use explicit card-ratio frames with full art visibility.
+  - Kept the zone rail and overlay separate from the placement surface, but widened the rail and pile visuals so the cards no longer read as compressed.
+- Verification:
+  - `npm run build` passed.
+  - `npm run lint` passed.
+  - Ran `node scripts/validate-play-table.mjs http://127.0.0.1:8787` and refreshed `artifacts/playwright/revamp/alice-table.png`, `artifacts/playwright/revamp/bob-table.png`, and `artifacts/playwright/revamp/summary.json`.
+  - Ran the required `develop-web-game` smoke client against `http://127.0.0.1:8787/play` and captured `output/web-game/full-art-smoke/shot-0.png`.
+  - Ran a direct Playwright pass on the deckbuilder and visually confirmed a real card detail modal in `output/web-game/card-detail-smoke/shot-0.png`.

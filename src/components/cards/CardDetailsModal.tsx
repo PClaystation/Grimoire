@@ -117,11 +117,11 @@ export function CardDetailsModal({
         </div>
 
         <div className="grid gap-6 md:grid-cols-[19rem_minmax(0,1fr)]">
-          <div className="overflow-hidden rounded-[1.5rem] border border-white/10 bg-ink-800/70 shadow-card">
+          <div className="aspect-[5/7] overflow-hidden rounded-[1.5rem] border border-white/10 bg-ink-800/70 shadow-card">
             <img
               src={activeCard.largeImageUrl}
               alt={activeCard.name}
-              className="h-full w-full object-cover"
+              className="h-full w-full object-contain"
             />
           </div>
 

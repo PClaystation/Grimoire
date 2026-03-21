@@ -968,7 +968,7 @@ function BattlefieldLane({
         </div>
       </div>
 
-      <div className={`mt-4 grid gap-3 ${laneHeight} xl:grid-cols-[minmax(0,1fr)_12.5rem]`}>
+      <div className={`mt-4 grid gap-3 ${laneHeight} xl:grid-cols-[minmax(0,1fr)_18.5rem] 2xl:grid-cols-[minmax(0,1fr)_20rem]`}>
         <div
           data-testid={`lane-board-${isLocalLane ? 'local' : player.name.toLowerCase().replace(/\s+/g, '-')}`}
           data-lane-dropzone="true"
@@ -1175,7 +1175,7 @@ function LaneZoneDock({
   const exileTopCard = player.exile[player.exile.length - 1]?.card.imageUrl
 
   return (
-    <aside className="flex h-full flex-col rounded-[2rem] border border-white/[0.08] bg-[linear-gradient(180deg,rgba(6,18,23,0.55),rgba(5,13,17,0.84))] p-3 shadow-[inset_0_1px_0_rgba(255,255,255,0.04)]">
+    <aside className="relative flex h-full flex-col overflow-hidden rounded-[2rem] border border-white/[0.08] bg-[linear-gradient(180deg,rgba(6,18,23,0.6),rgba(5,13,17,0.88))] p-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.04)]">
       <div>
         <p className="text-[0.65rem] font-semibold uppercase tracking-[0.16em] text-ink-500">
           Zone rail
@@ -1291,13 +1291,13 @@ function BoardZonePile({
   const canActivate = Boolean(onClick) && !disabled
 
   return (
-    <article className="rounded-[1.5rem] border border-white/[0.08] bg-[linear-gradient(180deg,rgba(255,255,255,0.04),rgba(255,255,255,0.02))] p-2.5">
+    <article className="rounded-[1.65rem] border border-white/[0.08] bg-[linear-gradient(180deg,rgba(255,255,255,0.05),rgba(255,255,255,0.025))] p-3">
       <button
         type="button"
         data-testid={dataTestId}
         onClick={canActivate ? onClick : undefined}
         disabled={!canActivate}
-        className={`w-full rounded-[1.2rem] border px-3 py-3 text-left transition ${
+        className={`w-full rounded-[1.35rem] border px-3.5 py-3.5 text-left transition ${
           canActivate
             ? 'border-white/[0.08] bg-[linear-gradient(180deg,rgba(7,18,24,0.78),rgba(7,18,24,0.96))] hover:border-tide-400/30 hover:bg-ink-900/95'
             : 'cursor-not-allowed border-white/[0.08] bg-[linear-gradient(180deg,rgba(7,18,24,0.48),rgba(7,18,24,0.72))] text-ink-500'
@@ -1346,7 +1346,7 @@ function BoardPileVisual({
   const layers = faceDown ? [0, 1, 2] : [0, 1]
 
   return (
-    <div className="relative h-[8.2rem] w-[5.8rem]">
+    <div className="relative h-[10rem] w-[7rem]">
       {layers.map((layer) => {
         const isTopLayer = layer === layers.length - 1
 
@@ -1354,17 +1354,17 @@ function BoardPileVisual({
         <div
           key={layer}
           style={{
-            transform: `translate(${layer * 7}px, ${layer * 5}px) ${faceDown ? 'rotate(180deg)' : 'rotate(0deg)'}`,
+            transform: `translate(${layer * 8}px, ${layer * 6}px) ${faceDown ? 'rotate(180deg)' : 'rotate(0deg)'}`,
           }}
           className="absolute inset-0 overflow-hidden rounded-[0.95rem] border border-white/10 bg-[#120f0b] shadow-card"
         >
           {faceDown ? (
             <>
-              <img src={MTG_CARD_BACK_URL} alt={`${title} card back`} className="h-full w-full object-cover" />
+              <img src={MTG_CARD_BACK_URL} alt={`${title} card back`} className="h-full w-full object-contain" />
               {!isTopLayer ? <div className="absolute inset-0 bg-black/20" /> : null}
             </>
           ) : isTopLayer && imageUrl ? (
-            <img src={imageUrl} alt={title} className="h-full w-full object-cover" />
+            <img src={imageUrl} alt={title} className="h-full w-full object-contain" />
           ) : (
             <div className="flex h-full items-center justify-center bg-[linear-gradient(180deg,rgba(21,32,44,0.92),rgba(12,18,27,0.98))] px-3 text-center text-[0.68rem] font-semibold uppercase tracking-[0.18em] text-ink-300">
               {title}
@@ -1565,7 +1565,7 @@ function InspectorCard({
                 <img
                   src={selected.card.card.largeImageUrl}
                   alt={selected.card.card.name}
-                  className="h-[9.75rem] w-full object-cover"
+                  className="h-[11rem] w-full object-contain"
                 />
               </div>
 
@@ -1828,16 +1828,16 @@ function ZoneOverlay({
   }, [onClose])
 
   return (
-    <div className="absolute inset-0 z-30 p-3 sm:p-5">
+    <div className="absolute inset-0 z-30 flex items-center justify-center p-3 sm:p-5">
       <button
         type="button"
         aria-label="Close zone overlay"
         onClick={onClose}
-        className="absolute inset-0 rounded-[2.3rem] bg-ink-950/76"
+        className="absolute inset-0 rounded-[2.3rem] bg-ink-950/52"
       />
 
-      <section className="relative z-10 flex h-full flex-col overflow-hidden rounded-[2.2rem] border border-white/10 bg-[linear-gradient(180deg,rgba(9,23,31,0.97),rgba(5,14,19,0.98))] shadow-[0_30px_80px_rgba(0,0,0,0.45)]">
-        <div className="border-b border-white/10 px-5 py-5">
+      <section className="relative z-10 flex h-[min(88vh,46rem)] w-full max-w-[84rem] flex-col overflow-hidden rounded-[2rem] border border-white/10 bg-[linear-gradient(180deg,rgba(9,23,31,0.88),rgba(5,14,19,0.9))] shadow-[0_30px_80px_rgba(0,0,0,0.42)]">
+        <div className="border-b border-white/10 px-4 py-4 sm:px-5 sm:py-5">
           <div className="flex flex-wrap items-start justify-between gap-4">
             <div className="flex items-start gap-3">
               <div className="inline-flex h-11 w-11 items-center justify-center rounded-2xl border border-tide-400/20 bg-tide-500/12 text-tide-100">
@@ -1847,7 +1847,7 @@ function ZoneOverlay({
                 <p className="text-xs font-semibold uppercase tracking-[0.2em] text-ink-400">
                   Table overlay
                 </p>
-                <h2 className="mt-1 text-2xl font-semibold text-ink-50">
+                <h2 className="mt-1 text-xl font-semibold text-ink-50 sm:text-2xl">
                   {focusedPlayer ? `${focusedPlayer.name} • ${zoneLabel(activeZone)}` : zoneLabel(activeZone)}
                 </h2>
                 <p className="mt-2 max-w-2xl text-sm text-ink-300">
@@ -1977,9 +1977,9 @@ function ZoneOverlay({
           ) : null}
         </div>
 
-        <div className="min-h-0 flex-1 overflow-y-auto px-5 py-5">
+        <div className="min-h-0 flex-1 overflow-y-auto px-4 py-4 sm:px-5 sm:py-5">
           {visibleCards.length > 0 ? (
-            <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+            <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-2">
               {visibleCards.map((card) => {
                 const isSelected =
                   activeZone === 'library'
@@ -2700,7 +2700,8 @@ function TableCard({
       ? 'h-[9.25rem]'
       : variant === 'hand'
         ? 'h-[12rem]'
-        : 'h-[8.9rem]'
+        : 'h-[13.5rem]'
+  const imageFitClassName = 'object-contain'
   const manaLabel = card.manaCost
     ? formatManaCost(card.manaCost)
     : card.typeLine.includes('Land')
@@ -2721,7 +2722,7 @@ function TableCard({
     >
       <div className={`relative ${imageClassName} overflow-hidden rounded-[0.95rem] border border-white/10 bg-ink-800/70`}>
         <div className="absolute inset-0">
-          <img src={card.imageUrl} alt={card.name} className="h-full w-full object-cover" />
+          <img src={card.imageUrl} alt={card.name} className={`h-full w-full ${imageFitClassName}`} />
           <div className="absolute inset-x-0 top-0 bg-gradient-to-b from-black/70 via-black/25 to-transparent px-2 py-2">
             <div className="flex items-start justify-between gap-2">
               <p className="line-clamp-2 text-xs font-semibold text-white">{card.name}</p>

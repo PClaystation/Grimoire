@@ -31,7 +31,7 @@ export function PlayCard({
 }: PlayCardProps) {
   const containerClassName =
     size === 'sm' ? 'w-[9rem] min-w-[9rem]' : 'w-[12rem] min-w-[12rem]'
-  const imageClassName = size === 'sm' ? 'h-44' : 'h-64'
+  const imageClassName = size === 'sm' ? 'h-48' : 'h-72'
 
   return (
     <article className={`${containerClassName} rounded-[1.5rem] border border-white/10 bg-ink-900/88 p-3 shadow-card`}>
@@ -40,7 +40,7 @@ export function PlayCard({
           <img
             src={card.imageUrl}
             alt={card.name}
-            className={`${imageClassName} w-full object-cover transition duration-200 ${
+            className={`${imageClassName} w-full object-contain transition duration-200 ${
               tapped ? 'origin-center rotate-90 scale-[0.9]' : ''
             }`}
           />

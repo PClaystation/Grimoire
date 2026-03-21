@@ -62,11 +62,11 @@ export function PlayCardInspectModal({ card, onClose }: PlayCardInspectModalProp
         </div>
 
         <div className="grid gap-6 md:grid-cols-[20rem_minmax(0,1fr)]">
-          <div className="overflow-hidden rounded-[1.5rem] border border-white/10 bg-ink-800/70">
+          <div className="aspect-[5/7] overflow-hidden rounded-[1.5rem] border border-white/10 bg-ink-800/70">
             <img
               src={card.largeImageUrl}
               alt={card.name}
-              className="h-full w-full object-cover"
+              className="h-full w-full object-contain"
             />
           </div>
 
