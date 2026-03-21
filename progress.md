@@ -203,12 +203,14 @@ Original prompt: You are extending an existing MTG deckbuilder web app into an o
   - Replaced the viewport-anchored per-card action tray with an in-card tray so move buttons stay centered under the selected card and remain visible when the pile wraps onto multiple rows.
   - Made zone cards read more like art-only cards by removing the extra mini-panel shell from the zone variant and using only a light selected glow plus card shadow.
   - Added click-to-toggle selection on overlay cards so tapping the same card again collapses its action tray.
+  - Extended the same in-overlay move tray to the local library pile, so specific cards can be pulled straight from library view without going through the inspector.
   - Verification:
     - `npm run lint`
     - `npm run build`
     - Playwright browser checks against the live preview server for:
       - multi-row graveyard overlay with a selected first-row card and a second row beneath it
       - outside-click close after opening the overlay
+      - local library overlay showing five move buttons after selecting a card
 2026-03-21
 - Zone overlay compactness pass:
   - Reworked the zone overlay into a viewport-fixed layer with capture-phase outside-click dismissal so clicks outside the card surface reliably close it.

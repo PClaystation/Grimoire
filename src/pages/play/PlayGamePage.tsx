@@ -1881,12 +1881,11 @@ function ZoneOverlay({
       : null
   const selectedZoneCardHasActions =
     selectedZoneCard !== null &&
-    activeZone !== 'library' &&
     selectedZoneCard.ownerPlayerId === localPlayerId &&
     canAct
   const selectedZoneCardInstanceId = selectedZoneCard?.instanceId ?? null
   const selectedZoneCardMoveTargets = selectedZoneCardHasActions
-    ? (['battlefield', 'hand', 'graveyard', 'command', 'exile'] as OwnedZone[]).filter(
+    ? (['library', 'battlefield', 'hand', 'graveyard', 'command', 'exile'] as OwnedZone[]).filter(
         (zone) => zone !== activeZone,
       )
     : []
