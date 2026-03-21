@@ -216,8 +216,20 @@ Original prompt: You are extending an existing MTG deckbuilder web app into an o
   - Switched all visible card renderers to contained art so no card image is cropped in the browser UI.
   - Updated the play-table zone rail, table-card surfaces, inspector preview, and both card-detail modals to use explicit card-ratio frames with full art visibility.
   - Kept the zone rail and overlay separate from the placement surface, but widened the rail and pile visuals so the cards no longer read as compressed.
+  - Verification:
+  - `npm run build` passed.
+
+2026-03-21
+- Zone overlay and turn-accessibility pass:
+  - Tightened the graveyard / exile / command overlay cards into a compact wrapping layout so many more cards fit across the screen instead of a forced two-column grid.
+  - Added a persistent floating turn dock at the bottom of the viewport so passing the turn is available without scrolling back to the table header.
+  - Strengthened the active-turn treatment in the HUD with a green spotlight state, stronger badge treatment, and a page-level glow while the local player is active.
+  - Added stable `data-testid` hooks for both pass-turn buttons and updated `scripts/validate-play-table.mjs` to click the floating dock explicitly.
 - Verification:
   - `npm run build` passed.
+  - `npm run lint` passed.
+  - `node scripts/validate-play-table.mjs http://127.0.0.1:8787` passed after restarting the preview server so the rebuilt bundle was loaded.
+  - Reviewed refreshed screenshots in `artifacts/playwright/revamp/alice-table.png` and `artifacts/playwright/revamp/bob-table.png`; the tighter zone cards and the floating turn dock are visible.
   - `npm run lint` passed.
   - Ran `node scripts/validate-play-table.mjs http://127.0.0.1:8787` and refreshed `artifacts/playwright/revamp/alice-table.png`, `artifacts/playwright/revamp/bob-table.png`, and `artifacts/playwright/revamp/summary.json`.
   - Ran the required `develop-web-game` smoke client against `http://127.0.0.1:8787/play` and captured `output/web-game/full-art-smoke/shot-0.png`.

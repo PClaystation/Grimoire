@@ -303,7 +303,7 @@ export function PlayGamePage() {
   }
 
   return (
-    <div className="relative min-h-screen overflow-hidden px-4 py-4 text-ink-50 sm:px-6 lg:px-8">
+    <div className="relative min-h-screen overflow-hidden px-4 py-4 pb-28 text-ink-50 sm:px-6 sm:pb-32 lg:px-8 lg:pb-36">
       <div className="mx-auto flex w-full max-w-[1720px] flex-col gap-4">
         <SiteNav connectionStatus={connectionStatus} compact />
 
@@ -341,6 +341,9 @@ export function PlayGamePage() {
             <section className="relative overflow-hidden rounded-[2.5rem] border border-white/10 bg-[linear-gradient(180deg,rgba(11,26,33,0.98),rgba(7,18,24,0.99))] p-5 shadow-panel lg:p-6">
               <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top,rgba(29,150,167,0.15),transparent_28%),radial-gradient(circle_at_bottom,rgba(223,107,11,0.13),transparent_28%),linear-gradient(rgba(255,255,255,0.03)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.03)_1px,transparent_1px)] bg-[length:auto,auto,34px_34px,34px_34px]" />
               <div className="pointer-events-none absolute inset-x-10 top-0 h-24 rounded-full bg-[radial-gradient(circle,rgba(255,255,255,0.08),transparent_68%)] blur-2xl" />
+              {isLocalPlayersTurn ? (
+                <div className="pointer-events-none absolute inset-x-0 top-0 h-32 bg-[radial-gradient(circle_at_top,rgba(34,197,94,0.18),transparent_72%)] blur-2xl" />
+              ) : null}
               <div className="relative grid gap-6">
             {opponentPlayers.length > 0 ? (
               <section
@@ -716,6 +719,11 @@ export function PlayGamePage() {
           </aside>
         </div>
       </div>
+      <TurnDock
+        activePlayerName={activeTurnPlayer?.name ?? 'Unknown player'}
+        isLocalPlayersTurn={isLocalPlayersTurn}
+        onAdvanceTurn={() => sendTurnAction({ type: 'advance_turn' })}
+      />
     </div>
   )
 }
@@ -744,7 +752,13 @@ function TableHud({
   onAdvanceTurn: () => void
 }) {
   return (
-    <section className="relative isolate overflow-hidden rounded-[2rem] border border-white/10 bg-ink-900/94 px-5 py-5 shadow-panel">
+    <section
+      className={`relative isolate overflow-hidden rounded-[2rem] border px-5 py-5 shadow-panel ${
+        isLocalPlayersTurn
+          ? 'border-emerald-400/25 bg-[linear-gradient(180deg,rgba(8,35,24,0.97),rgba(6,24,17,0.98))] shadow-[0_0_0_1px_rgba(34,197,94,0.14),0_18px_55px_rgba(0,0,0,0.28)]'
+          : 'border-white/10 bg-ink-900/94'
+      }`}
+    >
       <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_left,rgba(29,150,167,0.16),transparent_28%),radial-gradient(circle_at_bottom_right,rgba(223,107,11,0.12),transparent_24%)]" />
       <div className="relative flex flex-col gap-5 xl:flex-row xl:items-end xl:justify-between">
         <div className="space-y-3">
@@ -799,18 +813,35 @@ function TableHud({
             </p>
             <div className="mt-3 flex flex-wrap items-center justify-between gap-3">
               <div>
-                <p className="text-[0.72rem] font-semibold uppercase tracking-[0.16em] text-ember-200/80">
+                <p
+                  className={`inline-flex items-center gap-2 rounded-full border px-3 py-1 text-[0.72rem] font-semibold uppercase tracking-[0.16em] ${
+                    isLocalPlayersTurn
+                      ? 'border-emerald-400/30 bg-emerald-500/15 text-emerald-100'
+                      : 'border-ember-400/25 bg-ember-500/12 text-ember-100'
+                  }`}
+                >
+                  <span
+                    className={`h-2 w-2 rounded-full ${
+                      isLocalPlayersTurn
+                        ? 'bg-emerald-300 shadow-[0_0_14px_rgba(110,231,183,0.9)]'
+                        : 'bg-ember-300 shadow-[0_0_14px_rgba(253,186,116,0.75)]'
+                    }`}
+                  />
                   {isLocalPlayersTurn ? 'Your turn' : `${activePlayer?.name ?? 'Unknown player'}'s turn`}
                 </p>
-                <h2 className="mt-1 text-2xl font-semibold text-ink-50">
+                <h2 className="mt-2 text-2xl font-semibold text-ink-50">
                   {isLocalPlayersTurn
                     ? 'You can move cards and use the board.'
                     : `Actions stay locked until ${activePlayer?.name ?? 'the active player'} passes.`}
                 </h2>
               </div>
-              <fieldset disabled={!isLocalPlayersTurn} className={isLocalPlayersTurn ? '' : 'opacity-60'}>
-                <HudButton icon={<ArrowRight className="h-4 w-4" />} label="Pass turn" onClick={onAdvanceTurn} />
-              </fieldset>
+              <HudButton
+                icon={<ArrowRight className="h-4 w-4" />}
+                label="Pass turn"
+                onClick={onAdvanceTurn}
+                disabled={!isLocalPlayersTurn}
+                dataTestId="table-hud-pass-turn"
+              />
             </div>
           </div>
 
@@ -1983,7 +2014,7 @@ function ZoneOverlay({
 
         <div className="min-h-0 flex-1 overflow-y-auto px-4 py-4 sm:px-5 sm:py-5">
           {visibleCards.length > 0 ? (
-            <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-2">
+            <div className="flex flex-wrap items-start gap-3">
               {visibleCards.map((card) => {
                 const isSelected =
                   activeZone === 'library'
@@ -2000,7 +2031,7 @@ function ZoneOverlay({
                 return (
                   <article
                     key={card.instanceId}
-                    className={`rounded-[1.6rem] border p-3 transition ${
+                    className={`w-[12rem] shrink-0 rounded-[1.6rem] border p-3 transition ${
                       isSelected
                         ? 'border-tide-300/40 bg-tide-500/[0.08]'
                         : 'border-white/10 bg-white/[0.04]'
@@ -2815,20 +2846,86 @@ function HudButton({
   icon,
   label,
   onClick,
+  disabled = false,
+  dataTestId,
 }: {
   icon: ReactNode
   label: string
   onClick: () => void
+  disabled?: boolean
+  dataTestId?: string
 }) {
   return (
     <button
       type="button"
+      data-testid={dataTestId}
       onClick={onClick}
-      className="inline-flex items-center justify-center gap-2 rounded-2xl border border-white/10 bg-white/6 px-4 py-3 text-sm font-semibold text-ink-100 transition hover:border-white/20 hover:bg-white/10"
+      disabled={disabled}
+      className={`inline-flex items-center justify-center gap-2 rounded-2xl border px-4 py-3 text-sm font-semibold text-ink-100 transition ${
+        disabled
+          ? 'cursor-not-allowed border-white/10 bg-white/5 opacity-60'
+          : 'border-white/10 bg-white/6 hover:border-white/20 hover:bg-white/10'
+      }`}
     >
       {icon}
       {label}
     </button>
+  )
+}
+
+function TurnDock({
+  activePlayerName,
+  isLocalPlayersTurn,
+  onAdvanceTurn,
+}: {
+  activePlayerName: string
+  isLocalPlayersTurn: boolean
+  onAdvanceTurn: () => void
+}) {
+  return (
+    <div className="pointer-events-none fixed inset-x-0 bottom-4 z-40 px-4 sm:px-6 lg:px-8">
+      <div className="mx-auto flex w-full max-w-[1720px] justify-end">
+        <div
+          className={`pointer-events-auto flex max-w-[28rem] items-center justify-between gap-4 rounded-[1.6rem] border px-4 py-3 shadow-[0_18px_60px_rgba(0,0,0,0.38)] backdrop-blur ${
+            isLocalPlayersTurn
+              ? 'border-emerald-400/30 bg-[linear-gradient(180deg,rgba(8,35,24,0.96),rgba(5,20,15,0.96))]'
+              : 'border-white/10 bg-ink-950/92'
+          }`}
+        >
+          <div className="flex items-center gap-3">
+            <span
+              className={`h-3 w-3 rounded-full ${
+                isLocalPlayersTurn
+                  ? 'bg-emerald-300 shadow-[0_0_16px_rgba(110,231,183,0.95)] animate-pulse'
+                  : 'bg-amber-300 shadow-[0_0_16px_rgba(253,186,116,0.8)]'
+              }`}
+            />
+            <div>
+              <p
+                className={`text-[0.7rem] font-semibold uppercase tracking-[0.18em] ${
+                  isLocalPlayersTurn ? 'text-emerald-100' : 'text-ember-100/85'
+                }`}
+              >
+                {isLocalPlayersTurn ? 'Your turn' : `${activePlayerName} is acting`}
+              </p>
+              <p className="text-sm text-ink-300">
+                {isLocalPlayersTurn
+                  ? 'Pass here without scrolling back to the top.'
+                  : 'The pass button will unlock when the active player finishes.'}
+              </p>
+            </div>
+          </div>
+
+          <HudButton
+            icon={<ArrowRight className="h-4 w-4" />}
+            label="Pass turn"
+            onClick={onAdvanceTurn}
+            disabled={!isLocalPlayersTurn}
+            dataTestId="turn-dock-pass-turn"
+          />
+        </div>
+      </div>
+    </div>
   )
 }
 

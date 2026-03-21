@@ -302,7 +302,7 @@ async function main() {
   await alicePage.getByRole('button', { name: /Save note/i }).click()
   await alicePage.getByRole('button', { name: /^Tokens$/i }).click()
   await alicePage.getByRole('button', { name: /^Treasure/i }).click()
-  await alicePage.getByRole('button', { name: /Pass turn/i }).click()
+  await alicePage.getByTestId('turn-dock-pass-turn').click()
   await bobPage.getByText('You can move cards and use the board.').waitFor({ timeout: 15000 })
 
   const bobHandCards = bobPage.getByTestId('hand-tray').locator('button[data-card-name]')
