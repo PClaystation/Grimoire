@@ -79,7 +79,7 @@ export function SiteNav({ connectionStatus, compact = false }: SiteNavProps) {
 
   return (
     <nav
-      className={`relative isolate overflow-visible rounded-[2rem] border border-white/10 bg-[linear-gradient(180deg,rgba(16,31,39,0.96),rgba(10,22,29,0.96))] shadow-panel ring-1 ring-white/5 ${
+      className={`relative isolate z-40 overflow-visible rounded-[2rem] border border-white/10 bg-[linear-gradient(180deg,rgba(16,31,39,0.96),rgba(10,22,29,0.96))] shadow-panel ring-1 ring-white/5 ${
         compact ? 'px-4 py-3 sm:px-5' : 'px-4 py-4 sm:px-6'
       }`}
     >
