@@ -238,6 +238,18 @@ Original prompt: You are extending an existing MTG deckbuilder web app into an o
 2026-03-21
 - Zone rail merge pass:
   - Reworked each battlefield lane into a single merged shell so the play field and zone rail read as one connected table surface instead of two separate panels.
+
+2026-03-21
+- Zone overlay art-only pass:
+  - Simplified the graveyard / exile / command / library overlay cards so the tiles now show art only by default.
+  - Moved the move actions behind card selection, so clicking a card reveals its zone buttons directly below the art instead of showing metadata on every tile.
+  - Added a lightweight staggered fly-in animation so overlay cards appear to come out of the pile and settle into the existing wrap layout.
+  - Updated the play-table validator to click the selected overlay card first, then use the revealed action tray.
+  - Verification:
+    - `npm run lint` passed.
+    - `npm run build` passed.
+    - Ran `node scripts/validate-play-table.mjs http://127.0.0.1:8787` against the local preview server and visually reviewed the refreshed screenshots in `artifacts/playwright/revamp/alice-table.png` and `artifacts/playwright/revamp/bob-table.png`.
+    - The validator produced the expected screenshot artifacts but did not exit cleanly, so its lingering Node process was killed after the browser pass completed.
   - Increased the rail column width and the pile art footprint so the zone cards feel wider rather than being visually shrunk inside a narrow sidebar.
   - Kept the rail non-dropable by leaving all placement handling on the play field pane only.
 - Verification:

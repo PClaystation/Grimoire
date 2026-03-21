@@ -276,6 +276,7 @@ async function main() {
   await alicePage.getByTestId('zone-pile-command-local').click()
   const aliceCommandOverlayCard = aliceZoneOverlay.locator('button[data-card-name]').first()
   await aliceCommandOverlayCard.waitFor({ timeout: 15000 })
+  await aliceCommandOverlayCard.click()
   await aliceCommandOverlayCard
     .locator('xpath=ancestor::article[1]')
     .getByRole('button', { name: /^Battlefield$/i })
@@ -291,6 +292,7 @@ async function main() {
   await alicePage.getByTestId('zone-pile-graveyard-local').click()
   const aliceGraveyardOverlayCard = aliceZoneOverlay.locator('button[data-card-name]').first()
   await aliceGraveyardOverlayCard.waitFor({ timeout: 15000 })
+  await aliceGraveyardOverlayCard.click()
   await aliceGraveyardOverlayCard
     .locator('xpath=ancestor::article[1]')
     .getByRole('button', { name: /^Battlefield$/i })
