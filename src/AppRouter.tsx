@@ -4,6 +4,7 @@ import App from '@/App'
 import { PlayProvider } from '@/play/PlayProvider'
 import { PlayCreatePage } from '@/pages/play/PlayCreatePage'
 import { PlayGamePage } from '@/pages/play/PlayGamePage'
+import { PlayLabPage } from '@/pages/play/PlayLabPage'
 import { PlayHomePage } from '@/pages/play/PlayHomePage'
 import { PlayJoinPage } from '@/pages/play/PlayJoinPage'
 import { PlayRoomPage } from '@/pages/play/PlayRoomPage'
@@ -21,6 +22,7 @@ export default function AppRouter() {
           <Route path="/play" element={<PlayHomePage />} />
           <Route path="/play/create" element={<PlayCreatePage />} />
           <Route path="/play/join" element={<PlayJoinPage />} />
+          <Route path="/play/lab" element={<PlayLabPage />} />
           <Route path="/play/room/:roomId" element={<PlayRoomPage />} />
           <Route path="/play/game/:gameId" element={<PlayGamePage />} />
         </Route>

@@ -96,6 +96,7 @@ export function PlayProvider({ children }: PropsWithChildren) {
       roomDirectory: [],
       game: null,
       error: null,
+      debugUnlocked: false,
     }
   })
 
@@ -128,6 +129,7 @@ export function PlayProvider({ children }: PropsWithChildren) {
             playerNameRef.current = message.playerName
             const activeRoomId = typeof message.roomId === 'string' ? message.roomId : null
             const activeGameId = typeof message.gameId === 'string' ? message.gameId : null
+            const debugUnlocked = message.debugUnlocked === true
 
             return {
               ...currentState,
@@ -141,6 +143,7 @@ export function PlayProvider({ children }: PropsWithChildren) {
                 activeGameId && currentState.game?.gameId === activeGameId
                   ? currentState.game
                   : null,
+              debugUnlocked,
               error: null,
             }
           }
@@ -348,14 +351,37 @@ export function PlayProvider({ children }: PropsWithChildren) {
       }))
     },
     setPlayerName,
+    unlockDebugMode(password: string) {
+      sendMessage({
+        type: 'unlock_debug_mode',
+        password,
+      })
+    },
     createRoom(settings) {
       sendMessage({ type: 'create_room', settings })
+    },
+    createDebugRoom(settings) {
+      sendMessage({ type: 'create_debug_room', settings })
     },
     updateRoomSettings(roomId: string, settings) {
       sendMessage({
         type: 'update_room_settings',
         roomId: normalizeRoomCode(roomId),
         settings,
+      })
+    },
+    addDebugPlayer(roomId: string, name?: string) {
+      sendMessage({
+        type: 'add_debug_player',
+        roomId: normalizeRoomCode(roomId),
+        name,
+      })
+    },
+    removeDebugPlayer(roomId: string, playerId: string) {
+      sendMessage({
+        type: 'remove_debug_player',
+        roomId: normalizeRoomCode(roomId),
+        playerId,
       })
     },
     joinRoom(roomId: string) {

@@ -194,3 +194,19 @@ Original prompt: You are extending an existing MTG deckbuilder web app into an o
   - Ran the required `develop-web-game` smoke client against `http://127.0.0.1:8788/play` and refreshed `output/web-game/shot-0.png`.
 - Follow-up:
   - The generic smoke client still records the same unrelated `403 (Forbidden)` resource-load console message in `output/web-game/errors-0.json`.
+
+2026-03-21
+- Hidden sandbox room pass:
+  - Added a private `/play/lab` entry point that is not linked from the normal play nav.
+  - Added a server-side debug unlock flow with a password gate. The server accepts `PLAY_DEBUG_ROOM_SECRET` and falls back to `grimoire-lab` when that env var is unset.
+  - Added a hidden debug room mode that is always private, never appears in the public room directory, and rejects joins from sessions that have not unlocked the debug password.
+  - Added placeholder lobby seats that are marked explicitly in the room snapshot, carry synthetic decks, and can be added or removed from the room lobby without extra accounts.
+  - Made debug rooms startable immediately by the host, with synthetic decks auto-filled if nobody has chosen a real deck yet.
+  - Surfaced sandbox state in the client lobby and game HUD so the room is clearly labeled as a debug room once it opens.
+- Verification:
+  - `npm run build` passed.
+  - `npm run lint` passed.
+  - `npm test` passed with new coverage for debug room unlock/create/add/remove flows.
+  - Ran a Playwright browser pass against `http://127.0.0.1:8787/play/lab`, unlocked the lab with `grimoire-lab`, opened the sandbox room, added an extra placeholder seat, and started a debug game.
+  - Captured and reviewed screenshots in `artifacts/playwright/debug-lab/room-default.png`, `artifacts/playwright/debug-lab/room-with-extra-seat.png`, and `artifacts/playwright/debug-lab/game-sandbox.png`.
+  - The browser pass only reported the same unrelated `403 (Forbidden)` resource-load console message seen in earlier smoke checks.

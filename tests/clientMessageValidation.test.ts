@@ -180,6 +180,51 @@ test('parseClientMessage accepts room creation and room settings updates with se
   assert.equal(updateRoomSettings.settings.maxPlayers, 3)
 })
 
+test('parseClientMessage accepts debug room unlock and placeholder seat actions', () => {
+  const unlockDebugMode = parseClientMessage(
+    JSON.stringify({
+      type: 'unlock_debug_mode',
+      password: 'grimoire-lab',
+    }),
+  )
+
+  const createDebugRoom = parseClientMessage(
+    JSON.stringify({
+      type: 'create_debug_room',
+      settings: {
+        name: 'Sandbox',
+        minPlayers: 1,
+        maxPlayers: 6,
+      },
+    }),
+  )
+
+  const addDebugPlayer = parseClientMessage(
+    JSON.stringify({
+      type: 'add_debug_player',
+      roomId: 'ABC123',
+      name: 'Seat 4',
+    }),
+  )
+
+  const removeDebugPlayer = parseClientMessage(
+    JSON.stringify({
+      type: 'remove_debug_player',
+      roomId: 'ABC123',
+      playerId: 'player-4',
+    }),
+  )
+
+  assert.ok(unlockDebugMode)
+  assert.equal(unlockDebugMode.type, 'unlock_debug_mode')
+  assert.ok(createDebugRoom)
+  assert.equal(createDebugRoom.type, 'create_debug_room')
+  assert.ok(addDebugPlayer)
+  assert.equal(addDebugPlayer.type, 'add_debug_player')
+  assert.ok(removeDebugPlayer)
+  assert.equal(removeDebugPlayer.type, 'remove_debug_player')
+})
+
 test('parseClientMessage rejects malformed stack payloads', () => {
   const invalidStackAction = parseClientMessage(
     JSON.stringify({

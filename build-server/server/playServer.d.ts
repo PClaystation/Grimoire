@@ -12,6 +12,7 @@ export declare class PlayServer {
     private readonly sessionRoomIds;
     private readonly sessionNames;
     private readonly knownSessionIds;
+    private readonly debugUnlockedSessions;
     private readonly pendingDisconnectTimers;
     private readonly disconnectGracePeriodMs;
     private readonly setTimeoutFn;
@@ -25,9 +26,13 @@ export declare class PlayServer {
         type: 'hello';
     }>): void;
     private createRoom;
+    private unlockDebugMode;
+    private createDebugRoom;
     private joinRoom;
     private leaveRoom;
     private updateRoomSettings;
+    private addDebugPlayer;
+    private removeDebugPlayer;
     private selectDeck;
     private startGame;
     private applyGameAction;
@@ -55,6 +60,7 @@ export declare class PlayServer {
     private recordEvent;
     private generateUniqueRoomId;
     private createRoomPlayer;
+    private createDebugPlaceholderPlayer;
     private getPlayerName;
     private getRoomBySession;
     private getRoomByGameId;

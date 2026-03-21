@@ -2,11 +2,14 @@ import { useEffect, useState } from 'react'
 import {
   ArrowRight,
   Copy,
+  FlaskConical,
   Globe2,
   Lock,
   LogOut,
   RadioTower,
   Settings2,
+  Plus,
+  Trash2,
   Swords,
 } from 'lucide-react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
@@ -41,12 +44,15 @@ export function PlayRoomPage() {
     game,
     error,
     clearError,
+    addDebugPlayer,
     leaveRoom,
+    removeDebugPlayer,
     updateRoomSettings,
     selectDeck,
     startGame,
   } = usePlay()
   const roomSettingsSignature = room ? JSON.stringify(room.settings) : ''
+  const isDebugRoom = room?.debugMode ?? false
 
   useEffect(() => {
     if (game && game.roomId === roomId) {
@@ -100,12 +106,17 @@ export function PlayRoomPage() {
   const everyoneReady =
     room.players.length >= room.settings.minPlayers &&
     room.players.every((player) => player.isConnected && player.selectedDeck)
+  const canStartGame = isHost && (isDebugRoom || everyoneReady)
 
   return (
     <PlayFrame
       eyebrow="Room Lobby"
       title={room.settings.name}
-      description={`${room.settings.visibility === 'public' ? 'Public' : 'Private'} room ${room.code}. Players join, choose decks, and the host starts once the table matches the room settings.`}
+      description={`${room.settings.visibility === 'public' ? 'Public' : 'Private'} room ${room.code}. Players join, choose decks, and the host starts once the table matches the room settings.${
+        isDebugRoom
+          ? ' This is a hidden sandbox room, so you can add placeholder seats without inviting other accounts.'
+          : ''
+      }`}
       connectionStatus={connectionStatus}
       error={error}
       onDismissError={clearError}
@@ -128,11 +139,11 @@ export function PlayRoomPage() {
             <button
               type="button"
               onClick={() => startGame(room.roomId)}
-              disabled={!everyoneReady}
+              disabled={!canStartGame}
               className="inline-flex items-center gap-2 rounded-2xl bg-tide-500 px-5 py-3 text-sm font-semibold text-white transition hover:bg-tide-400 disabled:cursor-not-allowed disabled:opacity-60"
             >
               <Swords className="h-4 w-4" />
-              Start game
+              {isDebugRoom ? 'Start debug game' : 'Start game'}
             </button>
           ) : null}
         </>
@@ -186,6 +197,11 @@ export function PlayRoomPage() {
                   </div>
 
                   <div className="flex flex-wrap gap-2">
+                    {player.isDebugPlaceholder ? (
+                      <span className="rounded-full bg-tide-500/12 px-3 py-1 text-xs font-semibold text-tide-100 ring-1 ring-tide-400/25">
+                        Placeholder
+                      </span>
+                    ) : null}
                     {player.isHost ? (
                       <span className="rounded-full bg-ember-500/12 px-3 py-1 text-xs font-semibold text-ember-100 ring-1 ring-ember-400/25">
                         Host
@@ -217,11 +233,13 @@ export function PlayRoomPage() {
 
           <div className="mt-5 rounded-[1.6rem] border border-white/10 bg-white/[0.04] p-5">
             <p className="text-sm text-ink-300">
-              {everyoneReady
-                ? isHost
-                  ? 'Everyone matches the room settings. You can start the game.'
-                  : 'Everyone matches the room settings. Waiting for the host.'
-                : `Need at least ${room.settings.minPlayers} connected players and a deck from everyone.`}
+              {isDebugRoom
+                ? 'This sandbox skips the normal readiness gate. Add placeholder seats, then start whenever the layout looks right.'
+                : everyoneReady
+                  ? isHost
+                    ? 'Everyone matches the room settings. You can start the game.'
+                    : 'Everyone matches the room settings. Waiting for the host.'
+                  : `Need at least ${room.settings.minPlayers} connected players and a deck from everyone.`}
             </p>
           </div>
 
@@ -271,6 +289,65 @@ export function PlayRoomPage() {
               </div>
             )}
           </section>
+
+          {isDebugRoom ? (
+            <section className="rounded-[2rem] border border-tide-400/20 bg-[linear-gradient(180deg,rgba(18,33,41,0.96),rgba(11,24,31,0.99))] p-6 shadow-panel ring-1 ring-tide-400/10">
+              <div className="flex items-start justify-between gap-4">
+                <div>
+                  <p className="text-xs font-semibold uppercase tracking-[0.22em] text-tide-200">
+                    Hidden sandbox
+                  </p>
+                  <h2 className="mt-2 text-2xl font-semibold text-ink-50">Seat controls</h2>
+                </div>
+                <FlaskConical className="h-5 w-5 text-tide-200" />
+              </div>
+
+              <p className="mt-4 text-sm leading-7 text-ink-300">
+                Add placeholder players to preview a crowded table. These seats do not need extra
+                accounts and stay out of the public room directory.
+              </p>
+
+              <div className="mt-5 flex flex-wrap gap-3">
+                <button
+                  type="button"
+                  onClick={() => addDebugPlayer(room.roomId)}
+                  disabled={!isHost}
+                  className="inline-flex items-center gap-2 rounded-2xl bg-ember-500 px-4 py-3 text-sm font-semibold text-white transition hover:bg-ember-400 disabled:cursor-not-allowed disabled:opacity-60"
+                >
+                  <Plus className="h-4 w-4" />
+                  Add placeholder
+                </button>
+              </div>
+
+              <div className="mt-5 grid gap-3">
+                {room.players
+                  .filter((player) => player.isDebugPlaceholder)
+                  .map((player) => (
+                    <article
+                      key={player.id}
+                      className="rounded-[1.5rem] border border-white/10 bg-white/[0.04] p-4"
+                    >
+                      <div className="flex flex-wrap items-center justify-between gap-3">
+                        <div>
+                          <h3 className="text-lg font-semibold text-ink-50">{player.name}</h3>
+                          <p className="mt-2 text-sm text-ink-300">Placeholder seat</p>
+                        </div>
+
+                        <button
+                          type="button"
+                          onClick={() => removeDebugPlayer(room.roomId, player.id)}
+                          disabled={!isHost}
+                          className="inline-flex items-center gap-2 rounded-2xl border border-white/10 bg-white/6 px-3 py-2 text-xs font-semibold text-ink-100 transition hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-60"
+                        >
+                          <Trash2 className="h-3.5 w-3.5" />
+                          Remove
+                        </button>
+                      </div>
+                    </article>
+                  ))}
+              </div>
+            </section>
+          ) : null}
 
           <section className="rounded-[2rem] border border-white/10 bg-[linear-gradient(180deg,rgba(18,33,41,0.96),rgba(11,24,31,0.99))] p-6 shadow-panel ring-1 ring-white/5">
             <div className="flex items-start justify-between gap-4">
@@ -377,6 +454,11 @@ function RoomSettingsSummary({ room }: { room: RoomSnapshot }) {
         <span className="rounded-full bg-ember-500/12 px-3 py-1 text-xs font-semibold text-ember-100 ring-1 ring-ember-400/25">
           {ROOM_POWER_LEVEL_LABELS[room.settings.powerLevel]}
         </span>
+        {room.debugMode ? (
+          <span className="rounded-full bg-tide-500/12 px-3 py-1 text-xs font-semibold text-tide-100 ring-1 ring-tide-400/25">
+            Sandbox
+          </span>
+        ) : null}
       </div>
 
       <div className="mt-4 grid gap-3 sm:grid-cols-3">

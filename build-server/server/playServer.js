@@ -1,6 +1,10 @@
-import { PLAY_COMMANDER_STARTING_LIFE_TOTAL, PLAY_OPENING_HAND_SIZE, PLAY_STARTING_LIFE_TOTAL, buildDeckSelectionSummary, buildRandomRoomCode, clampPermanentPosition, countDeckCards, normalizeDeckFormat, normalizePlayerName, normalizeRoomCode, normalizeRoomSettings, } from '../src/shared/play.js';
+import { PLAY_COMMANDER_STARTING_LIFE_TOTAL, PLAY_OPENING_HAND_SIZE, PLAY_STARTING_LIFE_TOTAL, buildDefaultRoomName, buildDeckSelectionSummary, buildRandomRoomCode, clampPermanentPosition, countDeckCards, normalizeDeckFormat, normalizePlayerName, normalizeRoomCode, normalizeRoomSettings, } from '../src/shared/play.js';
 import { expandDeckEntries, shuffleCardInstances, } from '../src/shared/playDeck.js';
 const DEFAULT_DISCONNECT_GRACE_PERIOD_MS = 5_000;
+const DEBUG_ROOM_INITIAL_PLACEHOLDERS = 2;
+function sanitizeDebugRoomPassword(value) {
+    return (value ?? '').trim();
+}
 function removeCardFromZone(cards, cardId) {
     const cardIndex = cards.findIndex((card) => card.instanceId === cardId);
     if (cardIndex < 0) {
@@ -62,6 +66,28 @@ function buildFaceDownImage() {
     return `data:image/svg+xml;charset=UTF-8,${encodeURIComponent(svg)}`;
 }
 const FACE_DOWN_IMAGE_URL = buildFaceDownImage();
+function buildDebugPlaceholderImage(label) {
+    const safeLabel = label.replace(/[<>&"]/g, '');
+    const svg = `
+    <svg xmlns="http://www.w3.org/2000/svg" width="744" height="1039" viewBox="0 0 744 1039">
+      <defs>
+        <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
+          <stop offset="0%" stop-color="#0f172a"/>
+          <stop offset="100%" stop-color="#0f766e"/>
+        </linearGradient>
+      </defs>
+      <rect width="744" height="1039" rx="42" fill="#020617"/>
+      <rect x="28" y="28" width="688" height="983" rx="34" fill="url(#bg)"/>
+      <rect x="58" y="58" width="628" height="923" rx="30" fill="rgba(8,15,29,0.56)" stroke="rgba(255,255,255,0.16)" stroke-width="4"/>
+      <text x="372" y="156" text-anchor="middle" fill="#e2e8f0" font-size="38" font-family="Verdana, sans-serif" font-weight="700">Debug Seat</text>
+      <text x="372" y="482" text-anchor="middle" fill="#f8fafc" font-size="72" font-family="Georgia, serif" font-weight="700">${safeLabel}</text>
+      <text x="372" y="560" text-anchor="middle" fill="rgba(226,232,240,0.82)" font-size="28" font-family="Verdana, sans-serif">Placeholder card for table previews</text>
+      <rect x="114" y="746" width="516" height="146" rx="26" fill="rgba(15,23,42,0.72)"/>
+      <text x="372" y="820" text-anchor="middle" fill="#dbeafe" font-size="32" font-family="Verdana, sans-serif" font-weight="700">${safeLabel}</text>
+    </svg>
+  `;
+    return `data:image/svg+xml;charset=UTF-8,${encodeURIComponent(svg)}`;
+}
 function sanitizePlayerNote(value) {
     return (value ?? '').trim().replace(/\s+/g, ' ').slice(0, 160);
 }
@@ -163,6 +189,53 @@ function buildTokenCard(ownerPlayerId, name, tokenType, colors, note, power, tou
         },
     };
 }
+function buildDebugCard(name) {
+    const imageUrl = buildDebugPlaceholderImage(name);
+    return {
+        id: `debug:${crypto.randomUUID()}`,
+        oracleId: null,
+        name,
+        manaCost: '{3}',
+        manaValue: 3,
+        releasedAt: new Date().toISOString().slice(0, 10),
+        typeLine: 'Artifact Creature - Construct',
+        oracleText: 'Placeholder card for room previews.',
+        colors: [],
+        colorIdentity: [],
+        setCode: 'dbg',
+        setName: 'Debug Room',
+        collectorNumber: '001',
+        rarity: 'special',
+        legalities: {},
+        imageUrl,
+        largeImageUrl: imageUrl,
+        prices: {
+            usd: null,
+            usdFoil: null,
+            eur: null,
+            eurFoil: null,
+            tix: null,
+        },
+    };
+}
+function buildDebugDeckSelection(playerName) {
+    const debugCard = buildDebugCard(`${playerName} Test`);
+    const mainboard = [
+        {
+            quantity: 60,
+            card: debugCard,
+        },
+    ];
+    return {
+        id: `debug-${crypto.randomUUID()}`,
+        name: `${playerName} Debug Deck`,
+        format: 'standard',
+        mainboard,
+        sideboard: [],
+        mainboardCount: 60,
+        sideboardCount: 0,
+    };
+}
 export class PlayServer {
     dependencies;
     rooms = new Map();
@@ -170,6 +243,7 @@ export class PlayServer {
     sessionRoomIds = new Map();
     sessionNames = new Map();
     knownSessionIds = new Set();
+    debugUnlockedSessions = new Set();
     pendingDisconnectTimers = new Map();
     disconnectGracePeriodMs;
     setTimeoutFn;
@@ -192,6 +266,7 @@ export class PlayServer {
             playerName: normalizedName,
             roomId: room?.roomId ?? null,
             gameId: room?.gameId ?? null,
+            debugUnlocked: this.debugUnlockedSessions.has(sessionId),
         });
         this.emitRoomDirectorySnapshots([sessionId]);
         if (!room) {
@@ -256,6 +331,12 @@ export class PlayServer {
     }
     handleMessage(sessionId, message) {
         switch (message.type) {
+            case 'unlock_debug_mode':
+                this.unlockDebugMode(sessionId, message.password);
+                break;
+            case 'create_debug_room':
+                this.createDebugRoom(sessionId, message.settings);
+                break;
             case 'create_room':
                 this.createRoom(sessionId, message.settings);
                 break;
@@ -267,6 +348,12 @@ export class PlayServer {
                 break;
             case 'update_room_settings':
                 this.updateRoomSettings(sessionId, message.roomId, message.settings);
+                break;
+            case 'add_debug_player':
+                this.addDebugPlayer(sessionId, message.roomId, message.name);
+                break;
+            case 'remove_debug_player':
+                this.removeDebugPlayer(sessionId, message.roomId, message.playerId);
                 break;
             case 'select_deck':
                 this.selectDeck(sessionId, message.roomId, message.deck);
@@ -293,6 +380,7 @@ export class PlayServer {
             code: roomId,
             createdAt,
             hostPlayerId: player.id,
+            debugMode: false,
             settings: normalizeRoomSettings(settings, player.name),
             players: [player],
             gameId: null,
@@ -302,11 +390,63 @@ export class PlayServer {
         this.sessionRoomIds.set(sessionId, roomId);
         this.emitRoomSnapshots(room);
     }
+    unlockDebugMode(sessionId, password) {
+        const expectedPassword = sanitizeDebugRoomPassword(process.env.PLAY_DEBUG_ROOM_SECRET ?? 'grimoire-lab');
+        const providedPassword = sanitizeDebugRoomPassword(password);
+        if (!providedPassword || providedPassword !== expectedPassword) {
+            this.emitError(sessionId, 'Incorrect debug room password.');
+            return;
+        }
+        this.debugUnlockedSessions.add(sessionId);
+        this.handleHello(sessionId, this.getPlayerName(sessionId));
+    }
+    createDebugRoom(sessionId, settings) {
+        if (!this.debugUnlockedSessions.has(sessionId)) {
+            this.emitError(sessionId, 'Unlock the debug room first.');
+            return;
+        }
+        const existingRoom = this.getRoomBySession(sessionId);
+        if (existingRoom) {
+            this.emitRoomSnapshots(existingRoom);
+            return;
+        }
+        const roomId = this.generateUniqueRoomId();
+        const player = this.createRoomPlayer(sessionId);
+        const createdAt = new Date().toISOString();
+        const normalizedSettings = normalizeRoomSettings({
+            ...settings,
+            visibility: 'private',
+            minPlayers: 1,
+            name: settings?.name ?? `${buildDefaultRoomName(player.name)} Debug`,
+        }, player.name);
+        normalizedSettings.minPlayers = 1;
+        const room = {
+            roomId,
+            code: roomId,
+            createdAt,
+            hostPlayerId: player.id,
+            debugMode: true,
+            settings: normalizedSettings,
+            players: [player],
+            gameId: null,
+            game: null,
+        };
+        for (let index = 0; index < DEBUG_ROOM_INITIAL_PLACEHOLDERS; index += 1) {
+            room.players.push(this.createDebugPlaceholderPlayer(index + 2));
+        }
+        this.rooms.set(roomId, room);
+        this.sessionRoomIds.set(sessionId, roomId);
+        this.emitRoomSnapshots(room);
+    }
     joinRoom(sessionId, requestedRoomId) {
         const roomId = normalizeRoomCode(requestedRoomId);
         const room = this.rooms.get(roomId);
         if (!room) {
             this.emitError(sessionId, 'Room not found.');
+            return;
+        }
+        if (room.debugMode && !this.debugUnlockedSessions.has(sessionId)) {
+            this.emitError(sessionId, 'This room requires debug access.');
             return;
         }
         const existingRoom = this.getRoomBySession(sessionId);
@@ -376,11 +516,72 @@ export class PlayServer {
             return;
         }
         const normalizedSettings = normalizeRoomSettings(settings, hostPlayer.name);
+        if (room.debugMode) {
+            normalizedSettings.visibility = 'private';
+            normalizedSettings.minPlayers = 1;
+        }
         if (normalizedSettings.maxPlayers < room.players.length) {
             this.emitError(sessionId, 'Increase the player limit or remove players before shrinking the room.');
             return;
         }
         room.settings = normalizedSettings;
+        this.emitRoomSnapshots(room);
+    }
+    addDebugPlayer(sessionId, requestedRoomId, name) {
+        const room = this.getRoomBySession(sessionId);
+        if (!room || room.roomId !== normalizeRoomCode(requestedRoomId)) {
+            this.emitError(sessionId, 'You are not in that room.');
+            return;
+        }
+        if (!room.debugMode) {
+            this.emitError(sessionId, 'Debug players can only be added in a debug room.');
+            return;
+        }
+        const hostPlayer = room.players.find((player) => player.id === room.hostPlayerId);
+        if (!hostPlayer || hostPlayer.sessionId !== sessionId) {
+            this.emitError(sessionId, 'Only the host can add debug players.');
+            return;
+        }
+        if (room.game) {
+            this.emitError(sessionId, 'Debug players can only be added before the game starts.');
+            return;
+        }
+        if (room.players.length >= room.settings.maxPlayers) {
+            this.emitError(sessionId, 'This room is full.');
+            return;
+        }
+        room.players.push(this.createDebugPlaceholderPlayer(room.players.length + 1, name));
+        this.emitRoomSnapshots(room);
+    }
+    removeDebugPlayer(sessionId, requestedRoomId, playerId) {
+        const room = this.getRoomBySession(sessionId);
+        if (!room || room.roomId !== normalizeRoomCode(requestedRoomId)) {
+            this.emitError(sessionId, 'You are not in that room.');
+            return;
+        }
+        if (!room.debugMode) {
+            this.emitError(sessionId, 'Debug players can only be removed in a debug room.');
+            return;
+        }
+        const hostPlayer = room.players.find((player) => player.id === room.hostPlayerId);
+        if (!hostPlayer || hostPlayer.sessionId !== sessionId) {
+            this.emitError(sessionId, 'Only the host can remove debug players.');
+            return;
+        }
+        if (room.game) {
+            this.emitError(sessionId, 'Debug players can only be removed before the game starts.');
+            return;
+        }
+        const debugPlayerIndex = room.players.findIndex((player) => player.id === playerId && player.sessionId === null);
+        if (debugPlayerIndex < 0) {
+            this.emitError(sessionId, 'Debug player not found.');
+            return;
+        }
+        if (room.players[debugPlayerIndex]?.id === room.hostPlayerId) {
+            this.emitError(sessionId, 'You cannot remove the host player.');
+            return;
+        }
+        room.players.splice(debugPlayerIndex, 1);
         this.emitRoomSnapshots(room);
     }
     selectDeck(sessionId, requestedRoomId, deck) {
@@ -423,25 +624,36 @@ export class PlayServer {
             return;
         }
         if (room.players.length < room.settings.minPlayers) {
-            this.emitError(sessionId, `You need at least ${room.settings.minPlayers} players to start this room.`);
-            return;
+            if (!room.debugMode) {
+                this.emitError(sessionId, `You need at least ${room.settings.minPlayers} players to start this room.`);
+                return;
+            }
         }
-        if (room.players.some((player) => !player.isConnected)) {
+        if (!room.debugMode && room.players.some((player) => !player.isConnected)) {
             this.emitError(sessionId, 'All lobby players need to be connected before starting.');
             return;
         }
-        if (room.players.some((player) => player.selectedDeck === null)) {
+        if (!room.debugMode && room.players.some((player) => player.selectedDeck === null)) {
             this.emitError(sessionId, 'Every player needs to choose a deck before starting.');
             return;
         }
         const startedAt = new Date().toISOString();
         const gameId = crypto.randomUUID();
-        const players = room.players.map((player) => {
-            const selectedDeck = player.selectedDeck;
+        const fallbackDeck = room.players.find((player) => player.selectedDeck)?.selectedDeck ?? null;
+        const players = [];
+        for (const player of room.players) {
+            const selectedDeck = player.selectedDeck ??
+                (room.debugMode
+                    ? fallbackDeck ?? buildDebugDeckSelection(player.name)
+                    : null);
+            if (!selectedDeck) {
+                this.emitError(sessionId, 'Every player needs to choose a deck before starting.');
+                return;
+            }
             const library = shuffleCardInstances(expandDeckEntries(selectedDeck.mainboard, player.id));
             const command = this.buildInitialCommandZone(selectedDeck, player.id, library);
             const hand = library.splice(0, PLAY_OPENING_HAND_SIZE);
-            return {
+            players.push({
                 id: player.id,
                 sessionId: player.sessionId,
                 name: player.name,
@@ -461,8 +673,8 @@ export class PlayServer {
                 designations: buildDefaultPlayerDesignations(),
                 commanderTax: 0,
                 commanderDamage: [],
-            };
-        });
+            });
+        }
         room.gameId = gameId;
         room.game = {
             gameId,
@@ -1090,6 +1302,9 @@ export class PlayServer {
     }
     emitRoomSnapshots(room) {
         room.players.forEach((player) => {
+            if (!player.sessionId) {
+                return;
+            }
             this.dependencies.sendToSession(player.sessionId, {
                 type: 'room_snapshot',
                 room: this.buildRoomSnapshot(room, player.id),
@@ -1102,9 +1317,12 @@ export class PlayServer {
             return;
         }
         room.game.players.forEach((player) => {
+            if (!player.sessionId) {
+                return;
+            }
             this.dependencies.sendToSession(player.sessionId, {
                 type: 'game_snapshot',
-                game: this.buildGameSnapshot(room.game, player.id),
+                game: this.buildGameSnapshot(room.game, player.id, room.debugMode),
             });
         });
     }
@@ -1117,6 +1335,7 @@ export class PlayServer {
             gameId: room.gameId,
             hostPlayerId: room.hostPlayerId,
             localPlayerId,
+            debugMode: room.debugMode,
             settings: room.settings,
             players: room.players.map((player) => ({
                 id: player.id,
@@ -1124,6 +1343,7 @@ export class PlayServer {
                 isHost: player.id === room.hostPlayerId,
                 isConnected: player.isConnected,
                 selectedDeck: player.selectedDeck ? buildDeckSelectionSummary(player.selectedDeck) : null,
+                isDebugPlaceholder: player.isDebugPlaceholder,
             })),
         };
     }
@@ -1141,7 +1361,7 @@ export class PlayServer {
         });
     }
     buildRoomDirectoryEntry(room) {
-        if (room.settings.visibility !== 'public' || room.game) {
+        if (room.debugMode || room.settings.visibility !== 'public' || room.game) {
             return null;
         }
         const hostPlayer = room.players.find((player) => player.id === room.hostPlayerId) ?? room.players[0];
@@ -1166,7 +1386,7 @@ export class PlayServer {
             })),
         };
     }
-    buildGameSnapshot(game, localPlayerId) {
+    buildGameSnapshot(game, localPlayerId, debugMode) {
         const publicPlayers = game.players.map((player) => ({
             id: player.id,
             name: player.name,
@@ -1195,6 +1415,7 @@ export class PlayServer {
             gameId: game.gameId,
             roomId: game.roomId,
             localPlayerId,
+            debugMode,
             publicState: {
                 gameId: game.gameId,
                 roomId: game.roomId,
@@ -1297,6 +1518,19 @@ export class PlayServer {
             joinedAt: new Date().toISOString(),
             isConnected: true,
             selectedDeck: null,
+            isDebugPlaceholder: false,
+        };
+    }
+    createDebugPlaceholderPlayer(seatNumber, name) {
+        const playerName = normalizePlayerName(name ?? `Seat ${seatNumber}`);
+        return {
+            id: crypto.randomUUID(),
+            sessionId: null,
+            name: playerName,
+            joinedAt: new Date().toISOString(),
+            isConnected: false,
+            selectedDeck: buildDebugDeckSelection(playerName),
+            isDebugPlaceholder: true,
         };
     }
     getPlayerName(sessionId) {
@@ -1316,6 +1550,9 @@ export class PlayServer {
             return;
         }
         room.players.forEach((player) => {
+            if (!player.sessionId) {
+                return;
+            }
             this.sessionRoomIds.delete(player.sessionId);
         });
         if (room.gameId) {

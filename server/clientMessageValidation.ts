@@ -254,7 +254,11 @@ function isClientMessagePayload(value: unknown): value is ClientMessage {
   switch (value.type) {
     case 'hello':
       return typeof value.sessionId === 'string' && typeof value.playerName === 'string'
+    case 'unlock_debug_mode':
+      return isNonEmptyString(value.password)
     case 'create_room':
+      return value.settings === undefined || isRoomSettingsPayload(value.settings)
+    case 'create_debug_room':
       return value.settings === undefined || isRoomSettingsPayload(value.settings)
     case 'join_room':
     case 'leave_room':
@@ -262,6 +266,10 @@ function isClientMessagePayload(value: unknown): value is ClientMessage {
       return isNonEmptyString(value.roomId)
     case 'update_room_settings':
       return isNonEmptyString(value.roomId) && isRoomSettingsPayload(value.settings)
+    case 'add_debug_player':
+      return isNonEmptyString(value.roomId) && (value.name === undefined || isNonEmptyString(value.name))
+    case 'remove_debug_player':
+      return isNonEmptyString(value.roomId) && isNonEmptyString(value.playerId)
     case 'select_deck':
       return isNonEmptyString(value.roomId) && isDeckSelectionSnapshotPayload(value.deck)
     case 'game_action':

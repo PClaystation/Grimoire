@@ -186,6 +186,85 @@ function createStartedGame(harness: ReturnType<typeof createHarness>) {
   }
 }
 
+test('PlayServer opens a hidden debug room with placeholder seats and lets the host start solo', () => {
+  const harness = createHarness()
+  const playServer = new PlayServer({
+    sendToSession: harness.sendToSession,
+    disconnectGracePeriodMs: 5_000,
+    setTimeout: harness.setTimeout,
+    clearTimeout: harness.clearTimeout,
+  })
+
+  playServer.handleHello('session-alice', 'Alice')
+  playServer.handleMessage('session-alice', {
+    type: 'unlock_debug_mode',
+    password: 'grimoire-lab',
+  })
+  playServer.handleMessage('session-alice', {
+    type: 'create_debug_room',
+    settings: {
+      name: 'Sandbox Table',
+      description: 'Hidden preview room',
+    },
+  })
+
+  const room = harness.latestRoomSnapshot('session-alice')
+  assert.equal(room.debugMode, true)
+  assert.equal(room.players.length, 3)
+  assert.equal(room.players.filter((player) => !player.isConnected).length, 2)
+  assert.equal(harness.latestRoomDirectory('session-alice').length, 0)
+
+  playServer.handleMessage('session-alice', { type: 'start_game', roomId: room.roomId })
+
+  const game = harness.latestGameSnapshot('session-alice')
+  assert.equal(game.debugMode, true)
+  assert.equal(game.publicState.players.length, 3)
+  assert.equal(game.privateState?.hand.length, 7)
+  assert.equal(game.privateState?.library.length, 53)
+  assert.ok(game.publicState.players.every((player) => player.deck !== null))
+})
+
+test('PlayServer lets the host add and remove placeholder players in a debug room', () => {
+  const harness = createHarness()
+  const playServer = new PlayServer({
+    sendToSession: harness.sendToSession,
+    disconnectGracePeriodMs: 5_000,
+    setTimeout: harness.setTimeout,
+    clearTimeout: harness.clearTimeout,
+  })
+
+  playServer.handleHello('session-alice', 'Alice')
+  playServer.handleMessage('session-alice', {
+    type: 'unlock_debug_mode',
+    password: 'grimoire-lab',
+  })
+  playServer.handleMessage('session-alice', { type: 'create_debug_room' })
+
+  const room = harness.latestRoomSnapshot('session-alice')
+  const initialPlaceholderCount = room.players.filter((player) => !player.isConnected).length
+
+  playServer.handleMessage('session-alice', {
+    type: 'add_debug_player',
+    roomId: room.roomId,
+    name: 'Seat 4',
+  })
+
+  let updatedRoom = harness.latestRoomSnapshot('session-alice')
+  const addedPlaceholder = updatedRoom.players.find((player) => player.name === 'Seat 4')
+
+  assert.equal(updatedRoom.players.filter((player) => !player.isConnected).length, initialPlaceholderCount + 1)
+  assert.ok(addedPlaceholder)
+
+  playServer.handleMessage('session-alice', {
+    type: 'remove_debug_player',
+    roomId: room.roomId,
+    playerId: addedPlaceholder!.id,
+  })
+
+  updatedRoom = harness.latestRoomSnapshot('session-alice')
+  assert.equal(updatedRoom.players.filter((player) => !player.isConnected).length, initialPlaceholderCount)
+})
+
 test('PlayServer keeps a player connected when they reconnect before the grace timeout', () => {
   const harness = createHarness()
   const playServer = new PlayServer({

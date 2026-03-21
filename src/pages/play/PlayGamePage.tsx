@@ -3,6 +3,7 @@ import {
   ArrowRight,
   BookOpen,
   Crown,
+  FlaskConical,
   Hand,
   History,
   Layers3,
@@ -310,6 +311,7 @@ export function PlayGamePage() {
           gameId={activeGameId}
           startedAt={activeGame.publicState.startedAt}
           roomCode={room?.code ?? activeGame.roomId}
+          isDebugMode={activeGame.debugMode}
           battlefieldCount={battlefield.length}
           turn={activeGame.publicState.turn}
           activePlayer={activeTurnPlayer}
@@ -722,6 +724,7 @@ function TableHud({
   gameId,
   roomCode,
   startedAt,
+  isDebugMode,
   battlefieldCount,
   turn,
   activePlayer,
@@ -732,6 +735,7 @@ function TableHud({
   gameId: string
   roomCode: string
   startedAt: string
+  isDebugMode: boolean
   battlefieldCount: number
   turn: { turnNumber: number; activePlayerId: string }
   activePlayer: GamePlayerPublicSnapshot | null
@@ -765,6 +769,9 @@ function TableHud({
           <div className="flex flex-wrap gap-2">
             <MetaPill icon={<ClockPip />} label={`Started ${new Date(startedAt).toLocaleTimeString()}`} />
             <MetaPill icon={<Swords className="h-3.5 w-3.5" />} label={`${battlefieldCount} permanents`} />
+            {isDebugMode ? (
+              <MetaPill icon={<FlaskConical className="h-3.5 w-3.5" />} label="Sandbox room" />
+            ) : null}
             <MetaPill
               icon={<Crown className="h-3.5 w-3.5" />}
               label={`Turn ${turn.turnNumber} • ${activePlayer?.name ?? 'Unknown player'} acting`}

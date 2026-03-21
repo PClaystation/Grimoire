@@ -82,6 +82,7 @@ export interface RoomPlayerSnapshot {
   isHost: boolean
   isConnected: boolean
   selectedDeck: DeckSelectionSummary | null
+  isDebugPlaceholder: boolean
 }
 
 export interface RoomSettings {
@@ -114,6 +115,7 @@ export interface RoomSnapshot {
   gameId: string | null
   hostPlayerId: string
   localPlayerId: string | null
+  debugMode: boolean
   settings: RoomSettings
   players: RoomPlayerSnapshot[]
 }
@@ -217,6 +219,7 @@ export interface GameSnapshot {
   gameId: string
   roomId: string
   localPlayerId: string | null
+  debugMode: boolean
   publicState: GamePublicState
   privateState: GamePrivatePlayerState | null
 }
@@ -282,10 +285,14 @@ export type ClientGameAction =
 
 export type ClientMessage =
   | { type: 'hello'; sessionId: string; playerName: string }
+  | { type: 'unlock_debug_mode'; password: string }
   | { type: 'create_room'; settings?: RoomSettingsInput }
+  | { type: 'create_debug_room'; settings?: RoomSettingsInput }
   | { type: 'join_room'; roomId: string }
   | { type: 'leave_room'; roomId: string }
   | { type: 'update_room_settings'; roomId: string; settings: RoomSettingsInput }
+  | { type: 'add_debug_player'; roomId: string; name?: string }
+  | { type: 'remove_debug_player'; roomId: string; playerId: string }
   | { type: 'select_deck'; roomId: string; deck: DeckSelectionSnapshot }
   | { type: 'start_game'; roomId: string }
   | { type: 'game_action'; gameId: string; action: ClientGameAction }
@@ -297,6 +304,7 @@ export type ServerMessage =
       playerName: string
       roomId: string | null
       gameId: string | null
+      debugUnlocked: boolean
     }
   | { type: 'room_snapshot'; room: RoomSnapshot }
   | { type: 'room_directory'; rooms: RoomDirectoryEntry[] }
