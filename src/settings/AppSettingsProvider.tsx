@@ -1,4 +1,4 @@
-import { useEffect, useState, type ReactNode } from 'react'
+import { useCallback, useEffect, useState, type ReactNode } from 'react'
 
 import { AppSettingsContext } from '@/settings/appSettingsContext'
 import {
@@ -17,16 +17,16 @@ export function AppSettingsProvider({ children }: { children: ReactNode }) {
     applySettingsToDocument(settings)
   }, [settings])
 
-  function updateSettings(updates: Partial<AppSettings>) {
+  const updateSettings = useCallback((updates: Partial<AppSettings>) => {
     setSettings((current) => ({
       ...current,
       ...updates,
     }))
-  }
+  }, [])
 
-  function resetSettings() {
+  const resetSettings = useCallback(() => {
     setSettings(DEFAULT_APP_SETTINGS)
-  }
+  }, [])
 
   return (
     <AppSettingsContext.Provider

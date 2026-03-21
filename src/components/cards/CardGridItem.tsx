@@ -47,22 +47,24 @@ export function CardGridItem({
         </div>
       </button>
 
-      <div className="mx-auto mt-3 grid w-full max-w-[26rem] gap-2 sm:grid-cols-2">
+      <div className="mx-auto mt-3 grid w-full max-w-[26rem] grid-cols-[minmax(0,1.35fr)_minmax(0,0.9fr)] gap-2">
         <button
           type="button"
           onClick={() => onAddToMainboard(card)}
-          className="inline-flex items-center justify-center gap-2 rounded-2xl border border-tide-400/20 bg-tide-500/10 px-4 py-3 text-sm font-semibold text-tide-100 transition hover:border-tide-400/35 hover:bg-tide-500/15"
+          aria-label={`Add ${card.name} to deck`}
+          className="inline-flex items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-tide-500 via-cyan-500 to-sky-400 px-3 py-3 text-sm font-semibold text-white shadow-[0_14px_28px_rgba(14,165,233,0.22)] ring-1 ring-white/10 transition hover:from-tide-400 hover:via-cyan-400 hover:to-sky-300"
         >
           <Plus className="h-4 w-4" />
-          Mainboard
+          <span className="truncate">Add to Deck</span>
         </button>
         <button
           type="button"
           onClick={() => onAddToSideboard(card)}
-          className="inline-flex items-center justify-center gap-2 rounded-2xl border border-ember-400/20 bg-ember-500/10 px-4 py-3 text-sm font-semibold text-ember-100 transition hover:border-ember-400/35 hover:bg-ember-500/15"
+          aria-label={`Add ${card.name} to sideboard`}
+          className="inline-flex items-center justify-center gap-1.5 rounded-2xl border border-ember-400/20 bg-ember-500/10 px-2.5 py-3 text-xs font-semibold text-ember-100 transition hover:border-ember-400/35 hover:bg-ember-500/15"
         >
-          <Plus className="h-4 w-4" />
-          Sideboard
+          <Plus className="h-3.5 w-3.5" />
+          <span className="truncate">Sideboard</span>
         </button>
       </div>
     </article>

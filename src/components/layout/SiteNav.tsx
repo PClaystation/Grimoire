@@ -2,7 +2,6 @@ import { useEffect, useRef, useState } from 'react'
 
 import {
   BookOpenText,
-  ChevronDown,
   ExternalLink,
   LogIn,
   LogOut,
@@ -95,6 +94,15 @@ export function SiteNav({ connectionStatus, compact = false }: SiteNavProps) {
         <ContinentalBranding variant="nav" />
 
         <div className="flex flex-wrap items-center gap-3">
+          {connectionStatus ? (
+            <div
+              className={`inline-flex items-center gap-2 rounded-full px-3 py-1.5 text-xs font-semibold uppercase tracking-[0.16em] ring-1 ${STATUS_STYLES[connectionStatus]}`}
+            >
+              <span className="h-2 w-2 rounded-full bg-current" />
+              {connectionStatus}
+            </div>
+          ) : null}
+
           <div
             className={`inline-flex rounded-[1.2rem] border border-white/10 bg-white/5 ${
               compact ? 'p-1' : 'p-1.5'
@@ -132,15 +140,6 @@ export function SiteNav({ connectionStatus, compact = false }: SiteNavProps) {
               Play
             </NavLink>
           </div>
-
-          {connectionStatus ? (
-            <div
-              className={`inline-flex items-center gap-2 rounded-full px-3 py-1.5 text-xs font-semibold uppercase tracking-[0.16em] ring-1 ${STATUS_STYLES[connectionStatus]}`}
-            >
-              <span className="h-2 w-2 rounded-full bg-current" />
-              {connectionStatus}
-            </div>
-          ) : null}
 
           <div
             title={errorMessage ?? undefined}
@@ -195,46 +194,28 @@ export function SiteNav({ connectionStatus, compact = false }: SiteNavProps) {
               aria-expanded={isMenuOpen}
               aria-label="Open account menu"
               onClick={() => setIsMenuOpen((current) => !current)}
-              className={`inline-flex items-center gap-2 rounded-[1.2rem] border border-white/10 bg-white/5 text-ink-100 transition hover:bg-white/10 ${
-                compact ? 'px-3 py-2 text-xs' : 'px-3.5 py-2.5 text-sm'
+              className={`inline-flex items-center justify-center rounded-full border border-white/10 bg-white/5 text-ink-100 transition hover:bg-white/10 ${
+                compact ? 'h-10 w-10' : 'h-11 w-11'
               }`}
             >
               <Settings2 className="h-4 w-4" />
-              <span className="hidden sm:inline">Menu</span>
-              <ChevronDown
-                className={`h-4 w-4 transition ${isMenuOpen ? 'rotate-180' : undefined}`}
-              />
             </button>
 
             {isMenuOpen ? (
               <div
                 role="menu"
                 aria-label="Account menu"
-                className="absolute right-0 top-[calc(100%+0.75rem)] z-30 w-[18.5rem] rounded-[1.35rem] border border-white/10 bg-[linear-gradient(180deg,rgba(17,31,39,0.98),rgba(10,22,29,0.99))] p-2 shadow-[0_22px_60px_-26px_rgba(7,19,27,0.92)] ring-1 ring-white/5"
+                className="absolute right-0 top-[calc(100%+0.75rem)] z-30 w-56 rounded-[1.2rem] border border-white/10 bg-[linear-gradient(180deg,rgba(17,31,39,0.98),rgba(10,22,29,0.99))] p-2 shadow-[0_22px_60px_-26px_rgba(7,19,27,0.92)] ring-1 ring-white/5"
               >
-                <div className="rounded-[1rem] border border-white/10 bg-white/[0.04] px-3 py-3">
-                  <p className="text-xs font-semibold uppercase tracking-[0.18em] text-ink-400">
-                    Quick access
-                  </p>
-                  <p className="mt-1 text-sm text-ink-200">
-                    Manage Grimoire preferences or jump into your Continental ID dashboard.
-                  </p>
-                </div>
-
-                <div className="mt-2 grid gap-1">
+                <div className="grid gap-1">
                   <Link
                     to="/settings"
                     role="menuitem"
                     onClick={() => setIsMenuOpen(false)}
-                    className="flex items-start gap-3 rounded-[1rem] px-3 py-3 text-left text-ink-100 transition hover:bg-white/[0.06]"
+                    className="flex items-center gap-3 rounded-[1rem] px-3 py-2.5 text-left text-ink-100 transition hover:bg-white/[0.06]"
                   >
-                    <Settings2 className="mt-0.5 h-4 w-4 shrink-0 text-tide-200" />
-                    <span className="min-w-0 flex-1">
-                      <span className="block text-sm font-semibold">Settings</span>
-                      <span className="mt-0.5 block text-sm leading-5 text-ink-300">
-                        Default view, motion, backdrop, and dashboard link behavior.
-                      </span>
-                    </span>
+                    <Settings2 className="h-4 w-4 shrink-0 text-tide-200" />
+                    <span className="min-w-0 flex-1 text-sm font-semibold">Settings</span>
                   </Link>
 
                   <a
@@ -242,17 +223,10 @@ export function SiteNav({ connectionStatus, compact = false }: SiteNavProps) {
                     {...dashboardLinkAttributes}
                     role="menuitem"
                     onClick={() => setIsMenuOpen(false)}
-                    className="flex items-start gap-3 rounded-[1rem] px-3 py-3 text-left text-ink-100 transition hover:bg-white/[0.06]"
+                    className="flex items-center gap-3 rounded-[1rem] px-3 py-2.5 text-left text-ink-100 transition hover:bg-white/[0.06]"
                   >
-                    <ExternalLink className="mt-0.5 h-4 w-4 shrink-0 text-ember-200" />
-                    <span className="min-w-0 flex-1">
-                      <span className="block text-sm font-semibold">
-                        Continental ID Dashboard
-                      </span>
-                      <span className="mt-0.5 block text-sm leading-5 text-ink-300">
-                        Open profile, security, sessions, and account-wide settings.
-                      </span>
-                    </span>
+                    <ExternalLink className="h-4 w-4 shrink-0 text-ember-200" />
+                    <span className="min-w-0 flex-1 text-sm font-semibold">Dashboard</span>
                   </a>
                 </div>
               </div>

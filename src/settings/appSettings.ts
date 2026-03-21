@@ -4,16 +4,24 @@ export type InterfaceBackdrop = 'atmospheric' | 'minimal'
 
 export interface AppSettings {
   defaultDeckWorkspaceTab: DeckWorkspaceTab
+  rememberLastDeckWorkspaceTab: boolean
   dashboardLinkTarget: DashboardLinkTarget
   interfaceBackdrop: InterfaceBackdrop
   reducedMotion: boolean
+  showDeckbuilderHero: boolean
+  showAccountStatusPanel: boolean
+  showWorkspaceHelperText: boolean
 }
 
 export const DEFAULT_APP_SETTINGS: AppSettings = {
   defaultDeckWorkspaceTab: 'browser',
+  rememberLastDeckWorkspaceTab: false,
   dashboardLinkTarget: 'new-tab',
   interfaceBackdrop: 'atmospheric',
   reducedMotion: false,
+  showDeckbuilderHero: true,
+  showAccountStatusPanel: true,
+  showWorkspaceHelperText: true,
 }
 
 const STORAGE_KEY = 'grimoire.app-settings'
@@ -41,6 +49,10 @@ function normalizeSettings(payload: unknown): AppSettings {
     defaultDeckWorkspaceTab: isDeckWorkspaceTab(candidate.defaultDeckWorkspaceTab)
       ? candidate.defaultDeckWorkspaceTab
       : DEFAULT_APP_SETTINGS.defaultDeckWorkspaceTab,
+    rememberLastDeckWorkspaceTab:
+      typeof candidate.rememberLastDeckWorkspaceTab === 'boolean'
+        ? candidate.rememberLastDeckWorkspaceTab
+        : DEFAULT_APP_SETTINGS.rememberLastDeckWorkspaceTab,
     dashboardLinkTarget: isDashboardLinkTarget(candidate.dashboardLinkTarget)
       ? candidate.dashboardLinkTarget
       : DEFAULT_APP_SETTINGS.dashboardLinkTarget,
@@ -51,6 +63,18 @@ function normalizeSettings(payload: unknown): AppSettings {
       typeof candidate.reducedMotion === 'boolean'
         ? candidate.reducedMotion
         : DEFAULT_APP_SETTINGS.reducedMotion,
+    showDeckbuilderHero:
+      typeof candidate.showDeckbuilderHero === 'boolean'
+        ? candidate.showDeckbuilderHero
+        : DEFAULT_APP_SETTINGS.showDeckbuilderHero,
+    showAccountStatusPanel:
+      typeof candidate.showAccountStatusPanel === 'boolean'
+        ? candidate.showAccountStatusPanel
+        : DEFAULT_APP_SETTINGS.showAccountStatusPanel,
+    showWorkspaceHelperText:
+      typeof candidate.showWorkspaceHelperText === 'boolean'
+        ? candidate.showWorkspaceHelperText
+        : DEFAULT_APP_SETTINGS.showWorkspaceHelperText,
   }
 }
 

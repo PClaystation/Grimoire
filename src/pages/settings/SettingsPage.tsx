@@ -9,7 +9,6 @@ import {
   ShieldCheck,
   Sparkles,
   UserRound,
-  ZapOff,
   type LucideIcon,
 } from 'lucide-react'
 import { Link } from 'react-router-dom'
@@ -78,6 +77,41 @@ function ChoiceButton({ isActive, label, description, onClick }: ChoiceButtonPro
   )
 }
 
+interface ToggleRowProps {
+  label: string
+  description: string
+  enabled: boolean
+  onToggle: () => void
+}
+
+function ToggleRow({ label, description, enabled, onToggle }: ToggleRowProps) {
+  return (
+    <div className="sm:col-span-2 flex items-center justify-between gap-4 rounded-[1.1rem] border border-white/10 bg-white/[0.04] px-4 py-3">
+      <div className="min-w-0 flex-1">
+        <p className="text-sm font-semibold text-ink-50">{label}</p>
+        <p className="mt-1 text-sm leading-6 text-ink-300">{description}</p>
+      </div>
+
+      <button
+        type="button"
+        aria-pressed={enabled}
+        onClick={onToggle}
+        className={`inline-flex h-8 w-14 shrink-0 items-center rounded-full border px-1 transition ${
+          enabled
+            ? 'justify-end border-tide-300/40 bg-tide-500/16'
+            : 'justify-start border-white/10 bg-white/[0.04]'
+        }`}
+      >
+        <span
+          className={`h-5 w-5 rounded-full transition ${
+            enabled ? 'bg-tide-200' : 'bg-ink-300'
+          }`}
+        />
+      </button>
+    </div>
+  )
+}
+
 interface SettingCardProps {
   icon: LucideIcon
   title: string
@@ -133,6 +167,30 @@ export function SettingsPage() {
     })
   }
 
+  function toggleRememberLastDeckWorkspaceTab() {
+    updateSettings({
+      rememberLastDeckWorkspaceTab: !settings.rememberLastDeckWorkspaceTab,
+    })
+  }
+
+  function toggleShowDeckbuilderHero() {
+    updateSettings({
+      showDeckbuilderHero: !settings.showDeckbuilderHero,
+    })
+  }
+
+  function toggleShowAccountStatusPanel() {
+    updateSettings({
+      showAccountStatusPanel: !settings.showAccountStatusPanel,
+    })
+  }
+
+  function toggleShowWorkspaceHelperText() {
+    updateSettings({
+      showWorkspaceHelperText: !settings.showWorkspaceHelperText,
+    })
+  }
+
   const hasCustomSettings =
     JSON.stringify(settings) !== JSON.stringify(DEFAULT_APP_SETTINGS)
 
@@ -184,8 +242,8 @@ export function SettingsPage() {
           <section className="grid gap-4">
             <SettingCard
               icon={LayoutPanelTop}
-              title="Default deckbuilder view"
-              description="Choose which workspace opens first when you land on the main Grimoire page."
+              title="Startup"
+              description="Choose how the deckbuilder opens in this browser."
             >
               <ChoiceButton
                 isActive={settings.defaultDeckWorkspaceTab === 'browser'}
@@ -198,6 +256,37 @@ export function SettingsPage() {
                 label="Gallery"
                 description="Open directly into the visual full-card deck gallery."
                 onClick={() => updateDefaultDeckWorkspaceTab('deck')}
+              />
+              <ToggleRow
+                label="Remember last workspace"
+                description="Update the startup view automatically when you switch between Search and Gallery."
+                enabled={settings.rememberLastDeckWorkspaceTab}
+                onToggle={toggleRememberLastDeckWorkspaceTab}
+              />
+            </SettingCard>
+
+            <SettingCard
+              icon={Sparkles}
+              title="Home layout"
+              description="Show or hide the extra deckbuilder chrome."
+            >
+              <ToggleRow
+                label="Deckbuilder hero"
+                description="Show the large stat header at the top of the main page."
+                enabled={settings.showDeckbuilderHero}
+                onToggle={toggleShowDeckbuilderHero}
+              />
+              <ToggleRow
+                label="Account status panel"
+                description="Show the Continental ID sync panel under the hero."
+                enabled={settings.showAccountStatusPanel}
+                onToggle={toggleShowAccountStatusPanel}
+              />
+              <ToggleRow
+                label="Workspace helper text"
+                description="Show the short description beside the Search and Gallery switcher."
+                enabled={settings.showWorkspaceHelperText}
+                onToggle={toggleShowWorkspaceHelperText}
               />
             </SettingCard>
 
@@ -222,8 +311,8 @@ export function SettingsPage() {
 
             <SettingCard
               icon={Paintbrush}
-              title="Backdrop style"
-              description="Switch between the full atmospheric background and a cleaner minimal canvas."
+              title="Appearance"
+              description="Adjust the overall look and motion."
             >
               <ChoiceButton
                 isActive={settings.interfaceBackdrop === 'atmospheric'}
@@ -237,24 +326,11 @@ export function SettingsPage() {
                 description="Use a flatter background with less visual texture."
                 onClick={() => updateInterfaceBackdrop('minimal')}
               />
-            </SettingCard>
-
-            <SettingCard
-              icon={ZapOff}
-              title="Motion"
-              description="Reduce transitions and animations if you want a steadier interface."
-            >
-              <ChoiceButton
-                isActive={!settings.reducedMotion}
-                label="Standard motion"
-                description="Keep the normal movement and transition timing."
-                onClick={() => updateReducedMotion(false)}
-              />
-              <ChoiceButton
-                isActive={settings.reducedMotion}
+              <ToggleRow
                 label="Reduced motion"
-                description="Minimize motion across the Grimoire interface for this browser."
-                onClick={() => updateReducedMotion(true)}
+                description="Minimize transitions and animation across the interface."
+                enabled={settings.reducedMotion}
+                onToggle={() => updateReducedMotion(!settings.reducedMotion)}
               />
             </SettingCard>
           </section>
