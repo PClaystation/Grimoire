@@ -1,6 +1,7 @@
 import {
   useDeferredValue,
   useEffect,
+  useRef,
   useState,
   type CSSProperties,
   type DragEvent,
@@ -137,6 +138,7 @@ export function PlayGamePage() {
   const [focusedPlayerId, setFocusedPlayerId] = useState<string | null>(null)
   const [activeZone, setActiveZone] = useState<BrowseableZone>('graveyard')
   const [isZoneOverlayOpen, setIsZoneOverlayOpen] = useState(false)
+  const [isZoneOverlayClosing, setIsZoneOverlayClosing] = useState(false)
   const [utilityPanel, setUtilityPanel] = useState<'players' | 'stack' | 'tokens' | 'log'>('players')
   const [counterDraft, setCounterDraft] = useState(COUNTER_PRESETS[0])
   const [playerCounterDraft, setPlayerCounterDraft] = useState(PLAYER_COUNTER_PRESETS[0])
@@ -164,6 +166,7 @@ export function PlayGamePage() {
     toughness: '1',
     colors: ['W'] as CardColor[],
   })
+  const zoneOverlayCloseTimeoutRef = useRef<number | null>(null)
   const battlefield = useDeferredValue(game?.publicState.battlefield ?? [])
 
   useEffect(() => {
@@ -176,6 +179,14 @@ export function PlayGamePage() {
       navigate(`/play/room/${room.roomId}`, { replace: true })
     }
   }, [game, gameId, navigate, room])
+
+  useEffect(() => {
+    return () => {
+      if (zoneOverlayCloseTimeoutRef.current !== null) {
+        window.clearTimeout(zoneOverlayCloseTimeoutRef.current)
+      }
+    }
+  }, [])
 
   const activeGame = game
   const players = activeGame?.publicState.players ?? []
@@ -278,15 +289,42 @@ export function PlayGamePage() {
       return
     }
 
+    if (zoneOverlayCloseTimeoutRef.current !== null) {
+      window.clearTimeout(zoneOverlayCloseTimeoutRef.current)
+      zoneOverlayCloseTimeoutRef.current = null
+    }
+
     setFocusedPlayerId(playerId)
     setActiveZone(zone)
     setIsZoneOverlayOpen(true)
+    setIsZoneOverlayClosing(false)
     setZoneOverlayAnimationToken((value) => value + 1)
   }
 
   function selectZoneCard(playerId: string, zone: PublicZone, cardId: string) {
-    openZone(playerId, zone)
     setSelectedCard({ zone, playerId, cardId })
+
+    if (!isZoneOverlayOpen) {
+      openZone(playerId, zone)
+    }
+  }
+
+  function closeZoneOverlay() {
+    if (!isZoneOverlayOpen || isZoneOverlayClosing) {
+      return
+    }
+
+    setIsZoneOverlayClosing(true)
+
+    if (zoneOverlayCloseTimeoutRef.current !== null) {
+      window.clearTimeout(zoneOverlayCloseTimeoutRef.current)
+    }
+
+    zoneOverlayCloseTimeoutRef.current = window.setTimeout(() => {
+      setIsZoneOverlayOpen(false)
+      setIsZoneOverlayClosing(false)
+      zoneOverlayCloseTimeoutRef.current = null
+    }, 180)
   }
 
   function openLocalLibrary() {
@@ -489,11 +527,12 @@ export function PlayGamePage() {
                 activeZone={activeZone}
                 cards={zoneCards}
                 selectedCard={activeSelection}
-                onClose={() => setIsZoneOverlayOpen(false)}
+                onClose={closeZoneOverlay}
                 onSelectCard={selectZoneCard}
                 onSelectLibraryCard={(cardId) => setSelectedCard({ zone: 'library', cardId })}
                 onMoveOwnedCard={moveOwnedCard}
                 animationToken={zoneOverlayAnimationToken}
+                isClosing={isZoneOverlayClosing}
               />
             ) : null}
           </div>
@@ -1803,6 +1842,7 @@ function ZoneOverlay({
   onSelectLibraryCard,
   onMoveOwnedCard,
   animationToken,
+  isClosing,
 }: {
   localPlayerId: string
   canAct: boolean
@@ -1820,6 +1860,7 @@ function ZoneOverlay({
     position?: PermanentPosition,
   ) => void
   animationToken: number
+  isClosing: boolean
 }) {
   const visibleCards = cards
   const selectedZoneCardId =
@@ -1844,21 +1885,26 @@ function ZoneOverlay({
   }, [onClose])
 
   return (
-    <div className="absolute inset-0 z-30" data-testid="zone-overlay">
+    <div
+      className={`absolute inset-0 z-30 zone-overlay-root ${isClosing ? 'zone-overlay-closing' : ''}`}
+      data-testid="zone-overlay"
+    >
       <button
         type="button"
         aria-label="Close zone overlay"
         onClick={onClose}
-        className="absolute inset-0 bg-ink-950/62"
+        className="zone-overlay-backdrop absolute inset-0 z-0"
       />
 
-      <div className="relative z-10 flex h-full w-full items-center justify-center p-3 sm:p-5">
+      <div className="zone-overlay-panel pointer-events-none relative z-10 flex h-full w-full items-start justify-center p-3 pt-7 sm:p-5 sm:pt-8">
         <div
           key={`${activeZone}-${focusedPlayer?.id ?? 'none'}-${animationToken}`}
-          className="flex max-h-[88vh] w-full max-w-[84rem] flex-wrap items-start justify-center gap-3 overflow-y-auto"
+          className={`zone-overlay-cards pointer-events-auto flex max-h-[88vh] w-full max-w-[84rem] flex-wrap items-start justify-center gap-3 overflow-y-auto rounded-[2.25rem] border border-white/[0.04] bg-[linear-gradient(180deg,rgba(8,20,27,0.26),rgba(6,14,18,0.18))] px-4 py-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.03)] sm:px-5 sm:py-5 ${
+            visibleCards.length === 0 ? 'zone-overlay-empty' : ''
+          }`}
         >
-          {visibleCards.length > 0
-            ? visibleCards.map((card, index) => {
+          {visibleCards.length > 0 ? (
+            visibleCards.map((card, index) => {
                 const isSelected = selectedZoneCardId === card.instanceId
                 const canMoveCard = card.ownerPlayerId === localPlayerId && canAct
                 const moveTargets = (['battlefield', 'hand', 'graveyard', 'command', 'exile'] as OwnedZone[]).filter(
@@ -1893,24 +1939,35 @@ function ZoneOverlay({
                       <TableCard card={card.card} variant="zone" selected={isSelected} />
                     </button>
 
-                    {isSelected && card.ownerPlayerId === localPlayerId ? (
-                      <div className="mt-3 flex flex-wrap gap-2">
-                        {moveTargets.map((zone) => (
-                          <ZoneActionButton
-                            key={zone}
-                            tone={zone === 'battlefield' ? 'primary' : zone === 'exile' ? 'danger' : 'secondary'}
-                            disabled={!canMoveCard}
-                            onClick={() => onMoveOwnedCard(activeZone, zone, card.instanceId)}
-                          >
-                            {zoneLabel(zone)}
-                          </ZoneActionButton>
-                        ))}
-                      </div>
-                    ) : null}
+                    <div className="mt-3 grid min-h-[5.5rem] grid-cols-2 gap-2">
+                      {isSelected && card.ownerPlayerId === localPlayerId
+                        ? moveTargets.map((zone) => (
+                            <ZoneActionButton
+                              key={zone}
+                              tone={zone === 'battlefield' ? 'primary' : zone === 'exile' ? 'danger' : 'secondary'}
+                              disabled={!canMoveCard}
+                              onClick={() => onMoveOwnedCard(activeZone, zone, card.instanceId)}
+                            >
+                              {zoneLabel(zone)}
+                            </ZoneActionButton>
+                          ))
+                        : null}
+                    </div>
                   </article>
                 )
               })
-            : null}
+          ) : (
+            <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
+              <div className="text-center">
+                <p className="text-5xl font-semibold tracking-[0.18em] text-white/6">
+                  {zoneLabel(activeZone)}
+                </p>
+                <p className="mt-3 text-xs font-semibold uppercase tracking-[0.24em] text-white/10">
+                  Empty pile
+                </p>
+              </div>
+            </div>
+          )}
         </div>
       </div>
     </div>

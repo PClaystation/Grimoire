@@ -250,6 +250,19 @@ Original prompt: You are extending an existing MTG deckbuilder web app into an o
     - `npm run build` passed.
     - Ran `node scripts/validate-play-table.mjs http://127.0.0.1:8787` against the local preview server and visually reviewed the refreshed screenshots in `artifacts/playwright/revamp/alice-table.png` and `artifacts/playwright/revamp/bob-table.png`.
     - The validator produced the expected screenshot artifacts but did not exit cleanly, so its lingering Node process was killed after the browser pass completed.
+
+2026-03-21
+- Zone overlay close/background pass:
+  - Removed the last overlay chrome so the zone view now shows only the cards plus a faint, zone-tinted background.
+  - Stopped the fly-in animation from rerunning on every card selection by only remounting the overlay when a zone is first opened.
+  - Added top-aligned overlay layout and a fixed action tray so selecting a card no longer pushes the pile upward.
+  - Added backdrop-click closing with a delayed close animation and kept Escape as a keyboard shortcut.
+  - Added a subtle empty-pile watermark so an empty zone still reads as an overlay even without cards.
+  - Verification:
+    - `npm run lint` passed.
+    - `npm run build` passed.
+    - Ran a focused Playwright overlay check against the local preview server and visually reviewed `artifacts/playwright/revamp/overlay-graveyard-only.png` and `artifacts/playwright/revamp/overlay-after-close.png`.
+    - Confirmed the overlay dismisses on outside click and the closed frame returns to the table.
   - Increased the rail column width and the pile art footprint so the zone cards feel wider rather than being visually shrunk inside a narrow sidebar.
   - Kept the rail non-dropable by leaving all placement handling on the play field pane only.
 - Verification:
