@@ -8,10 +8,17 @@ export const PLAY_COMMANDER_STARTING_LIFE_TOTAL = 40
 export const PLAY_OPENING_HAND_SIZE = 7
 export const ROOM_CODE_LENGTH = 6
 export const PLAYER_NAME_MAX_LENGTH = 24
+export const ROOM_NAME_MAX_LENGTH = 48
+export const ROOM_DESCRIPTION_MAX_LENGTH = 180
+export const ROOM_MAX_TAGS = 6
+export const ROOM_TAG_MAX_LENGTH = 18
 
 const ROOM_CODE_ALPHABET = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'
 
 export type RoomPhase = 'lobby' | 'game'
+export type RoomVisibility = 'private' | 'public'
+export type RoomFormatPreference = DeckFormat | 'any'
+export type RoomPowerLevel = 'casual' | 'focused' | 'competitive'
 export type OwnedZone = 'library' | 'hand' | 'battlefield' | 'graveyard' | 'exile' | 'command'
 export type TurnPhase =
   | 'untap'
@@ -91,6 +98,28 @@ export interface RoomPlayerSnapshot {
   selectedDeck: DeckSelectionSummary | null
 }
 
+export interface RoomSettings {
+  name: string
+  visibility: RoomVisibility
+  minPlayers: number
+  maxPlayers: number
+  format: RoomFormatPreference
+  powerLevel: RoomPowerLevel
+  description: string
+  tags: string[]
+}
+
+export interface RoomSettingsInput {
+  name?: string
+  visibility?: RoomVisibility
+  minPlayers?: number
+  maxPlayers?: number
+  format?: RoomFormatPreference
+  powerLevel?: RoomPowerLevel
+  description?: string
+  tags?: string[]
+}
+
 export interface RoomSnapshot {
   roomId: string
   code: string
@@ -99,9 +128,28 @@ export interface RoomSnapshot {
   gameId: string | null
   hostPlayerId: string
   localPlayerId: string | null
-  minPlayers: number
-  maxPlayers: number
+  settings: RoomSettings
   players: RoomPlayerSnapshot[]
+}
+
+export interface RoomDirectoryPlayerSnapshot {
+  name: string
+  isHost: boolean
+  isConnected: boolean
+}
+
+export interface RoomDirectoryEntry {
+  roomId: string
+  code: string
+  phase: RoomPhase
+  createdAt: string
+  hostPlayerId: string
+  hostPlayerName: string
+  settings: RoomSettings
+  playerCount: number
+  connectedPlayerCount: number
+  openSeatCount: number
+  players: RoomDirectoryPlayerSnapshot[]
 }
 
 export interface TableCardSnapshot {
@@ -250,9 +298,10 @@ export type ClientGameAction =
 
 export type ClientMessage =
   | { type: 'hello'; sessionId: string; playerName: string }
-  | { type: 'create_room' }
+  | { type: 'create_room'; settings?: RoomSettingsInput }
   | { type: 'join_room'; roomId: string }
   | { type: 'leave_room'; roomId: string }
+  | { type: 'update_room_settings'; roomId: string; settings: RoomSettingsInput }
   | { type: 'select_deck'; roomId: string; deck: DeckSelectionSnapshot }
   | { type: 'start_game'; roomId: string }
   | { type: 'game_action'; gameId: string; action: ClientGameAction }
@@ -266,6 +315,7 @@ export type ServerMessage =
       gameId: string | null
     }
   | { type: 'room_snapshot'; room: RoomSnapshot }
+  | { type: 'room_directory'; rooms: RoomDirectoryEntry[] }
   | { type: 'game_snapshot'; game: GameSnapshot }
   | { type: 'room_left'; roomId: string }
   | { type: 'error'; message: string }
@@ -327,6 +377,103 @@ export function normalizePlayerName(value: string) {
   }
 
   return trimmed.slice(0, PLAYER_NAME_MAX_LENGTH)
+}
+
+export function buildDefaultRoomName(hostPlayerName: string) {
+  const normalizedHostName = normalizePlayerName(hostPlayerName)
+  return `${normalizedHostName}'s Table`.slice(0, ROOM_NAME_MAX_LENGTH)
+}
+
+function sanitizeRoomText(value: string | undefined, maxLength: number) {
+  return (value ?? '').trim().replace(/\s+/g, ' ').slice(0, maxLength)
+}
+
+function normalizeRoomVisibility(value: unknown): RoomVisibility {
+  return value === 'public' ? 'public' : 'private'
+}
+
+function normalizeRoomFormatPreference(value: unknown): RoomFormatPreference {
+  switch (value) {
+    case 'standard':
+    case 'pioneer':
+    case 'modern':
+    case 'legacy':
+    case 'vintage':
+    case 'pauper':
+    case 'commander':
+      return value
+    default:
+      return 'any'
+  }
+}
+
+function normalizeRoomPowerLevel(value: unknown): RoomPowerLevel {
+  switch (value) {
+    case 'focused':
+    case 'competitive':
+      return value
+    default:
+      return 'casual'
+  }
+}
+
+function clampRoomPlayerCount(value: number | undefined, fallback: number) {
+  return Math.max(PLAY_MIN_PLAYERS, Math.min(PLAY_MAX_PLAYERS, Math.round(value ?? fallback)))
+}
+
+function normalizeRoomTag(value: string) {
+  return value
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9+#/ -]/g, '')
+    .replace(/\s+/g, ' ')
+    .slice(0, ROOM_TAG_MAX_LENGTH)
+}
+
+export function normalizeRoomTags(value: string[] | undefined) {
+  const normalizedTags: string[] = []
+  const seenTags = new Set<string>()
+
+  for (const tag of value ?? []) {
+    const normalizedTag = normalizeRoomTag(tag)
+
+    if (!normalizedTag || seenTags.has(normalizedTag)) {
+      continue
+    }
+
+    seenTags.add(normalizedTag)
+    normalizedTags.push(normalizedTag)
+
+    if (normalizedTags.length >= ROOM_MAX_TAGS) {
+      break
+    }
+  }
+
+  return normalizedTags
+}
+
+export function normalizeRoomSettings(
+  value: RoomSettingsInput | null | undefined,
+  hostPlayerName = 'Planeswalker',
+): RoomSettings {
+  const fallbackMaxPlayers = clampRoomPlayerCount(value?.maxPlayers, PLAY_MAX_PLAYERS)
+  const maxPlayers = fallbackMaxPlayers
+  const minPlayers = Math.min(
+    maxPlayers,
+    clampRoomPlayerCount(value?.minPlayers, PLAY_MIN_PLAYERS),
+  )
+  const name = sanitizeRoomText(value?.name, ROOM_NAME_MAX_LENGTH) || buildDefaultRoomName(hostPlayerName)
+
+  return {
+    name,
+    visibility: normalizeRoomVisibility(value?.visibility),
+    minPlayers,
+    maxPlayers,
+    format: normalizeRoomFormatPreference(value?.format),
+    powerLevel: normalizeRoomPowerLevel(value?.powerLevel),
+    description: sanitizeRoomText(value?.description, ROOM_DESCRIPTION_MAX_LENGTH),
+    tags: normalizeRoomTags(value?.tags),
+  }
 }
 
 export function clampPermanentPosition(

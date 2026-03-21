@@ -51,6 +51,30 @@ function createHarness() {
       assert.ok(latestMessage, `Expected a game snapshot for ${sessionId}.`)
       return latestMessage.game
     },
+    latestRoomDirectory(sessionId: string) {
+      const directoryMessages =
+        sentMessages
+          .get(sessionId)
+          ?.filter((message): message is Extract<ServerMessage, { type: 'room_directory' }> => {
+            return message.type === 'room_directory'
+          }) ?? []
+
+      const latestMessage = directoryMessages.at(-1)
+      assert.ok(latestMessage, `Expected a room directory snapshot for ${sessionId}.`)
+      return latestMessage.rooms
+    },
+    latestError(sessionId: string) {
+      const errorMessages =
+        sentMessages
+          .get(sessionId)
+          ?.filter((message): message is Extract<ServerMessage, { type: 'error' }> => {
+            return message.type === 'error'
+          }) ?? []
+
+      const latestMessage = errorMessages.at(-1)
+      assert.ok(latestMessage, `Expected an error message for ${sessionId}.`)
+      return latestMessage.message
+    },
     pendingTimeoutCount() {
       return scheduledTimeouts.size
     },
@@ -213,6 +237,142 @@ test('PlayServer marks a player disconnected after the grace timeout expires', (
   assert.equal(harness.pendingTimeoutCount(), 1)
   assert.equal(harness.runNextTimeout(), 5_000)
   assert.equal(findPlayer(harness.latestRoomSnapshot('session-alice'), 'Bob').isConnected, false)
+})
+
+test('PlayServer lists public rooms in the shared directory and removes them when hidden or started', () => {
+  const harness = createHarness()
+  const playServer = new PlayServer({
+    sendToSession: harness.sendToSession,
+    disconnectGracePeriodMs: 5_000,
+    setTimeout: harness.setTimeout,
+    clearTimeout: harness.clearTimeout,
+  })
+
+  playServer.handleHello('session-bob', 'Bob')
+  playServer.handleHello('session-alice', 'Alice')
+  playServer.handleMessage('session-alice', {
+    type: 'create_room',
+    settings: {
+      visibility: 'public',
+      name: 'Commander Corner',
+      format: 'commander',
+      powerLevel: 'focused',
+      maxPlayers: 4,
+      description: 'Mid-power commander pod',
+      tags: ['budget', 'paper'],
+    },
+  })
+
+  const roomId = harness.latestRoomSnapshot('session-alice').roomId
+  let directory = harness.latestRoomDirectory('session-bob')
+
+  assert.equal(directory.length, 1)
+  assert.equal(directory[0].roomId, roomId)
+  assert.equal(directory[0].settings.name, 'Commander Corner')
+  assert.equal(directory[0].settings.visibility, 'public')
+  assert.equal(directory[0].settings.maxPlayers, 4)
+  assert.deepEqual(directory[0].settings.tags, ['budget', 'paper'])
+
+  playServer.handleMessage('session-alice', {
+    type: 'update_room_settings',
+    roomId,
+    settings: {
+      visibility: 'private',
+      name: 'Commander Corner',
+      format: 'commander',
+      powerLevel: 'focused',
+      maxPlayers: 4,
+      description: 'Mid-power commander pod',
+      tags: ['budget', 'paper'],
+    },
+  })
+
+  directory = harness.latestRoomDirectory('session-bob')
+  assert.equal(directory.length, 0)
+
+  playServer.handleMessage('session-alice', {
+    type: 'update_room_settings',
+    roomId,
+    settings: {
+      visibility: 'public',
+      name: 'Commander Corner',
+      format: 'commander',
+      powerLevel: 'focused',
+      maxPlayers: 4,
+      description: 'Mid-power commander pod',
+      tags: ['budget', 'paper'],
+    },
+  })
+  playServer.handleMessage('session-bob', { type: 'join_room', roomId })
+  playServer.handleMessage('session-alice', {
+    type: 'select_deck',
+    roomId,
+    deck: createDeck('deck-alice', 'Alice Deck'),
+  })
+  playServer.handleMessage('session-bob', {
+    type: 'select_deck',
+    roomId,
+    deck: createDeck('deck-bob', 'Bob Deck'),
+  })
+  playServer.handleMessage('session-alice', { type: 'start_game', roomId })
+
+  directory = harness.latestRoomDirectory('session-bob')
+  assert.equal(directory.length, 0)
+})
+
+test('PlayServer enforces host-only room settings changes and custom seat limits', () => {
+  const harness = createHarness()
+  const playServer = new PlayServer({
+    sendToSession: harness.sendToSession,
+    disconnectGracePeriodMs: 5_000,
+    setTimeout: harness.setTimeout,
+    clearTimeout: harness.clearTimeout,
+  })
+
+  playServer.handleHello('session-alice', 'Alice')
+  playServer.handleMessage('session-alice', {
+    type: 'create_room',
+    settings: {
+      visibility: 'private',
+      maxPlayers: 3,
+      minPlayers: 2,
+    },
+  })
+  const roomId = harness.latestRoomSnapshot('session-alice').roomId
+
+  playServer.handleHello('session-bob', 'Bob')
+  playServer.handleMessage('session-bob', { type: 'join_room', roomId })
+  playServer.handleMessage('session-bob', {
+    type: 'update_room_settings',
+    roomId,
+    settings: {
+      visibility: 'public',
+      maxPlayers: 4,
+    },
+  })
+
+  assert.equal(harness.latestError('session-bob'), 'Only the host can change room settings.')
+
+  playServer.handleHello('session-charlie', 'Charlie')
+  playServer.handleMessage('session-charlie', { type: 'join_room', roomId })
+  playServer.handleHello('session-dana', 'Dana')
+  playServer.handleMessage('session-dana', { type: 'join_room', roomId })
+  assert.equal(harness.latestError('session-dana'), 'This room is full.')
+
+  playServer.handleMessage('session-alice', {
+    type: 'update_room_settings',
+    roomId,
+    settings: {
+      visibility: 'private',
+      maxPlayers: 2,
+      minPlayers: 2,
+    },
+  })
+
+  assert.equal(
+    harness.latestError('session-alice'),
+    'Increase the player limit or remove players before shrinking the room.',
+  )
 })
 
 test('PlayServer exposes the local library privately and can move cards out of it', () => {

@@ -1,10 +1,15 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { PlusCircle } from 'lucide-react'
 import { Link, useNavigate } from 'react-router-dom'
 
 import { PlayFrame } from '@/play/components/PlayFrame'
+import { RoomSettingsForm } from '@/play/components/RoomSettingsForm'
+import {
+  createRoomSettingsDraft,
+  draftToRoomSettingsInput,
+} from '@/play/roomSettings'
 import { usePlay } from '@/play/usePlay'
-import { PLAYER_NAME_MAX_LENGTH } from '@/shared/play'
+import { buildDefaultRoomName, PLAYER_NAME_MAX_LENGTH } from '@/shared/play'
 
 export function PlayCreatePage() {
   const navigate = useNavigate()
@@ -19,6 +24,10 @@ export function PlayCreatePage() {
     createRoom,
   } = usePlay()
   const [nameInput, setNameInput] = useState(playerName)
+  const [roomSettingsDraft, setRoomSettingsDraft] = useState(() =>
+    createRoomSettingsDraft(null, playerName),
+  )
+  const suggestedRoomNameRef = useRef(buildDefaultRoomName(playerName))
 
   useEffect(() => {
     if (game) {
@@ -31,22 +40,36 @@ export function PlayCreatePage() {
     }
   }, [game, navigate, room])
 
+  useEffect(() => {
+    const nextDefaultName = buildDefaultRoomName(nameInput)
+
+    setRoomSettingsDraft((currentDraft) =>
+      currentDraft.name === suggestedRoomNameRef.current
+        ? {
+            ...currentDraft,
+            name: nextDefaultName,
+          }
+        : currentDraft,
+    )
+    suggestedRoomNameRef.current = nextDefaultName
+  }, [nameInput])
+
   return (
     <PlayFrame
       eyebrow="Create Room"
-      title="Open a private tabletop room."
-      description="Pick a display name, create the room, and share the code."
+      title="Open a tabletop room with real lobby settings."
+      description="Set your display name, choose whether the room is public or private, and tune the table before anyone joins."
       connectionStatus={connectionStatus}
       error={error}
       onDismissError={clearError}
     >
-      <section className="mx-auto w-full max-w-3xl rounded-[2rem] border border-white/10 bg-[linear-gradient(180deg,rgba(18,33,41,0.96),rgba(11,24,31,0.99))] p-6 shadow-panel ring-1 ring-white/5 sm:p-7">
+      <section className="mx-auto w-full max-w-4xl rounded-[2rem] border border-white/10 bg-[linear-gradient(180deg,rgba(18,33,41,0.96),rgba(11,24,31,0.99))] p-6 shadow-panel ring-1 ring-white/5 sm:p-7">
         <form
           className="grid gap-5"
           onSubmit={(event) => {
             event.preventDefault()
             setPlayerName(nameInput)
-            createRoom()
+            createRoom(draftToRoomSettingsInput(roomSettingsDraft))
           }}
         >
           <label className="grid gap-2">
@@ -63,6 +86,8 @@ export function PlayCreatePage() {
             />
           </label>
 
+          <RoomSettingsForm draft={roomSettingsDraft} onChange={setRoomSettingsDraft} />
+
           <div className="flex flex-wrap gap-3">
             <button
               type="submit"
@@ -70,7 +95,7 @@ export function PlayCreatePage() {
               className="inline-flex items-center gap-2 rounded-2xl bg-tide-500 px-5 py-3 text-sm font-semibold text-white transition hover:bg-tide-400 disabled:cursor-not-allowed disabled:opacity-60"
             >
               <PlusCircle className="h-4 w-4" />
-              Create room
+              Create {roomSettingsDraft.visibility} room
             </button>
             <Link
               to="/play"

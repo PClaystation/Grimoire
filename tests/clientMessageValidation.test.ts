@@ -144,6 +144,42 @@ test('parseClientMessage accepts library moves and stack actions', () => {
   assert.ok(stackAction)
 })
 
+test('parseClientMessage accepts room creation and room settings updates with settings payloads', () => {
+  const createRoom = parseClientMessage(
+    JSON.stringify({
+      type: 'create_room',
+      settings: {
+        visibility: 'public',
+        name: 'Commander Corner',
+        minPlayers: 2,
+        maxPlayers: 4,
+        format: 'commander',
+        powerLevel: 'focused',
+        description: 'Mid-power pod',
+        tags: ['budget', 'paper'],
+      },
+    }),
+  )
+
+  const updateRoomSettings = parseClientMessage(
+    JSON.stringify({
+      type: 'update_room_settings',
+      roomId: 'ABC123',
+      settings: {
+        visibility: 'private',
+        maxPlayers: 3,
+      },
+    }),
+  )
+
+  assert.ok(createRoom)
+  assert.equal(createRoom.type, 'create_room')
+  assert.equal(createRoom.settings?.visibility, 'public')
+  assert.ok(updateRoomSettings)
+  assert.equal(updateRoomSettings.type, 'update_room_settings')
+  assert.equal(updateRoomSettings.settings.maxPlayers, 3)
+})
+
 test('parseClientMessage rejects malformed stack payloads', () => {
   const invalidStackAction = parseClientMessage(
     JSON.stringify({
@@ -158,4 +194,26 @@ test('parseClientMessage rejects malformed stack payloads', () => {
   )
 
   assert.equal(invalidStackAction, null)
+})
+
+test('parseClientMessage rejects malformed room settings payloads', () => {
+  const invalidCreateRoom = parseClientMessage(
+    JSON.stringify({
+      type: 'create_room',
+      settings: {
+        tags: ['good', 42],
+      },
+    }),
+  )
+
+  const invalidUpdateRoomSettings = parseClientMessage(
+    JSON.stringify({
+      type: 'update_room_settings',
+      roomId: 'ABC123',
+      settings: 'public',
+    }),
+  )
+
+  assert.equal(invalidCreateRoom, null)
+  assert.equal(invalidUpdateRoomSettings, null)
 })

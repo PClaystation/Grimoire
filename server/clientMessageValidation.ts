@@ -7,6 +7,7 @@ import type {
   OwnedZone,
   PlayerDesignation,
   PermanentPosition,
+  RoomSettingsInput,
   StackItemType,
   TurnPhase,
 } from '../src/shared/play.js'
@@ -141,6 +142,24 @@ function isDeckSelectionSnapshotPayload(value: unknown): value is DeckSelectionS
   )
 }
 
+function isRoomSettingsPayload(value: unknown): value is RoomSettingsInput {
+  return (
+    isRecord(value) &&
+    (value.name === undefined || typeof value.name === 'string') &&
+    (value.visibility === undefined || value.visibility === 'private' || value.visibility === 'public') &&
+    (value.minPlayers === undefined || typeof value.minPlayers === 'number') &&
+    (value.maxPlayers === undefined || typeof value.maxPlayers === 'number') &&
+    (value.format === undefined || typeof value.format === 'string') &&
+    (value.powerLevel === undefined ||
+      value.powerLevel === 'casual' ||
+      value.powerLevel === 'focused' ||
+      value.powerLevel === 'competitive') &&
+    (value.description === undefined || typeof value.description === 'string') &&
+    (value.tags === undefined ||
+      (Array.isArray(value.tags) && value.tags.every((entry) => typeof entry === 'string')))
+  )
+}
+
 function isClientGameActionPayload(value: unknown): value is ClientGameAction {
   if (!(isRecord(value) && typeof value.type === 'string')) {
     return false
@@ -258,11 +277,13 @@ function isClientMessagePayload(value: unknown): value is ClientMessage {
     case 'hello':
       return typeof value.sessionId === 'string' && typeof value.playerName === 'string'
     case 'create_room':
-      return true
+      return value.settings === undefined || isRoomSettingsPayload(value.settings)
     case 'join_room':
     case 'leave_room':
     case 'start_game':
       return isNonEmptyString(value.roomId)
+    case 'update_room_settings':
+      return isNonEmptyString(value.roomId) && isRoomSettingsPayload(value.settings)
     case 'select_deck':
       return isNonEmptyString(value.roomId) && isDeckSelectionSnapshotPayload(value.deck)
     case 'game_action':

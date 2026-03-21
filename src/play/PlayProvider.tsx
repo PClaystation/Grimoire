@@ -93,6 +93,7 @@ export function PlayProvider({ children }: PropsWithChildren) {
       playerName: storedPlayerName ? normalizePlayerName(storedPlayerName) : 'Planeswalker',
       connectionStatus: 'connecting',
       room: null,
+      roomDirectory: [],
       game: null,
       error: null,
     }
@@ -164,6 +165,16 @@ export function PlayProvider({ children }: PropsWithChildren) {
               ...currentState,
               game: message.game,
               error: null,
+            }
+
+          case 'room_directory':
+            if (!Array.isArray(message.rooms)) {
+              return currentState
+            }
+
+            return {
+              ...currentState,
+              roomDirectory: message.rooms,
             }
 
           case 'room_left':
@@ -337,8 +348,15 @@ export function PlayProvider({ children }: PropsWithChildren) {
       }))
     },
     setPlayerName,
-    createRoom() {
-      sendMessage({ type: 'create_room' })
+    createRoom(settings) {
+      sendMessage({ type: 'create_room', settings })
+    },
+    updateRoomSettings(roomId: string, settings) {
+      sendMessage({
+        type: 'update_room_settings',
+        roomId: normalizeRoomCode(roomId),
+        settings,
+      })
     },
     joinRoom(roomId: string) {
       sendMessage({

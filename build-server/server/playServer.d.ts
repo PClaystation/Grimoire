@@ -11,6 +11,7 @@ export declare class PlayServer {
     private readonly gameRoomIds;
     private readonly sessionRoomIds;
     private readonly sessionNames;
+    private readonly knownSessionIds;
     private readonly pendingDisconnectTimers;
     private readonly disconnectGracePeriodMs;
     private readonly setTimeoutFn;
@@ -26,6 +27,7 @@ export declare class PlayServer {
     private createRoom;
     private joinRoom;
     private leaveRoom;
+    private updateRoomSettings;
     private selectDeck;
     private startGame;
     private applyGameAction;
@@ -44,6 +46,8 @@ export declare class PlayServer {
     private emitRoomSnapshots;
     private emitGameSnapshots;
     private buildRoomSnapshot;
+    private emitRoomDirectorySnapshots;
+    private buildRoomDirectoryEntry;
     private buildGameSnapshot;
     private toTableCardSnapshot;
     private toBattlefieldCardSnapshot;

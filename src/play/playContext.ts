@@ -4,6 +4,8 @@ import type {
   ClientGameAction,
   DeckSelectionSnapshot,
   GameSnapshot,
+  RoomDirectoryEntry,
+  RoomSettingsInput,
   RoomSnapshot,
 } from '@/shared/play'
 
@@ -14,6 +16,7 @@ export interface PlayState {
   playerName: string
   connectionStatus: ConnectionStatus
   room: RoomSnapshot | null
+  roomDirectory: RoomDirectoryEntry[]
   game: GameSnapshot | null
   error: string | null
 }
@@ -21,9 +24,10 @@ export interface PlayState {
 export interface PlayContextValue extends PlayState {
   clearError: () => void
   setPlayerName: (playerName: string) => void
-  createRoom: () => void
+  createRoom: (settings?: RoomSettingsInput) => void
   joinRoom: (roomId: string) => void
   leaveRoom: (roomId: string) => void
+  updateRoomSettings: (roomId: string, settings: RoomSettingsInput) => void
   selectDeck: (roomId: string, deck: DeckSelectionSnapshot) => void
   startGame: (roomId: string) => void
   sendGameAction: (gameId: string, action: ClientGameAction) => void

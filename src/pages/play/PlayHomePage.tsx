@@ -1,18 +1,21 @@
+import { type ReactNode } from 'react'
 import { ArrowRight, EyeOff, PlusCircle, RadioTower, Rows3, WandSparkles } from 'lucide-react'
-import { Link } from 'react-router-dom'
-import type { ReactNode } from 'react'
+import { Link, useNavigate } from 'react-router-dom'
 
 import { PlayFrame } from '@/play/components/PlayFrame'
+import { PublicRoomDirectory } from '@/play/components/PublicRoomDirectory'
 import { usePlay } from '@/play/usePlay'
 
 export function PlayHomePage() {
-  const { connectionStatus, room, game, error, clearError } = usePlay()
+  const navigate = useNavigate()
+  const { connectionStatus, playerName, room, roomDirectory, game, error, clearError, joinRoom } =
+    usePlay()
 
   return (
     <PlayFrame
       eyebrow="Online Tabletop"
       title="Run a shared MTG table without the rules engine."
-      description="Create a room, bring a saved deck, and keep public zones in sync."
+      description="Create a room, browse public tables, bring a saved deck, and keep public zones in sync."
       connectionStatus={connectionStatus}
       error={error}
       onDismissError={clearError}
@@ -82,6 +85,20 @@ export function PlayHomePage() {
           )}
         </section>
       </div>
+
+      <PublicRoomDirectory
+        rooms={roomDirectory}
+        connectionStatus={connectionStatus}
+        activeRoomId={room?.roomId ?? null}
+        title="Find a room by search, tags, format, or open seats."
+        description={`Jump straight into any public room with the saved display name "${playerName}". Use the join page if you want to change your name first or join a private code-only room.`}
+        emptyTitle="No public rooms are available yet."
+        emptyDescription="Create a public room to have it listed for everyone on the play page. Private rooms stay hidden and can still be joined by code."
+        onJoinRoom={(roomId) => {
+          joinRoom(roomId)
+          navigate(`/play/room/${roomId}`)
+        }}
+      />
     </PlayFrame>
   )
 }

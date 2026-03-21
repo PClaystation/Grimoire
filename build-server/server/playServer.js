@@ -1,4 +1,4 @@
-import { PLAY_COMMANDER_STARTING_LIFE_TOTAL, PLAY_MAX_PLAYERS, PLAY_MIN_PLAYERS, PLAY_OPENING_HAND_SIZE, PLAY_STARTING_LIFE_TOTAL, TURN_PHASES, buildDeckSelectionSummary, buildRandomRoomCode, clampPermanentPosition, countDeckCards, normalizeDeckFormat, normalizePlayerName, normalizeRoomCode, } from '../src/shared/play.js';
+import { PLAY_COMMANDER_STARTING_LIFE_TOTAL, PLAY_OPENING_HAND_SIZE, PLAY_STARTING_LIFE_TOTAL, TURN_PHASES, buildDeckSelectionSummary, buildRandomRoomCode, clampPermanentPosition, countDeckCards, normalizeDeckFormat, normalizePlayerName, normalizeRoomCode, normalizeRoomSettings, } from '../src/shared/play.js';
 import { expandDeckEntries, shuffleCardInstances, } from '../src/shared/playDeck.js';
 const DEFAULT_DISCONNECT_GRACE_PERIOD_MS = 5_000;
 function removeCardFromZone(cards, cardId) {
@@ -173,6 +173,7 @@ export class PlayServer {
     gameRoomIds = new Map();
     sessionRoomIds = new Map();
     sessionNames = new Map();
+    knownSessionIds = new Set();
     pendingDisconnectTimers = new Map();
     disconnectGracePeriodMs;
     setTimeoutFn;
@@ -187,6 +188,7 @@ export class PlayServer {
         this.clearPendingDisconnect(sessionId);
         const normalizedName = normalizePlayerName(playerName);
         this.sessionNames.set(sessionId, normalizedName);
+        this.knownSessionIds.add(sessionId);
         const room = this.getRoomBySession(sessionId);
         this.dependencies.sendToSession(sessionId, {
             type: 'session_ready',
@@ -195,6 +197,7 @@ export class PlayServer {
             roomId: room?.roomId ?? null,
             gameId: room?.gameId ?? null,
         });
+        this.emitRoomDirectorySnapshots([sessionId]);
         if (!room) {
             return;
         }
@@ -258,13 +261,16 @@ export class PlayServer {
     handleMessage(sessionId, message) {
         switch (message.type) {
             case 'create_room':
-                this.createRoom(sessionId);
+                this.createRoom(sessionId, message.settings);
                 break;
             case 'join_room':
                 this.joinRoom(sessionId, message.roomId);
                 break;
             case 'leave_room':
                 this.leaveRoom(sessionId, message.roomId);
+                break;
+            case 'update_room_settings':
+                this.updateRoomSettings(sessionId, message.roomId, message.settings);
                 break;
             case 'select_deck':
                 this.selectDeck(sessionId, message.roomId, message.deck);
@@ -277,7 +283,7 @@ export class PlayServer {
                 break;
         }
     }
-    createRoom(sessionId) {
+    createRoom(sessionId, settings) {
         const existingRoom = this.getRoomBySession(sessionId);
         if (existingRoom) {
             this.emitRoomSnapshots(existingRoom);
@@ -291,6 +297,7 @@ export class PlayServer {
             code: roomId,
             createdAt,
             hostPlayerId: player.id,
+            settings: normalizeRoomSettings(settings, player.name),
             players: [player],
             gameId: null,
             game: null,
@@ -324,7 +331,7 @@ export class PlayServer {
             this.emitError(sessionId, 'This room already started a game.');
             return;
         }
-        if (room.players.length >= PLAY_MAX_PLAYERS) {
+        if (room.players.length >= room.settings.maxPlayers) {
             this.emitError(sessionId, 'This room is full.');
             return;
         }
@@ -355,6 +362,29 @@ export class PlayServer {
         if (!room.players.some((player) => player.id === room.hostPlayerId)) {
             room.hostPlayerId = room.players[0].id;
         }
+        this.emitRoomSnapshots(room);
+    }
+    updateRoomSettings(sessionId, requestedRoomId, settings) {
+        const room = this.getRoomBySession(sessionId);
+        if (!room || room.roomId !== normalizeRoomCode(requestedRoomId)) {
+            this.emitError(sessionId, 'You are not in that room.');
+            return;
+        }
+        if (room.game) {
+            this.emitError(sessionId, 'Room settings cannot be changed after the game starts.');
+            return;
+        }
+        const hostPlayer = room.players.find((player) => player.id === room.hostPlayerId);
+        if (!hostPlayer || hostPlayer.sessionId !== sessionId) {
+            this.emitError(sessionId, 'Only the host can change room settings.');
+            return;
+        }
+        const normalizedSettings = normalizeRoomSettings(settings, hostPlayer.name);
+        if (normalizedSettings.maxPlayers < room.players.length) {
+            this.emitError(sessionId, 'Increase the player limit or remove players before shrinking the room.');
+            return;
+        }
+        room.settings = normalizedSettings;
         this.emitRoomSnapshots(room);
     }
     selectDeck(sessionId, requestedRoomId, deck) {
@@ -396,8 +426,8 @@ export class PlayServer {
             this.emitError(sessionId, 'Only the host can start the game.');
             return;
         }
-        if (room.players.length < PLAY_MIN_PLAYERS) {
-            this.emitError(sessionId, 'You need at least two players to start.');
+        if (room.players.length < room.settings.minPlayers) {
+            this.emitError(sessionId, `You need at least ${room.settings.minPlayers} players to start this room.`);
             return;
         }
         if (room.players.some((player) => !player.isConnected)) {
@@ -1081,6 +1111,7 @@ export class PlayServer {
                 room: this.buildRoomSnapshot(room, player.id),
             });
         });
+        this.emitRoomDirectorySnapshots();
     }
     emitGameSnapshots(room) {
         if (!room.game) {
@@ -1102,14 +1133,52 @@ export class PlayServer {
             gameId: room.gameId,
             hostPlayerId: room.hostPlayerId,
             localPlayerId,
-            minPlayers: PLAY_MIN_PLAYERS,
-            maxPlayers: PLAY_MAX_PLAYERS,
+            settings: room.settings,
             players: room.players.map((player) => ({
                 id: player.id,
                 name: player.name,
                 isHost: player.id === room.hostPlayerId,
                 isConnected: player.isConnected,
                 selectedDeck: player.selectedDeck ? buildDeckSelectionSummary(player.selectedDeck) : null,
+            })),
+        };
+    }
+    emitRoomDirectorySnapshots(targetSessionIds) {
+        const directory = Array.from(this.rooms.values())
+            .map((room) => this.buildRoomDirectoryEntry(room))
+            .filter((room) => Boolean(room))
+            .sort((left, right) => right.createdAt.localeCompare(left.createdAt));
+        const sessions = targetSessionIds ? Array.from(targetSessionIds) : Array.from(this.knownSessionIds);
+        sessions.forEach((sessionId) => {
+            this.dependencies.sendToSession(sessionId, {
+                type: 'room_directory',
+                rooms: directory,
+            });
+        });
+    }
+    buildRoomDirectoryEntry(room) {
+        if (room.settings.visibility !== 'public' || room.game) {
+            return null;
+        }
+        const hostPlayer = room.players.find((player) => player.id === room.hostPlayerId) ?? room.players[0];
+        if (!hostPlayer) {
+            return null;
+        }
+        return {
+            roomId: room.roomId,
+            code: room.code,
+            phase: 'lobby',
+            createdAt: room.createdAt,
+            hostPlayerId: room.hostPlayerId,
+            hostPlayerName: hostPlayer.name,
+            settings: room.settings,
+            playerCount: room.players.length,
+            connectedPlayerCount: room.players.filter((player) => player.isConnected).length,
+            openSeatCount: Math.max(0, room.settings.maxPlayers - room.players.length),
+            players: room.players.map((player) => ({
+                name: player.name,
+                isHost: player.id === room.hostPlayerId,
+                isConnected: player.isConnected,
             })),
         };
     }
@@ -1269,6 +1338,7 @@ export class PlayServer {
             this.gameRoomIds.delete(room.gameId);
         }
         this.rooms.delete(roomId);
+        this.emitRoomDirectorySnapshots();
     }
     emitError(sessionId, message) {
         this.dependencies.sendToSession(sessionId, {

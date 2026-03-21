@@ -7,7 +7,14 @@ export declare const PLAY_COMMANDER_STARTING_LIFE_TOTAL = 40;
 export declare const PLAY_OPENING_HAND_SIZE = 7;
 export declare const ROOM_CODE_LENGTH = 6;
 export declare const PLAYER_NAME_MAX_LENGTH = 24;
+export declare const ROOM_NAME_MAX_LENGTH = 48;
+export declare const ROOM_DESCRIPTION_MAX_LENGTH = 180;
+export declare const ROOM_MAX_TAGS = 6;
+export declare const ROOM_TAG_MAX_LENGTH = 18;
 export type RoomPhase = 'lobby' | 'game';
+export type RoomVisibility = 'private' | 'public';
+export type RoomFormatPreference = DeckFormat | 'any';
+export type RoomPowerLevel = 'casual' | 'focused' | 'competitive';
 export type OwnedZone = 'library' | 'hand' | 'battlefield' | 'graveyard' | 'exile' | 'command';
 export type TurnPhase = 'untap' | 'upkeep' | 'draw' | 'main1' | 'begin_combat' | 'declare_attackers' | 'declare_blockers' | 'combat_damage' | 'end_combat' | 'main2' | 'end' | 'cleanup';
 export type StackItemType = 'spell' | 'ability' | 'trigger';
@@ -64,6 +71,26 @@ export interface RoomPlayerSnapshot {
     isConnected: boolean;
     selectedDeck: DeckSelectionSummary | null;
 }
+export interface RoomSettings {
+    name: string;
+    visibility: RoomVisibility;
+    minPlayers: number;
+    maxPlayers: number;
+    format: RoomFormatPreference;
+    powerLevel: RoomPowerLevel;
+    description: string;
+    tags: string[];
+}
+export interface RoomSettingsInput {
+    name?: string;
+    visibility?: RoomVisibility;
+    minPlayers?: number;
+    maxPlayers?: number;
+    format?: RoomFormatPreference;
+    powerLevel?: RoomPowerLevel;
+    description?: string;
+    tags?: string[];
+}
 export interface RoomSnapshot {
     roomId: string;
     code: string;
@@ -72,9 +99,26 @@ export interface RoomSnapshot {
     gameId: string | null;
     hostPlayerId: string;
     localPlayerId: string | null;
-    minPlayers: number;
-    maxPlayers: number;
+    settings: RoomSettings;
     players: RoomPlayerSnapshot[];
+}
+export interface RoomDirectoryPlayerSnapshot {
+    name: string;
+    isHost: boolean;
+    isConnected: boolean;
+}
+export interface RoomDirectoryEntry {
+    roomId: string;
+    code: string;
+    phase: RoomPhase;
+    createdAt: string;
+    hostPlayerId: string;
+    hostPlayerName: string;
+    settings: RoomSettings;
+    playerCount: number;
+    connectedPlayerCount: number;
+    openSeatCount: number;
+    players: RoomDirectoryPlayerSnapshot[];
 }
 export interface TableCardSnapshot {
     instanceId: string;
@@ -267,12 +311,17 @@ export type ClientMessage = {
     playerName: string;
 } | {
     type: 'create_room';
+    settings?: RoomSettingsInput;
 } | {
     type: 'join_room';
     roomId: string;
 } | {
     type: 'leave_room';
     roomId: string;
+} | {
+    type: 'update_room_settings';
+    roomId: string;
+    settings: RoomSettingsInput;
 } | {
     type: 'select_deck';
     roomId: string;
@@ -295,6 +344,9 @@ export type ServerMessage = {
     type: 'room_snapshot';
     room: RoomSnapshot;
 } | {
+    type: 'room_directory';
+    rooms: RoomDirectoryEntry[];
+} | {
     type: 'game_snapshot';
     game: GameSnapshot;
 } | {
@@ -310,6 +362,9 @@ export declare function buildDeckSelectionSummary(deck: Pick<DeckSelectionSnapsh
 export declare function normalizeRoomCode(value: string): string;
 export declare function buildRandomRoomCode(): string;
 export declare function normalizePlayerName(value: string): string;
+export declare function buildDefaultRoomName(hostPlayerName: string): string;
+export declare function normalizeRoomTags(value: string[] | undefined): string[];
+export declare function normalizeRoomSettings(value: RoomSettingsInput | null | undefined, hostPlayerName?: string): RoomSettings;
 export declare function clampPermanentPosition(position: Partial<PermanentPosition> | null | undefined): PermanentPosition;
 export declare const TURN_PHASES: TurnPhase[];
 export declare function normalizeDeckFormat(value: string): DeckFormat;
