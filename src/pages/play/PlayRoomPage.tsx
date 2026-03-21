@@ -250,12 +250,13 @@ export function PlayRoomPage() {
               <Settings2 className="h-5 w-5 text-tide-200" />
             </div>
 
-            {isHost ? (
-              <HostRoomSettingsEditor
+            {room.settings.visibility === 'public' || isHost ? (
+              <RoomSettingsPanel
                 key={`${room.roomId}:${roomSettingsSignature}`}
                 roomId={room.roomId}
                 initialSettings={room.settings}
                 hostPlayerName={localPlayer?.name ?? 'Planeswalker'}
+                editable={isHost}
                 onSave={(roomIdToSave, nextSettings) => {
                   updateRoomSettings(roomIdToSave, nextSettings)
                   setStatusMessage('Room settings updated.')
@@ -404,35 +405,50 @@ function RoomSettingsSummary({ room }: { room: RoomSnapshot }) {
   )
 }
 
-function HostRoomSettingsEditor({
+function RoomSettingsPanel({
   roomId,
   initialSettings,
   hostPlayerName,
+  editable,
   onSave,
 }: {
   roomId: string
   initialSettings: RoomSettings
   hostPlayerName: string
+  editable: boolean
   onSave: (roomId: string, nextSettings: ReturnType<typeof draftToRoomSettingsInput>) => void
 }) {
   const [draft, setDraft] = useState(() => createRoomSettingsDraft(initialSettings, hostPlayerName))
 
   return (
-    <form
-      className="mt-5 grid gap-4"
-      onSubmit={(event) => {
-        event.preventDefault()
-        onSave(roomId, draftToRoomSettingsInput(draft))
-      }}
-    >
-      <RoomSettingsForm draft={draft} onChange={setDraft} />
-      <button
-        type="submit"
-        className="inline-flex items-center justify-center rounded-2xl bg-white/8 px-4 py-3 text-sm font-semibold text-ink-50 transition hover:bg-white/12"
-      >
-        Save room settings
-      </button>
-    </form>
+    <div className="mt-5 grid gap-4">
+      <RoomSettingsForm
+        draft={draft}
+        disabled={!editable}
+        onChange={editable ? setDraft : () => undefined}
+      />
+      {editable ? (
+        <form
+          onSubmit={(event) => {
+            event.preventDefault()
+            onSave(roomId, draftToRoomSettingsInput(draft))
+          }}
+        >
+          <button
+            type="submit"
+            className="inline-flex items-center justify-center rounded-2xl bg-white/8 px-4 py-3 text-sm font-semibold text-ink-50 transition hover:bg-white/12"
+          >
+            Save room settings
+          </button>
+        </form>
+      ) : (
+        <div className="rounded-[1.6rem] border border-white/10 bg-white/[0.04] p-5">
+          <p className="text-sm leading-7 text-ink-300">
+            You can view the room settings here. Only the host can make changes.
+          </p>
+        </div>
+      )}
+    </div>
   )
 }
 
