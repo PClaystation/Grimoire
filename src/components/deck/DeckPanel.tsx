@@ -269,212 +269,245 @@ export function DeckPanel({
   buildSavedDeckCompareHref,
 }: DeckPanelProps) {
   const hasCards = mainboard.length > 0 || sideboard.length > 0
+  const [activePanel, setActivePanel] = useState<'deck' | 'analysis' | 'saved'>('deck')
 
   return (
     <aside className={className}>
       <div className="space-y-6 xl:sticky xl:top-6">
         <SectionPanel
-          title="Current Deck"
-          subtitle="Build, save, and test from one panel."
-          actions={
-            <span className="inline-flex items-center rounded-full border border-white/10 bg-white/5 px-3 py-1 text-xs font-semibold uppercase tracking-[0.18em] text-ink-300">
-              {activeDeckId ? 'Saved deck' : 'Draft'}
-            </span>
-          }
+          title="Deck Workspace"
+          subtitle="Switch between building, analysis, and saved decks without stacking every panel at once."
         >
-          <div className="space-y-5">
-            <div className="grid gap-4 md:grid-cols-2">
-              <label className="block space-y-2">
-                <span className="text-sm font-medium text-ink-200">Deck name</span>
-                <input
-                  type="text"
-                  value={deckName}
-                  onChange={(event) => onDeckNameChange(event.target.value)}
-                  placeholder="Azorius Tempo"
-                  className="w-full rounded-2xl border border-white/10 bg-ink-800/80 px-4 py-3 text-sm text-ink-50 outline-none transition focus:border-tide-400 focus:ring-2 focus:ring-tide-400/30"
-                />
-              </label>
-
-              <label className="block space-y-2">
-                <span className="text-sm font-medium text-ink-200">Format</span>
-                <select
-                  value={format}
-                  onChange={(event) => onFormatChange(event.target.value as DeckFormat)}
-                  className="w-full rounded-2xl border border-white/10 bg-ink-800/80 px-4 py-3 text-sm text-ink-50 outline-none transition focus:border-tide-400 focus:ring-2 focus:ring-tide-400/30"
-                >
-                  {DECK_FORMAT_OPTIONS.map((option) => (
-                    <option key={option.value} value={option.value}>
-                      {option.label}
-                    </option>
-                  ))}
-                </select>
-              </label>
-            </div>
-
-            <label className="block space-y-2">
-              <span className="text-sm font-medium text-ink-200">Budget target (USD)</span>
-              <input
-                type="number"
-                inputMode="decimal"
-                min="0"
-                step="0.01"
-                value={budgetTargetUsd ?? ''}
-                onChange={(event) => {
-                  const nextValue = event.target.value
-                  onBudgetTargetChange(nextValue ? Number.parseFloat(nextValue) : null)
-                }}
-                placeholder="Optional total value cap"
-                className="w-full rounded-2xl border border-white/10 bg-ink-800/80 px-4 py-3 text-sm text-ink-50 outline-none transition focus:border-tide-400 focus:ring-2 focus:ring-tide-400/30"
-              />
-            </label>
-
-            <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+          <div className="inline-flex w-full rounded-[1.4rem] border border-white/10 bg-white/[0.04] p-1.5">
+            {[
+              { id: 'deck', label: 'Deck' },
+              { id: 'analysis', label: `Analysis ${hasCards ? `(${stats.rating.score})` : ''}`.trim() },
+              { id: 'saved', label: 'Saved' },
+            ].map((panel) => (
               <button
+                key={panel.id}
                 type="button"
-                onClick={onSave}
-                disabled={!hasCards}
-                className="inline-flex items-center justify-center gap-2 rounded-2xl bg-tide-500 px-4 py-3 text-sm font-semibold text-white transition hover:bg-tide-400 disabled:cursor-not-allowed disabled:opacity-60"
+                onClick={() => setActivePanel(panel.id as typeof activePanel)}
+                className={`flex-1 rounded-[1rem] px-4 py-2.5 text-sm font-semibold transition ${
+                  activePanel === panel.id
+                    ? 'bg-tide-500 text-white shadow-[0_12px_24px_-16px_rgba(29,150,167,0.9)]'
+                    : 'text-ink-300 hover:bg-white/5 hover:text-ink-50'
+                }`}
               >
-                <Save className="h-4 w-4" />
-                {activeDeckId ? 'Update Deck' : 'Save Deck'}
+                {panel.label}
               </button>
-              <button
-                type="button"
-                onClick={onImport}
-                className="inline-flex items-center justify-center gap-2 rounded-2xl border border-white/10 bg-ink-800 px-4 py-3 text-sm font-semibold text-ink-200 transition hover:border-white/20 hover:bg-ink-700"
-              >
-                <Upload className="h-4 w-4" />
-                Import
-              </button>
-              <button
-                type="button"
-                onClick={onOpenPlaytest}
-                disabled={!hasCards}
-                className="inline-flex items-center justify-center gap-2 rounded-2xl border border-ember-400/20 bg-ember-500/10 px-4 py-3 text-sm font-semibold text-ember-100 transition hover:border-ember-400/35 hover:bg-ember-500/15 disabled:cursor-not-allowed disabled:opacity-60"
-              >
-                <Play className="h-4 w-4" />
-                Playtest
-              </button>
-              <button
-                type="button"
-                onClick={onUndo}
-                disabled={!canUndo}
-                className="inline-flex items-center justify-center gap-2 rounded-2xl border border-white/10 bg-ink-800 px-4 py-3 text-sm font-semibold text-ink-200 transition hover:border-white/20 hover:bg-ink-700 disabled:cursor-not-allowed disabled:opacity-60"
-              >
-                <Undo2 className="h-4 w-4" />
-                Undo
-              </button>
-              <button
-                type="button"
-                onClick={onRedo}
-                disabled={!canRedo}
-                className="inline-flex items-center justify-center gap-2 rounded-2xl border border-white/10 bg-ink-800 px-4 py-3 text-sm font-semibold text-ink-200 transition hover:border-white/20 hover:bg-ink-700 disabled:cursor-not-allowed disabled:opacity-60"
-              >
-                <Redo2 className="h-4 w-4" />
-                Redo
-              </button>
-              <button
-                type="button"
-                onClick={onNewDeck}
-                className="inline-flex items-center justify-center gap-2 rounded-2xl border border-white/10 bg-ink-800 px-4 py-3 text-sm font-semibold text-ink-200 transition hover:border-white/20 hover:bg-ink-700"
-              >
-                <WandSparkles className="h-4 w-4" />
-                New Deck
-              </button>
-              <DeckToolsMenu
-                hasCards={hasCards}
-                onCopyDecklist={onCopyDecklist}
-                onCopyShareLink={onCopyShareLink}
-                onCopyPublicPageLink={onCopyPublicPageLink}
-                onDownloadTxt={onDownloadTxt}
-                onDownloadJson={onDownloadJson}
-                publicDeckPageHref={publicDeckPageHref}
-              />
-            </div>
-
-            {statusMessage ? (
-              <p
-                role="status"
-                aria-live="polite"
-                className="rounded-2xl border border-tide-400/20 bg-tide-500/10 px-4 py-3 text-sm text-tide-100"
-              >
-                {statusMessage}
-              </p>
-            ) : null}
-
-            <div className="grid gap-4 md:grid-cols-2">
-              <label className="space-y-2">
-                <span className="text-sm font-medium text-ink-200">Deck notes</span>
-                <textarea
-                  value={notes}
-                  onChange={(event) => onNotesChange(event.target.value)}
-                  placeholder="Game plan or notes"
-                  className="min-h-32 w-full rounded-2xl border border-white/10 bg-ink-800/80 px-4 py-3 text-sm text-ink-50 outline-none transition focus:border-tide-400 focus:ring-2 focus:ring-tide-400/30"
-                />
-              </label>
-
-              <label className="space-y-2">
-                <span className="text-sm font-medium text-ink-200">Matchup plans</span>
-                <textarea
-                  value={matchupNotes}
-                  onChange={(event) => onMatchupNotesChange(event.target.value)}
-                  placeholder="Example: vs Control +2 Negate, -2 Cut Down"
-                  className="min-h-32 w-full rounded-2xl border border-white/10 bg-ink-800/80 px-4 py-3 text-sm text-ink-50 outline-none transition focus:border-tide-400 focus:ring-2 focus:ring-tide-400/30"
-                />
-              </label>
-            </div>
-
-            <DeckCardList
-              title="Mainboard"
-              description="Primary game-plan cards."
-              section="mainboard"
-              cards={mainboard}
-              onIncrease={onIncrease}
-              onDecrease={onDecrease}
-              onRemove={onRemove}
-              onMove={onMove}
-            />
-
-            <DeckCardList
-              title="Sideboard"
-              description="Matchup cards and flex slots."
-              section="sideboard"
-              cards={sideboard}
-              onIncrease={onIncrease}
-              onDecrease={onDecrease}
-              onRemove={onRemove}
-              onMove={onMove}
-            />
+            ))}
           </div>
         </SectionPanel>
 
-        <SectionPanel
-          title="Deck Analysis"
-          subtitle="Fundamentals-based rating, structure checks, and actionable tuning feedback."
-        >
-          <DeckStats stats={stats} />
-        </SectionPanel>
+        {activePanel === 'deck' ? (
+          <SectionPanel
+            title="Current Deck"
+            subtitle="Build, save, and test from one panel."
+            actions={
+              <span className="inline-flex items-center rounded-full border border-white/10 bg-white/5 px-3 py-1 text-xs font-semibold uppercase tracking-[0.18em] text-ink-300">
+                {activeDeckId ? 'Saved deck' : 'Draft'}
+              </span>
+            }
+          >
+            <div className="space-y-5">
+              <div className="grid gap-4 md:grid-cols-2">
+                <label className="block space-y-2">
+                  <span className="text-sm font-medium text-ink-200">Deck name</span>
+                  <input
+                    type="text"
+                    value={deckName}
+                    onChange={(event) => onDeckNameChange(event.target.value)}
+                    placeholder="Azorius Tempo"
+                    className="w-full rounded-2xl border border-white/10 bg-ink-800/80 px-4 py-3 text-sm text-ink-50 outline-none transition focus:border-tide-400 focus:ring-2 focus:ring-tide-400/30"
+                  />
+                </label>
 
-        <SectionPanel
-          title="Saved Decks"
-          subtitle={savedDecksSubtitle}
-          actions={
-            <span className="inline-flex items-center rounded-full border border-white/10 bg-white/5 px-3 py-1 text-xs font-semibold uppercase tracking-[0.18em] text-ink-300">
-              {savedDecksLabel}
-            </span>
-          }
-        >
-          <SavedDeckList
-            decks={savedDecks}
-            isLoading={isSavedDecksLoading}
-            emptyDescription={savedDecksEmptyDescription}
-            activeDeckId={activeDeckId}
-            onLoad={onLoadDeck}
-            onDelete={onDeleteSavedDeck}
-            buildViewHref={buildSavedDeckViewHref}
-            buildCompareHref={buildSavedDeckCompareHref}
-          />
-        </SectionPanel>
+                <label className="block space-y-2">
+                  <span className="text-sm font-medium text-ink-200">Format</span>
+                  <select
+                    value={format}
+                    onChange={(event) => onFormatChange(event.target.value as DeckFormat)}
+                    className="w-full rounded-2xl border border-white/10 bg-ink-800/80 px-4 py-3 text-sm text-ink-50 outline-none transition focus:border-tide-400 focus:ring-2 focus:ring-tide-400/30"
+                  >
+                    {DECK_FORMAT_OPTIONS.map((option) => (
+                      <option key={option.value} value={option.value}>
+                        {option.label}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+              </div>
+
+              <label className="block space-y-2">
+                <span className="text-sm font-medium text-ink-200">Budget target (USD)</span>
+                <input
+                  type="number"
+                  inputMode="decimal"
+                  min="0"
+                  step="0.01"
+                  value={budgetTargetUsd ?? ''}
+                  onChange={(event) => {
+                    const nextValue = event.target.value
+                    onBudgetTargetChange(nextValue ? Number.parseFloat(nextValue) : null)
+                  }}
+                  placeholder="Optional total value cap"
+                  className="w-full rounded-2xl border border-white/10 bg-ink-800/80 px-4 py-3 text-sm text-ink-50 outline-none transition focus:border-tide-400 focus:ring-2 focus:ring-tide-400/30"
+                />
+              </label>
+
+              <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+                <button
+                  type="button"
+                  onClick={onSave}
+                  disabled={!hasCards}
+                  className="inline-flex items-center justify-center gap-2 rounded-2xl bg-tide-500 px-4 py-3 text-sm font-semibold text-white transition hover:bg-tide-400 disabled:cursor-not-allowed disabled:opacity-60"
+                >
+                  <Save className="h-4 w-4" />
+                  {activeDeckId ? 'Update Deck' : 'Save Deck'}
+                </button>
+                <button
+                  type="button"
+                  onClick={onImport}
+                  className="inline-flex items-center justify-center gap-2 rounded-2xl border border-white/10 bg-ink-800 px-4 py-3 text-sm font-semibold text-ink-200 transition hover:border-white/20 hover:bg-ink-700"
+                >
+                  <Upload className="h-4 w-4" />
+                  Import
+                </button>
+                <button
+                  type="button"
+                  onClick={onOpenPlaytest}
+                  disabled={!hasCards}
+                  className="inline-flex items-center justify-center gap-2 rounded-2xl border border-ember-400/20 bg-ember-500/10 px-4 py-3 text-sm font-semibold text-ember-100 transition hover:border-ember-400/35 hover:bg-ember-500/15 disabled:cursor-not-allowed disabled:opacity-60"
+                >
+                  <Play className="h-4 w-4" />
+                  Playtest
+                </button>
+                <button
+                  type="button"
+                  onClick={onUndo}
+                  disabled={!canUndo}
+                  className="inline-flex items-center justify-center gap-2 rounded-2xl border border-white/10 bg-ink-800 px-4 py-3 text-sm font-semibold text-ink-200 transition hover:border-white/20 hover:bg-ink-700 disabled:cursor-not-allowed disabled:opacity-60"
+                >
+                  <Undo2 className="h-4 w-4" />
+                  Undo
+                </button>
+                <button
+                  type="button"
+                  onClick={onRedo}
+                  disabled={!canRedo}
+                  className="inline-flex items-center justify-center gap-2 rounded-2xl border border-white/10 bg-ink-800 px-4 py-3 text-sm font-semibold text-ink-200 transition hover:border-white/20 hover:bg-ink-700 disabled:cursor-not-allowed disabled:opacity-60"
+                >
+                  <Redo2 className="h-4 w-4" />
+                  Redo
+                </button>
+                <button
+                  type="button"
+                  onClick={onNewDeck}
+                  className="inline-flex items-center justify-center gap-2 rounded-2xl border border-white/10 bg-ink-800 px-4 py-3 text-sm font-semibold text-ink-200 transition hover:border-white/20 hover:bg-ink-700"
+                >
+                  <WandSparkles className="h-4 w-4" />
+                  New Deck
+                </button>
+                <DeckToolsMenu
+                  hasCards={hasCards}
+                  onCopyDecklist={onCopyDecklist}
+                  onCopyShareLink={onCopyShareLink}
+                  onCopyPublicPageLink={onCopyPublicPageLink}
+                  onDownloadTxt={onDownloadTxt}
+                  onDownloadJson={onDownloadJson}
+                  publicDeckPageHref={publicDeckPageHref}
+                />
+              </div>
+
+              {statusMessage ? (
+                <p
+                  role="status"
+                  aria-live="polite"
+                  className="rounded-2xl border border-tide-400/20 bg-tide-500/10 px-4 py-3 text-sm text-tide-100"
+                >
+                  {statusMessage}
+                </p>
+              ) : null}
+
+              <div className="grid gap-4 md:grid-cols-2">
+                <label className="space-y-2">
+                  <span className="text-sm font-medium text-ink-200">Deck notes</span>
+                  <textarea
+                    value={notes}
+                    onChange={(event) => onNotesChange(event.target.value)}
+                    placeholder="Game plan or notes"
+                    className="min-h-32 w-full rounded-2xl border border-white/10 bg-ink-800/80 px-4 py-3 text-sm text-ink-50 outline-none transition focus:border-tide-400 focus:ring-2 focus:ring-tide-400/30"
+                  />
+                </label>
+
+                <label className="space-y-2">
+                  <span className="text-sm font-medium text-ink-200">Matchup plans</span>
+                  <textarea
+                    value={matchupNotes}
+                    onChange={(event) => onMatchupNotesChange(event.target.value)}
+                    placeholder="Example: vs Control +2 Negate, -2 Cut Down"
+                    className="min-h-32 w-full rounded-2xl border border-white/10 bg-ink-800/80 px-4 py-3 text-sm text-ink-50 outline-none transition focus:border-tide-400 focus:ring-2 focus:ring-tide-400/30"
+                  />
+                </label>
+              </div>
+
+              <DeckCardList
+                title="Mainboard"
+                description="Primary game-plan cards."
+                section="mainboard"
+                cards={mainboard}
+                onIncrease={onIncrease}
+                onDecrease={onDecrease}
+                onRemove={onRemove}
+                onMove={onMove}
+              />
+
+              <DeckCardList
+                title="Sideboard"
+                description="Matchup cards and flex slots."
+                section="sideboard"
+                cards={sideboard}
+                onIncrease={onIncrease}
+                onDecrease={onDecrease}
+                onRemove={onRemove}
+                onMove={onMove}
+              />
+            </div>
+          </SectionPanel>
+        ) : null}
+
+        {activePanel === 'analysis' ? (
+          <SectionPanel
+            title="Deck Analysis"
+            subtitle="Fundamentals-based rating, structure checks, and actionable tuning feedback."
+          >
+            <DeckStats stats={stats} />
+          </SectionPanel>
+        ) : null}
+
+        {activePanel === 'saved' ? (
+          <SectionPanel
+            title="Saved Decks"
+            subtitle={savedDecksSubtitle}
+            actions={
+              <span className="inline-flex items-center rounded-full border border-white/10 bg-white/5 px-3 py-1 text-xs font-semibold uppercase tracking-[0.18em] text-ink-300">
+                {savedDecksLabel}
+              </span>
+            }
+          >
+            <SavedDeckList
+              decks={savedDecks}
+              isLoading={isSavedDecksLoading}
+              emptyDescription={savedDecksEmptyDescription}
+              activeDeckId={activeDeckId}
+              onLoad={onLoadDeck}
+              onDelete={onDeleteSavedDeck}
+              buildViewHref={buildSavedDeckViewHref}
+              buildCompareHref={buildSavedDeckCompareHref}
+            />
+          </SectionPanel>
+        ) : null}
       </div>
     </aside>
   )
