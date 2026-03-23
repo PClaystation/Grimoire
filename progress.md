@@ -311,3 +311,4 @@ Original prompt: You are extending an existing MTG deckbuilder web app into an o
   - Verification:
     - `npm run build` passed.
     - Ran a focused three-player browser validation against `http://127.0.0.1:8787` and visually reviewed `artifacts/playwright/revamp/three-player-rail-counts/alice-three-player.png`.
+  - Tightened the local zone-pile card frame to the actual card aspect ratio so the border no longer extends taller than the image.

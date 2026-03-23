@@ -1515,7 +1515,9 @@ function BoardPileVisual({
   compact?: boolean
 }) {
   const layers = faceDown ? [0, 1, 2] : [0, 1]
-  const frameClassName = compact ? 'relative h-[7.65rem] w-[5.45rem]' : 'relative h-[11.75rem] w-[8.4rem]'
+  const frameClassName = compact
+    ? 'relative w-[5.45rem] aspect-[61/85]'
+    : 'relative w-[8.4rem] aspect-[61/85]'
   const layerStepX = compact ? 6 : 10
   const layerStepY = compact ? 4 : 7
 
