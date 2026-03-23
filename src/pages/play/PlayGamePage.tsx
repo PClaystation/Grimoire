@@ -1530,7 +1530,7 @@ function BoardPileVisual({
           <div
             key={layer}
             style={{
-              transform: `translate(${layer * layerStepX}px, ${layer * layerStepY}px) ${faceDown ? 'rotate(180deg)' : 'rotate(0deg)'}`,
+              transform: `translate(${layer * layerStepX}px, ${layer * layerStepY}px)`,
             }}
             className="absolute inset-0 overflow-hidden rounded-[0.95rem] border border-white/10 bg-[#120f0b] shadow-card"
           >
