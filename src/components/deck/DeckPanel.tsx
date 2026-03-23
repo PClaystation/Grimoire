@@ -15,12 +15,14 @@ import {
 
 import { DECK_FORMAT_OPTIONS } from '@/constants/mtg'
 import { DeckCardList } from '@/components/deck/DeckCardList'
+import { DeckStats } from '@/components/deck/DeckStats'
 import { SavedDeckList } from '@/components/deck/SavedDeckList'
 import { SectionPanel } from '@/components/ui/SectionPanel'
 import type {
   DeckCardEntry,
   DeckFormat,
   DeckSection,
+  DeckStats as DeckStatsShape,
   SavedDeck,
 } from '@/types/deck'
 import type { MagicCard } from '@/types/scryfall'
@@ -34,6 +36,7 @@ interface DeckPanelProps {
   budgetTargetUsd: number | null
   mainboard: DeckCardEntry[]
   sideboard: DeckCardEntry[]
+  stats: DeckStatsShape
   activeDeckId: string | null
   savedDecks: SavedDeck[]
   isSavedDecksLoading: boolean
@@ -229,6 +232,7 @@ export function DeckPanel({
   budgetTargetUsd,
   mainboard,
   sideboard,
+  stats,
   activeDeckId,
   savedDecks,
   isSavedDecksLoading,
@@ -442,6 +446,13 @@ export function DeckPanel({
               onMove={onMove}
             />
           </div>
+        </SectionPanel>
+
+        <SectionPanel
+          title="Deck Analysis"
+          subtitle="Fundamentals-based rating, structure checks, and actionable tuning feedback."
+        >
+          <DeckStats stats={stats} />
         </SectionPanel>
 
         <SectionPanel

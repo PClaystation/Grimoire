@@ -79,6 +79,21 @@ export interface DeckRecommendation {
   description: string
 }
 
+export interface DeckRatingFactor {
+  id: string
+  label: string
+  score: number
+  maxScore: number
+  summary: string
+}
+
+export interface DeckRating {
+  score: number
+  label: string
+  summary: string
+  factors: DeckRatingFactor[]
+}
+
 export interface DeckStats {
   mainboard: DeckSectionStats
   sideboard: DeckSectionStats
@@ -88,4 +103,6 @@ export interface DeckStats {
   sideboardSlotsLeft: number
   totalEstimatedValueUsd: number
   validation: DeckValidationIssue[]
+  rating: DeckRating
+  recommendations: DeckRecommendation[]
 }

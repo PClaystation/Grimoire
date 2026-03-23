@@ -1,9 +1,47 @@
 import { COLOR_LABELS, COLOR_ORDER, COLOR_SWATCHES } from '@/constants/mtg'
+import { DeckRecommendationsList } from '@/components/deck/DeckRecommendationsList'
+import { DeckValidationList } from '@/components/deck/DeckValidationList'
 import type { DeckSectionStats as DeckSectionStatsShape, DeckStats as DeckStatsShape } from '@/types/deck'
 import { formatUsdPrice } from '@/utils/format'
 
 interface DeckStatsProps {
   stats: DeckStatsShape
+}
+
+function getRatingStyle(score: number) {
+  if (score >= 85) {
+    return {
+      cardClassName: 'border-emerald-400/20 bg-emerald-500/10',
+      badgeClassName: 'border-emerald-400/25 bg-emerald-500/15 text-emerald-100',
+      accentClassName: 'from-emerald-500 to-teal-300',
+      textClassName: 'text-emerald-200',
+    }
+  }
+
+  if (score >= 70) {
+    return {
+      cardClassName: 'border-tide-400/20 bg-tide-500/10',
+      badgeClassName: 'border-tide-400/25 bg-tide-500/15 text-tide-100',
+      accentClassName: 'from-tide-500 to-cyan-300',
+      textClassName: 'text-tide-100',
+    }
+  }
+
+  if (score >= 55) {
+    return {
+      cardClassName: 'border-amber-400/20 bg-amber-500/10',
+      badgeClassName: 'border-amber-400/25 bg-amber-500/15 text-amber-100',
+      accentClassName: 'from-amber-500 to-amber-300',
+      textClassName: 'text-amber-100',
+    }
+  }
+
+  return {
+    cardClassName: 'border-rose-400/20 bg-rose-500/10',
+    badgeClassName: 'border-rose-400/25 bg-rose-500/15 text-rose-100',
+    accentClassName: 'from-rose-500 to-orange-300',
+    textClassName: 'text-rose-100',
+  }
 }
 
 function SectionBreakdown({
@@ -65,8 +103,90 @@ function SectionBreakdown({
 }
 
 export function DeckStats({ stats }: DeckStatsProps) {
+  const ratingStyle = getRatingStyle(stats.rating.score)
+
   return (
     <div className="space-y-4">
+      <div
+        className={`rounded-[1.5rem] border p-5 shadow-[0_18px_50px_-32px_rgba(6,16,22,0.9)] ${ratingStyle.cardClassName}`}
+      >
+        <div className="flex flex-wrap items-start justify-between gap-4">
+          <div className="max-w-3xl">
+            <p className="text-xs font-semibold uppercase tracking-[0.18em] text-ink-300">
+              Deck rating
+            </p>
+            <div className="mt-3 flex flex-wrap items-end gap-3">
+              <p className="text-5xl font-semibold leading-none text-ink-50">{stats.rating.score}</p>
+              <p className="pb-1 text-sm uppercase tracking-[0.18em] text-ink-300">/ 100</p>
+              <span
+                className={`inline-flex items-center rounded-full border px-3 py-1 text-xs font-semibold uppercase tracking-[0.18em] ${ratingStyle.badgeClassName}`}
+              >
+                {stats.rating.label}
+              </span>
+            </div>
+            <p className={`mt-3 text-sm leading-6 ${ratingStyle.textClassName}`}>
+              {stats.rating.summary}
+            </p>
+          </div>
+
+          <div className="rounded-[1.2rem] border border-white/10 bg-ink-950/25 px-4 py-3">
+            <p className="text-xs font-semibold uppercase tracking-[0.18em] text-ink-300">
+              Scale
+            </p>
+            <p className="mt-2 text-sm text-ink-100">1 means structurally broken.</p>
+            <p className="mt-1 text-sm text-ink-100">100 means tuned fundamentals.</p>
+          </div>
+        </div>
+
+        <div className="mt-5 grid gap-3">
+          {stats.rating.factors.map((factor) => {
+            const fillPercent = factor.maxScore > 0 ? (factor.score / factor.maxScore) * 100 : 0
+            const progressWidth = factor.score > 0 ? Math.max(6, fillPercent) : 0
+
+            return (
+              <div
+                key={factor.id}
+                className="rounded-[1.2rem] border border-white/10 bg-ink-950/20 p-4"
+              >
+                <div className="flex items-center justify-between gap-3">
+                  <p className="text-sm font-semibold text-ink-50">{factor.label}</p>
+                  <p className="text-xs font-semibold uppercase tracking-[0.18em] text-ink-300">
+                    {factor.score} / {factor.maxScore}
+                  </p>
+                </div>
+                <div className="mt-3 h-2 overflow-hidden rounded-full bg-white/10">
+                  <div
+                    className={`h-full rounded-full bg-gradient-to-r ${ratingStyle.accentClassName}`}
+                    style={{ width: `${progressWidth}%` }}
+                  />
+                </div>
+                <p className="mt-3 text-sm leading-6 text-ink-200">{factor.summary}</p>
+              </div>
+            )
+          })}
+        </div>
+      </div>
+
+      <div className="space-y-4">
+        <div>
+          <p className="text-xs font-semibold uppercase tracking-[0.18em] text-ink-400">
+            Actionable changes
+          </p>
+          <div className="mt-3">
+            <DeckRecommendationsList recommendations={stats.recommendations} />
+          </div>
+        </div>
+
+        <div>
+          <p className="text-xs font-semibold uppercase tracking-[0.18em] text-ink-400">
+            Format checks
+          </p>
+          <div className="mt-3">
+            <DeckValidationList issues={stats.validation} />
+          </div>
+        </div>
+      </div>
+
       <div className="grid grid-cols-[repeat(auto-fit,minmax(11rem,1fr))] gap-3">
         <div className="min-w-0 rounded-[1.3rem] border border-white/10 bg-ink-800/55 p-4">
           <p className="text-xs font-semibold uppercase tracking-[0.18em] text-ink-400">Mainboard</p>

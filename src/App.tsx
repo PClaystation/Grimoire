@@ -559,6 +559,7 @@ function App() {
             budgetTargetUsd={budgetTargetUsd}
             mainboard={mainboard}
             sideboard={sideboard}
+            stats={deckStats}
             activeDeckId={activeDeckId}
             savedDecks={savedDecks}
             isSavedDecksLoading={isSavedDecksLoading}

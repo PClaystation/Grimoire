@@ -7,6 +7,8 @@ import type {
   DeckStats,
   DeckTypeStatKey,
 } from '@/types/deck'
+import { getDeckRecommendations } from '@/utils/deckRecommendations'
+import { getDeckRating } from '@/utils/deckRater'
 import { getDeckValidationIssues } from '@/utils/deckValidation'
 import { countDeckEntries, getCardMarketPriceUsd } from '@/utils/format'
 
@@ -114,6 +116,14 @@ export function getDeckStats(
   const sideboardStats = getSectionStats(sideboard)
   const formatConfig = DECK_FORMAT_CONFIG[format]
   const totalEstimatedValueUsd = mainboardStats.estimatedValueUsd + sideboardStats.estimatedValueUsd
+  const validation = getDeckValidationIssues(
+    mainboard,
+    sideboard,
+    format,
+    budgetTargetUsd,
+    totalEstimatedValueUsd,
+  )
+  const ratingDetails = getDeckRating(mainboard, sideboard, format)
 
   return {
     mainboard: mainboardStats,
@@ -123,12 +133,13 @@ export function getDeckStats(
     sideboardMax: formatConfig.sideboardMax,
     sideboardSlotsLeft: Math.max(0, formatConfig.sideboardMax - countDeckEntries(sideboard)),
     totalEstimatedValueUsd,
-    validation: getDeckValidationIssues(
-      mainboard,
-      sideboard,
+    validation,
+    rating: ratingDetails.rating,
+    recommendations: getDeckRecommendations(
+      { totalEstimatedValueUsd },
       format,
       budgetTargetUsd,
-      totalEstimatedValueUsd,
+      ratingDetails,
     ),
   }
 }
