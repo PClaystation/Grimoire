@@ -385,14 +385,15 @@ export function PlayGamePage() {
                 {battlefieldByController
                   .filter(({ player }) => player.id !== localPlayerId)
                   .map(({ player, permanents }) => (
-                  <BattlefieldLane
-                    key={player.id}
-                    player={player}
-                    permanents={permanents}
-                    localPlayerId={localPlayerId}
+                    <BattlefieldLane
+                      key={player.id}
+                      player={player}
+                      permanents={permanents}
+                      localPlayerId={localPlayerId}
                       isActiveTurnPlayer={activeTurnPlayer?.id === player.id}
                       isLocalPlayersTurn={isLocalPlayersTurn}
                       compact
+                      compactRail
                       selectedCardId={
                         activeSelection?.zone === 'battlefield' ? activeSelection.cardId : null
                       }
@@ -436,10 +437,10 @@ export function PlayGamePage() {
                           type: 'set_permanent_stack',
                           cardId,
                           stackWithCardId,
-                      })
-                    }
-                  />
-                ))}
+                        })
+                      }
+                    />
+                  ))}
               </section>
             ) : null}
 
