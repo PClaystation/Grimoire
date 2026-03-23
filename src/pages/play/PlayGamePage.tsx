@@ -1041,7 +1041,7 @@ function BattlefieldLane({
         <div
           className={`grid h-full gap-0 ${
             railCompact
-              ? 'xl:grid-cols-[minmax(0,1fr)_13.25rem] 2xl:grid-cols-[minmax(0,1fr)_14.5rem]'
+              ? 'xl:grid-cols-[minmax(0,1fr)_7.5rem] 2xl:grid-cols-[minmax(0,1fr)_8.25rem]'
               : 'xl:grid-cols-[minmax(0,1fr)_24rem] 2xl:grid-cols-[minmax(0,1fr)_26rem]'
           }`}
         >
@@ -1254,8 +1254,39 @@ function LaneZoneDock({
   const commandTopCard = player.command[player.command.length - 1]?.card.imageUrl
   const exileTopCard = player.exile[player.exile.length - 1]?.card.imageUrl
   const railClassName = compactRail
-    ? 'flex h-full flex-col bg-[linear-gradient(180deg,rgba(6,18,23,0.5),rgba(5,13,17,0.8))] p-3 sm:p-3.5'
+    ? 'flex h-full flex-col bg-[linear-gradient(180deg,rgba(6,18,23,0.44),rgba(5,13,17,0.74))] p-2'
     : 'flex h-full flex-col bg-[linear-gradient(180deg,rgba(6,18,23,0.68),rgba(5,13,17,0.9))] p-4 sm:p-5'
+
+  if (compactRail) {
+    return (
+      <aside className={railClassName}>
+        <div className="grid gap-1.5">
+          <CompactZoneRailStat label="Lib" value={libraryCount} />
+          <CompactZoneRailStat
+            label="GY"
+            value={player.zoneCounts.graveyard}
+            onClick={() => onOpenZone(player.id, 'graveyard')}
+          />
+          <CompactZoneRailStat
+            label="Cmd"
+            value={player.zoneCounts.command}
+            onClick={() => onOpenZone(player.id, 'command')}
+          />
+          <CompactZoneRailStat
+            label="Ex"
+            value={player.zoneCounts.exile}
+            onClick={() => onOpenZone(player.id, 'exile')}
+          />
+        </div>
+
+        {isActiveTurnPlayer ? (
+          <div className="mt-2 rounded-xl border border-ember-400/20 bg-ember-500/10 px-2 py-1 text-center text-[0.52rem] font-semibold uppercase tracking-[0.16em] text-ember-100">
+            Turn
+          </div>
+        ) : null}
+      </aside>
+    )
+  }
 
   return (
     <aside className={railClassName}>
@@ -1357,6 +1388,39 @@ function LaneZoneDock({
         </fieldset>
       ) : null}
     </aside>
+  )
+}
+
+function CompactZoneRailStat({
+  label,
+  value,
+  onClick,
+}: {
+  label: string
+  value: number
+  onClick?: () => void
+}) {
+  const Tag = onClick ? 'button' : 'div'
+
+  return (
+    <Tag
+      {...(onClick
+        ? {
+            type: 'button' as const,
+            onClick,
+          }
+        : {})}
+      className={`flex w-full items-center justify-between rounded-xl border px-2 py-2 text-left ${
+        onClick
+          ? 'border-white/10 bg-white/[0.04] text-ink-100 transition hover:border-tide-400/30 hover:bg-white/[0.08]'
+          : 'border-white/[0.08] bg-white/[0.03] text-ink-300'
+      }`}
+    >
+      <span className="text-[0.55rem] font-semibold uppercase tracking-[0.14em] text-ink-500">
+        {label}
+      </span>
+      <span className="text-sm font-semibold text-ink-50">{value}</span>
+    </Tag>
   )
 }
 

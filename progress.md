@@ -302,3 +302,12 @@ Original prompt: You are extending an existing MTG deckbuilder web app into an o
   - `npm run lint` passed.
   - Ran `node scripts/validate-play-table.mjs http://127.0.0.1:8787` and refreshed `artifacts/playwright/revamp/alice-table.png` and `artifacts/playwright/revamp/bob-table.png`.
   - Ran the required `develop-web-game` smoke client against `http://127.0.0.1:8787/play` and captured `output/web-game/rail-merged-smoke/shot-0.png`.
+
+2026-03-23
+- Opponent rail minimization pass:
+  - Replaced the compact opponent zone rail with a number-only dock so non-local lanes no longer render mini pile cards at all.
+  - Shrunk the reserved opponent rail column again so three-player and larger tables preserve noticeably more horizontal space for the battlefield.
+  - Kept the local player's full rail unchanged, including pile visuals and controls.
+  - Verification:
+    - `npm run build` passed.
+    - Ran a focused three-player browser validation against `http://127.0.0.1:8787` and visually reviewed `artifacts/playwright/revamp/three-player-rail-counts/alice-three-player.png`.
