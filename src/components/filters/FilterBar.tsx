@@ -176,7 +176,7 @@ export function FilterBar({
   return (
     <SectionPanel
       title="Search Cards"
-      subtitle="Start with a Scryfall query, then open more filters only when needed."
+      subtitle="Search by name, text, tags, or filters."
       actions={
         <div className="inline-flex items-center gap-2 rounded-full border border-ember-400/25 bg-ember-500/10 px-3 py-1 text-xs font-medium text-ember-100">
           <Sparkles className="h-3.5 w-3.5" />

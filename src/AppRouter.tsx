@@ -1,6 +1,8 @@
 import { BrowserRouter, HashRouter, Navigate, Outlet, Route, Routes } from 'react-router-dom'
 
 import App from '@/App'
+import { DeckComparePage } from '@/pages/decks/DeckComparePage'
+import { DeckPublicPage } from '@/pages/decks/DeckPublicPage'
 import { PlayProvider } from '@/play/PlayProvider'
 import { PlayCreatePage } from '@/pages/play/PlayCreatePage'
 import { PlayGamePage } from '@/pages/play/PlayGamePage'
@@ -17,6 +19,8 @@ export default function AppRouter() {
     <Router basename={import.meta.env.BASE_URL}>
       <Routes>
         <Route path="/" element={<App />} />
+        <Route path="/decks/view" element={<DeckPublicPage />} />
+        <Route path="/decks/compare" element={<DeckComparePage />} />
         <Route path="/settings" element={<SettingsPage />} />
         <Route element={<PlayRouteShell />}>
           <Route path="/play" element={<PlayHomePage />} />

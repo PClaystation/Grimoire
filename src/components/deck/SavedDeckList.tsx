@@ -1,4 +1,4 @@
-import { FolderOpen, Trash2 } from 'lucide-react'
+import { ExternalLink, FileDiff, FolderOpen, Trash2 } from 'lucide-react'
 
 import { EmptyState } from '@/components/ui/EmptyState'
 import type { SavedDeck } from '@/types/deck'
@@ -11,6 +11,8 @@ interface SavedDeckListProps {
   activeDeckId: string | null
   onLoad: (deckId: string) => void
   onDelete: (deckId: string) => void
+  buildViewHref?: (deck: SavedDeck) => string
+  buildCompareHref?: (deck: SavedDeck) => string | null
 }
 
 export function SavedDeckList({
@@ -20,6 +22,8 @@ export function SavedDeckList({
   activeDeckId,
   onLoad,
   onDelete,
+  buildViewHref,
+  buildCompareHref,
 }: SavedDeckListProps) {
   if (isLoading) {
     return (
@@ -45,6 +49,8 @@ export function SavedDeckList({
         const isActive = deck.id === activeDeckId
         const mainboardCount = countDeckEntries(deck.mainboard)
         const sideboardCount = countDeckEntries(deck.sideboard)
+        const viewHref = buildViewHref?.(deck) ?? null
+        const compareHref = buildCompareHref?.(deck) ?? null
 
         return (
           <div
@@ -72,6 +78,28 @@ export function SavedDeckList({
               </div>
 
               <div className="flex shrink-0 items-center gap-1 self-end sm:self-auto">
+                {viewHref ? (
+                  <a
+                    href={viewHref}
+                    target="_blank"
+                    rel="noreferrer noopener"
+                    className="rounded-full border border-white/10 p-2 text-ink-300 transition hover:border-white/20 hover:bg-white/5 hover:text-ink-50"
+                    aria-label={`Open public page for ${deck.name}`}
+                  >
+                    <ExternalLink className="h-4 w-4" />
+                  </a>
+                ) : null}
+                {compareHref ? (
+                  <a
+                    href={compareHref}
+                    target="_blank"
+                    rel="noreferrer noopener"
+                    className="rounded-full border border-white/10 p-2 text-ink-300 transition hover:border-white/20 hover:bg-white/5 hover:text-ink-50"
+                    aria-label={`Compare ${deck.name}`}
+                  >
+                    <FileDiff className="h-4 w-4" />
+                  </a>
+                ) : null}
                 <button
                   type="button"
                   onClick={() => onLoad(deck.id)}

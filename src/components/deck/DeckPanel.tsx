@@ -1,6 +1,9 @@
+import { useEffect, useRef, useState } from 'react'
 import {
   Copy,
   Download,
+  ExternalLink,
+  MoreHorizontal,
   Play,
   Redo2,
   Save,
@@ -49,6 +52,7 @@ interface DeckPanelProps {
   onImport: () => void
   onCopyDecklist: () => void
   onCopyShareLink: () => void
+  onCopyPublicPageLink: () => void
   onDownloadTxt: () => void
   onDownloadJson: () => void
   onOpenPlaytest: () => void
@@ -61,6 +65,159 @@ interface DeckPanelProps {
   onMove: (cardId: string, from: DeckSection, to: DeckSection) => void
   onLoadDeck: (deckId: string) => void
   onDeleteSavedDeck: (deckId: string) => void
+  publicDeckPageHref: string | null
+  buildSavedDeckViewHref: (deck: SavedDeck) => string
+  buildSavedDeckCompareHref: (deck: SavedDeck) => string | null
+}
+
+function DeckToolsMenu({
+  hasCards,
+  onCopyDecklist,
+  onCopyShareLink,
+  onCopyPublicPageLink,
+  onDownloadTxt,
+  onDownloadJson,
+  publicDeckPageHref,
+}: {
+  hasCards: boolean
+  onCopyDecklist: () => void
+  onCopyShareLink: () => void
+  onCopyPublicPageLink: () => void
+  onDownloadTxt: () => void
+  onDownloadJson: () => void
+  publicDeckPageHref: string | null
+}) {
+  const [isOpen, setIsOpen] = useState(false)
+  const menuRef = useRef<HTMLDivElement | null>(null)
+
+  useEffect(() => {
+    if (!isOpen) {
+      return
+    }
+
+    function handlePointerDown(event: MouseEvent) {
+      if (!menuRef.current || !(event.target instanceof Node)) {
+        return
+      }
+
+      if (!menuRef.current.contains(event.target)) {
+        setIsOpen(false)
+      }
+    }
+
+    function handleKeyDown(event: KeyboardEvent) {
+      if (event.key === 'Escape') {
+        setIsOpen(false)
+      }
+    }
+
+    window.addEventListener('mousedown', handlePointerDown)
+    window.addEventListener('keydown', handleKeyDown)
+
+    return () => {
+      window.removeEventListener('mousedown', handlePointerDown)
+      window.removeEventListener('keydown', handleKeyDown)
+    }
+  }, [isOpen])
+
+  function closeMenu() {
+    setIsOpen(false)
+  }
+
+  function runAction(action: () => void) {
+    action()
+    closeMenu()
+  }
+
+  return (
+    <div ref={menuRef} className="relative">
+      <button
+        type="button"
+        aria-haspopup="menu"
+        aria-expanded={isOpen}
+        onClick={() => setIsOpen((current) => !current)}
+        className="inline-flex items-center justify-center gap-2 rounded-2xl border border-white/10 bg-ink-800 px-4 py-3 text-sm font-semibold text-ink-200 transition hover:border-white/20 hover:bg-ink-700"
+      >
+        <MoreHorizontal className="h-4 w-4" />
+        Tools
+      </button>
+
+      {isOpen ? (
+        <div
+          role="menu"
+          className="absolute right-0 top-[calc(100%+0.6rem)] z-20 w-64 rounded-[1.2rem] border border-white/10 bg-[linear-gradient(180deg,rgba(17,31,39,0.98),rgba(10,22,29,0.99))] p-2 shadow-[0_22px_60px_-26px_rgba(7,19,27,0.92)] ring-1 ring-white/5"
+        >
+          <div className="grid gap-1">
+            <button
+              type="button"
+              role="menuitem"
+              onClick={() => runAction(onCopyDecklist)}
+              disabled={!hasCards}
+              className="flex items-center gap-3 rounded-[1rem] px-3 py-2.5 text-left text-sm font-semibold text-ink-100 transition hover:bg-white/[0.06] disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              <Copy className="h-4 w-4 shrink-0 text-tide-200" />
+              Copy decklist
+            </button>
+            <button
+              type="button"
+              role="menuitem"
+              onClick={() => runAction(onCopyShareLink)}
+              disabled={!hasCards}
+              className="flex items-center gap-3 rounded-[1rem] px-3 py-2.5 text-left text-sm font-semibold text-ink-100 transition hover:bg-white/[0.06] disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              <Share2 className="h-4 w-4 shrink-0 text-tide-200" />
+              Copy import link
+            </button>
+            <button
+              type="button"
+              role="menuitem"
+              onClick={() => runAction(onCopyPublicPageLink)}
+              disabled={!hasCards}
+              className="flex items-center gap-3 rounded-[1rem] px-3 py-2.5 text-left text-sm font-semibold text-ink-100 transition hover:bg-white/[0.06] disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              <ExternalLink className="h-4 w-4 shrink-0 text-tide-200" />
+              Copy public page link
+            </button>
+            <button
+              type="button"
+              role="menuitem"
+              onClick={() => {
+                if (publicDeckPageHref) {
+                  window.open(publicDeckPageHref, '_blank', 'noopener,noreferrer')
+                }
+                closeMenu()
+              }}
+              disabled={!publicDeckPageHref}
+              className="flex items-center gap-3 rounded-[1rem] px-3 py-2.5 text-left text-sm font-semibold text-ink-100 transition hover:bg-white/[0.06] disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              <ExternalLink className="h-4 w-4 shrink-0 text-tide-200" />
+              Open public page
+            </button>
+            <button
+              type="button"
+              role="menuitem"
+              onClick={() => runAction(onDownloadTxt)}
+              disabled={!hasCards}
+              className="flex items-center gap-3 rounded-[1rem] px-3 py-2.5 text-left text-sm font-semibold text-ink-100 transition hover:bg-white/[0.06] disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              <Download className="h-4 w-4 shrink-0 text-tide-200" />
+              Download TXT
+            </button>
+            <button
+              type="button"
+              role="menuitem"
+              onClick={() => runAction(onDownloadJson)}
+              disabled={!hasCards}
+              className="flex items-center gap-3 rounded-[1rem] px-3 py-2.5 text-left text-sm font-semibold text-ink-100 transition hover:bg-white/[0.06] disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              <Download className="h-4 w-4 shrink-0 text-tide-200" />
+              Download JSON
+            </button>
+          </div>
+        </div>
+      ) : null}
+    </div>
+  )
 }
 
 export function DeckPanel({
@@ -90,6 +247,7 @@ export function DeckPanel({
   onImport,
   onCopyDecklist,
   onCopyShareLink,
+  onCopyPublicPageLink,
   onDownloadTxt,
   onDownloadJson,
   onOpenPlaytest,
@@ -102,6 +260,9 @@ export function DeckPanel({
   onMove,
   onLoadDeck,
   onDeleteSavedDeck,
+  publicDeckPageHref,
+  buildSavedDeckViewHref,
+  buildSavedDeckCompareHref,
 }: DeckPanelProps) {
   const hasCards = mainboard.length > 0 || sideboard.length > 0
 
@@ -110,7 +271,7 @@ export function DeckPanel({
       <div className="space-y-6 xl:sticky xl:top-6">
         <SectionPanel
           title="Current Deck"
-          subtitle="Import, export, and test without leaving the editor."
+          subtitle="Build, save, and test from one panel."
           actions={
             <span className="inline-flex items-center rounded-full border border-white/10 bg-white/5 px-3 py-1 text-xs font-semibold uppercase tracking-[0.18em] text-ink-300">
               {activeDeckId ? 'Saved deck' : 'Draft'}
@@ -163,7 +324,7 @@ export function DeckPanel({
               />
             </label>
 
-            <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+            <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
               <button
                 type="button"
                 onClick={onSave}
@@ -192,45 +353,6 @@ export function DeckPanel({
               </button>
               <button
                 type="button"
-                onClick={onCopyDecklist}
-                disabled={!hasCards}
-                className="inline-flex items-center justify-center gap-2 rounded-2xl border border-white/10 bg-ink-800 px-4 py-3 text-sm font-semibold text-ink-200 transition hover:border-white/20 hover:bg-ink-700 disabled:cursor-not-allowed disabled:opacity-60"
-              >
-                <Copy className="h-4 w-4" />
-                Copy Text
-              </button>
-              <button
-                type="button"
-                onClick={onCopyShareLink}
-                disabled={!hasCards}
-                className="inline-flex items-center justify-center gap-2 rounded-2xl border border-white/10 bg-ink-800 px-4 py-3 text-sm font-semibold text-ink-200 transition hover:border-white/20 hover:bg-ink-700 disabled:cursor-not-allowed disabled:opacity-60"
-              >
-                <Share2 className="h-4 w-4" />
-                Share Link
-              </button>
-              <button
-                type="button"
-                onClick={onDownloadTxt}
-                disabled={!hasCards}
-                className="inline-flex items-center justify-center gap-2 rounded-2xl border border-white/10 bg-ink-800 px-4 py-3 text-sm font-semibold text-ink-200 transition hover:border-white/20 hover:bg-ink-700 disabled:cursor-not-allowed disabled:opacity-60"
-              >
-                <Download className="h-4 w-4" />
-                Download TXT
-              </button>
-            </div>
-
-            <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-              <button
-                type="button"
-                onClick={onDownloadJson}
-                disabled={!hasCards}
-                className="inline-flex items-center justify-center gap-2 rounded-2xl border border-white/10 bg-ink-800 px-4 py-3 text-sm font-semibold text-ink-200 transition hover:border-white/20 hover:bg-ink-700 disabled:cursor-not-allowed disabled:opacity-60"
-              >
-                <Download className="h-4 w-4" />
-                Download JSON
-              </button>
-              <button
-                type="button"
                 onClick={onUndo}
                 disabled={!canUndo}
                 className="inline-flex items-center justify-center gap-2 rounded-2xl border border-white/10 bg-ink-800 px-4 py-3 text-sm font-semibold text-ink-200 transition hover:border-white/20 hover:bg-ink-700 disabled:cursor-not-allowed disabled:opacity-60"
@@ -255,6 +377,15 @@ export function DeckPanel({
                 <WandSparkles className="h-4 w-4" />
                 New Deck
               </button>
+              <DeckToolsMenu
+                hasCards={hasCards}
+                onCopyDecklist={onCopyDecklist}
+                onCopyShareLink={onCopyShareLink}
+                onCopyPublicPageLink={onCopyPublicPageLink}
+                onDownloadTxt={onDownloadTxt}
+                onDownloadJson={onDownloadJson}
+                publicDeckPageHref={publicDeckPageHref}
+              />
             </div>
 
             {statusMessage ? (
@@ -329,6 +460,8 @@ export function DeckPanel({
             activeDeckId={activeDeckId}
             onLoad={onLoadDeck}
             onDelete={onDeleteSavedDeck}
+            buildViewHref={buildSavedDeckViewHref}
+            buildCompareHref={buildSavedDeckCompareHref}
           />
         </SectionPanel>
       </div>

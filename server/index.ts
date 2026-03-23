@@ -7,6 +7,7 @@ import { WebSocket, WebSocketServer } from 'ws'
 
 import { normalizePlayerName, type ServerMessage } from '../src/shared/play.js'
 import { parseClientMessage } from './clientMessageValidation.js'
+import { resolveDeckSiteImport } from './deckSiteImport.js'
 import { PlayServer } from './playServer.js'
 
 const PORT = Number(process.env.PORT ?? 8787)
@@ -32,6 +33,14 @@ function buildBaseHeaders() {
     'Referrer-Policy': 'strict-origin-when-cross-origin',
     'X-Content-Type-Options': 'nosniff',
     'X-Frame-Options': 'DENY',
+  }
+}
+
+function buildCorsHeaders(origin = '*') {
+  return {
+    'Access-Control-Allow-Origin': origin,
+    'Access-Control-Allow-Methods': 'GET, OPTIONS',
+    'Access-Control-Allow-Headers': 'Content-Type, Accept',
   }
 }
 
@@ -69,6 +78,73 @@ function resolvePublicFile(pathname: string) {
 
 function shouldProxyApiRequest(pathname: string) {
   return pathname.startsWith('/api/auth') || pathname.startsWith('/api/grimoire')
+}
+
+async function handleDeckImportRequest(
+  request: import('node:http').IncomingMessage,
+  response: import('node:http').ServerResponse,
+  url: URL,
+) {
+  const requestOrigin = request.headers.origin ?? '*'
+
+  if (request.method === 'OPTIONS') {
+    response.writeHead(204, {
+      ...buildBaseHeaders(),
+      ...buildCorsHeaders(requestOrigin),
+      'Cache-Control': 'no-store',
+    })
+    response.end()
+    return
+  }
+
+  if (request.method !== 'GET') {
+    response.writeHead(405, {
+      ...buildBaseHeaders(),
+      ...buildCorsHeaders(requestOrigin),
+      'Cache-Control': 'no-store',
+      'Content-Type': 'application/json; charset=utf-8',
+    })
+    response.end(JSON.stringify({ message: 'Method not allowed.' }))
+    return
+  }
+
+  const sourceUrl = url.searchParams.get('url')?.trim() ?? ''
+
+  if (!sourceUrl) {
+    response.writeHead(400, {
+      ...buildBaseHeaders(),
+      ...buildCorsHeaders(requestOrigin),
+      'Cache-Control': 'no-store',
+      'Content-Type': 'application/json; charset=utf-8',
+    })
+    response.end(JSON.stringify({ message: 'Missing deck URL.' }))
+    return
+  }
+
+  try {
+    const result = await resolveDeckSiteImport(sourceUrl)
+
+    response.writeHead(200, {
+      ...buildBaseHeaders(),
+      ...buildCorsHeaders(requestOrigin),
+      'Cache-Control': 'no-store',
+      'Content-Type': 'application/json; charset=utf-8',
+    })
+    response.end(JSON.stringify(result))
+  } catch (error) {
+    response.writeHead(422, {
+      ...buildBaseHeaders(),
+      ...buildCorsHeaders(requestOrigin),
+      'Cache-Control': 'no-store',
+      'Content-Type': 'application/json; charset=utf-8',
+    })
+    response.end(
+      JSON.stringify({
+        message:
+          error instanceof Error ? error.message : 'Unable to import that deck URL right now.',
+      }),
+    )
+  }
 }
 
 function proxyApiRequest(
@@ -142,6 +218,11 @@ function handleHttpRequest(
   response: import('node:http').ServerResponse,
 ) {
   const url = new URL(request.url ?? '/', 'http://localhost')
+
+  if (url.pathname === '/imports/deck-source') {
+    void handleDeckImportRequest(request, response, url)
+    return
+  }
 
   if (shouldProxyApiRequest(url.pathname)) {
     proxyApiRequest(request, response, url)

@@ -19,9 +19,9 @@ export const DEFAULT_APP_SETTINGS: AppSettings = {
   dashboardLinkTarget: 'new-tab',
   interfaceBackdrop: 'atmospheric',
   reducedMotion: false,
-  showDeckbuilderHero: true,
+  showDeckbuilderHero: false,
   showAccountStatusPanel: true,
-  showWorkspaceHelperText: true,
+  showWorkspaceHelperText: false,
 }
 
 const STORAGE_KEY = 'grimoire.app-settings'

@@ -1,7 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 
 import { useAuth } from '@/auth/useAuth'
-import { lookupDeckCards } from '@/api/scryfall'
 import { ContinentalAccountPanel } from '@/components/auth/ContinentalAccountPanel'
 import { CardDetailsModal } from '@/components/cards/CardDetailsModal'
 import { CardGrid } from '@/components/cards/CardGrid'
@@ -19,22 +18,17 @@ import { useCardSets } from '@/hooks/useCardSets'
 import { useAppSettings } from '@/settings/useAppSettings'
 import { useDeckBuilder } from '@/state/useDeckBuilder'
 import { useSavedDecks } from '@/state/useSavedDecks'
-import type { DeckFormat } from '@/types/deck'
+import type { DeckFormat, SavedDeck } from '@/types/deck'
 import type { CardSearchFilters, CardSortOption } from '@/types/filters'
 import type { MagicCard } from '@/types/scryfall'
 import { copyTextToClipboard } from '@/utils/clipboard'
-import { getDeckImportIdentifiers, parseDeckImport, buildImportedDeck } from '@/utils/deckImport'
+import { buildAppRouteUrl } from '@/utils/appRouteUrl'
+import { resolveDeckImportInput } from '@/utils/deckSiteImport'
 import { buildDeckExportJson, buildDecklistText, buildPortableDeckPayload } from '@/utils/decklist'
 import { getDeckStats } from '@/utils/deckStats'
+import { resolveImportedDeckInput } from '@/utils/resolveImportedDeck'
 import { countDeckEntries, formatDateTimeLabel } from '@/utils/format'
 import { decodeDeckSharePayload, encodeDeckSharePayload } from '@/utils/share'
-
-async function resolveImportedDeck(input: string, fallbackFormat: DeckFormat) {
-  const parsedImport = parseDeckImport(input)
-  const identifiers = getDeckImportIdentifiers(parsedImport)
-  const resolvedCards = await lookupDeckCards(identifiers)
-  return buildImportedDeck(parsedImport, resolvedCards, fallbackFormat)
-}
 
 function App() {
   const [draftFilters, setDraftFilters] = useState<CardSearchFilters>(() =>
@@ -120,6 +114,32 @@ function App() {
     savedDecksSubtitleParts.push(syncState.message)
   }
   const savedDecksSubtitle = savedDecksSubtitleParts.join(' ')
+  const hasCurrentDeckCards = mainboard.length > 0 || sideboard.length > 0
+
+  function buildDeckViewHref(deck: SavedDeck | typeof deckDraft) {
+    return buildAppRouteUrl('/decks/view', {
+      deck: encodeDeckSharePayload(buildPortableDeckPayload(deck)),
+    })
+  }
+
+  function buildDeckCompareHref(
+    leftDeck: SavedDeck | typeof deckDraft,
+    rightDeck: SavedDeck | typeof deckDraft,
+  ) {
+    return buildAppRouteUrl('/decks/compare', {
+      left: encodeDeckSharePayload(buildPortableDeckPayload(leftDeck)),
+      right: encodeDeckSharePayload(buildPortableDeckPayload(rightDeck)),
+    })
+  }
+
+  async function copyUrlToClipboard(url: string, successMessage: string, failureMessage: string) {
+    try {
+      const didCopy = await copyTextToClipboard(url)
+      setStatusMessage(didCopy ? successMessage : failureMessage)
+    } catch {
+      setStatusMessage(failureMessage)
+    }
+  }
 
   function syncFiltersToFormat(nextFormat: DeckFormat) {
     setDraftFilters((currentFilters) => ({
@@ -168,7 +188,7 @@ function App() {
 
     void (async () => {
       try {
-        const importedDeck = await resolveImportedDeck(
+        const importedDeck = await resolveImportedDeckInput(
           JSON.stringify(sharedPayload),
           sharedPayload.format,
         )
@@ -281,7 +301,7 @@ function App() {
   }
 
   async function handleCopyShareLink() {
-    if (mainboard.length === 0 && sideboard.length === 0) {
+    if (!hasCurrentDeckCards) {
       return
     }
 
@@ -301,8 +321,20 @@ function App() {
     }
   }
 
+  async function handleCopyPublicDeckPageLink() {
+    if (!hasCurrentDeckCards) {
+      return
+    }
+
+    await copyUrlToClipboard(
+      buildDeckViewHref(deckDraft),
+      'Copied the public deck page link to the clipboard.',
+      'Unable to copy the public deck page link in this browser.',
+    )
+  }
+
   function handleDownloadTxt() {
-    if (mainboard.length === 0 && sideboard.length === 0) {
+    if (!hasCurrentDeckCards) {
       return
     }
 
@@ -316,7 +348,7 @@ function App() {
   }
 
   function handleDownloadJson() {
-    if (mainboard.length === 0 && sideboard.length === 0) {
+    if (!hasCurrentDeckCards) {
       return
     }
 
@@ -334,7 +366,8 @@ function App() {
     setImportError(null)
 
     try {
-      const importedDeck = await resolveImportedDeck(input, format)
+      const { normalizedInput, sourceLabel } = await resolveDeckImportInput(input)
+      const importedDeck = await resolveImportedDeckInput(normalizedInput, format)
       const importedMainboardCount = countDeckEntries(importedDeck.deck.mainboard)
       const importedSideboardCount = countDeckEntries(importedDeck.deck.sideboard)
 
@@ -353,7 +386,7 @@ function App() {
       }
 
       setStatusMessage(
-        `Imported "${importedDeck.deck.name}" with ${importedMainboardCount} mainboard cards and ${importedSideboardCount} sideboard cards.${warningParts.length > 0 ? ` ${warningParts.join(', ')}.` : ''}`,
+        `Imported "${importedDeck.deck.name}"${sourceLabel ? ` from ${sourceLabel}` : ''} with ${importedMainboardCount} mainboard cards and ${importedSideboardCount} sideboard cards.${warningParts.length > 0 ? ` ${warningParts.join(', ')}.` : ''}`,
       )
     } catch (importDeckError) {
       setImportError(
@@ -496,8 +529,8 @@ function App() {
             {settings.showWorkspaceHelperText ? (
               <p className="max-w-2xl text-sm leading-6 text-ink-300">
                 {activeWorkspaceTab === 'browser'
-                  ? 'Search the card pool and add cards without scrolling past the full deck panel first.'
-                  : 'Review the finished list as full-card previews.'}
+                  ? 'Search first, deck panel second.'
+                  : 'Review the list as full-card previews.'}
               </p>
             ) : null}
           </div>
@@ -544,6 +577,7 @@ function App() {
             onImport={() => setIsImportOpen(true)}
             onCopyDecklist={handleCopyDecklist}
             onCopyShareLink={handleCopyShareLink}
+            onCopyPublicPageLink={handleCopyPublicDeckPageLink}
             onDownloadTxt={handleDownloadTxt}
             onDownloadJson={handleDownloadJson}
             onOpenPlaytest={() => setIsPlaytestOpen(true)}
@@ -556,6 +590,11 @@ function App() {
             onMove={moveCard}
             onLoadDeck={handleLoadDeck}
             onDeleteSavedDeck={handleDeleteSavedDeck}
+            publicDeckPageHref={hasCurrentDeckCards ? buildDeckViewHref(deckDraft) : null}
+            buildSavedDeckViewHref={buildDeckViewHref}
+            buildSavedDeckCompareHref={(savedDeck) =>
+              hasCurrentDeckCards ? buildDeckCompareHref(deckDraft, savedDeck) : null
+            }
           />
 
           {activeWorkspaceTab === 'browser' ? (

@@ -40,8 +40,8 @@ export function PlayJoinPage() {
   return (
     <PlayFrame
       eyebrow="Join Room"
-      title="Join a room by code or browse public tables."
-      description="Use a direct room code, or scan the public directory and jump into the lobby you want."
+      title="Join by code or browse public rooms."
+      description="Use a room code or jump straight into a public lobby."
       connectionStatus={connectionStatus}
       error={error}
       onDismissError={clearError}

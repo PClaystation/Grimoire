@@ -38,41 +38,35 @@ export function PlayFrame({
       <div className="mx-auto flex w-full max-w-[1520px] flex-col gap-6">
         <SiteNav connectionStatus={connectionStatus} />
 
-        <section className="relative isolate overflow-hidden rounded-[2.6rem] border border-white/10 bg-[linear-gradient(135deg,rgba(11,25,32,0.98),rgba(7,18,24,0.98)_58%,rgba(18,36,45,0.98))] px-6 py-7 shadow-panel ring-1 ring-white/5 sm:px-8 sm:py-9">
-          <div className="absolute inset-0 bg-[radial-gradient(circle_at_left_top,rgba(223,107,11,0.14),transparent_30%),radial-gradient(circle_at_right_top,rgba(29,150,167,0.16),transparent_34%)]" />
+        <section className="relative isolate overflow-hidden rounded-[2rem] border border-white/10 bg-[linear-gradient(135deg,rgba(11,25,32,0.98),rgba(7,18,24,0.98)_58%,rgba(18,36,45,0.98))] px-5 py-6 shadow-panel ring-1 ring-white/5 sm:px-6 sm:py-7">
+          <div className="absolute inset-0 bg-[radial-gradient(circle_at_left_top,rgba(223,107,11,0.1),transparent_24%),radial-gradient(circle_at_right_top,rgba(29,150,167,0.12),transparent_28%)]" />
 
-          <div className="relative grid gap-6 xl:grid-cols-[minmax(0,1fr)_20rem] xl:items-end">
+          <div className="relative grid gap-5 xl:grid-cols-[minmax(0,1fr)_18rem] xl:items-end">
             <div className="max-w-4xl">
               <p className="text-xs font-semibold uppercase tracking-[0.24em] text-tide-200">
                 {eyebrow}
               </p>
-              <h1 className="mt-3 font-display text-4xl leading-[1.02] tracking-tight text-ink-50 sm:text-5xl xl:text-[3.65rem]">
+              <h1 className="mt-3 font-display text-3xl leading-[1.02] tracking-tight text-ink-50 sm:text-4xl xl:text-[3rem]">
                 {title}
               </h1>
-              <p className="mt-4 max-w-3xl text-base leading-8 text-ink-300 sm:text-lg">
+              <p className="mt-3 max-w-3xl text-sm leading-6 text-ink-300 sm:text-base">
                 {description}
               </p>
-              <ContinentalBranding className="max-w-[22rem]" />
+              <ContinentalBranding className="mt-4 max-w-[19rem]" />
             </div>
 
             <div className="flex flex-col gap-3 xl:items-stretch">
               {actions ? <div className="flex flex-wrap gap-3 xl:justify-end">{actions}</div> : null}
-              <div className="grid gap-3 sm:grid-cols-3 xl:grid-cols-1">
-                <div className={`rounded-[1.4rem] border px-4 py-3 ${statusToneClassName}`}>
+              <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-1">
+                <div className={`rounded-[1.2rem] border px-4 py-3 ${statusToneClassName}`}>
                   <p className="text-[0.68rem] font-semibold uppercase tracking-[0.18em]">Socket</p>
                   <p className="mt-2 text-sm font-semibold capitalize">{connectionStatus}</p>
                 </div>
-                <div className="rounded-[1.4rem] border border-white/10 bg-white/[0.04] px-4 py-3 text-ink-100">
+                <div className="rounded-[1.2rem] border border-white/10 bg-white/[0.04] px-4 py-3 text-ink-100">
                   <p className="text-[0.68rem] font-semibold uppercase tracking-[0.18em] text-ink-400">
-                    Hidden
+                    Table model
                   </p>
-                  <p className="mt-2 text-sm font-semibold">Hands stay private.</p>
-                </div>
-                <div className="rounded-[1.4rem] border border-white/10 bg-white/[0.04] px-4 py-3 text-ink-100">
-                  <p className="text-[0.68rem] font-semibold uppercase tracking-[0.18em] text-ink-400">
-                    Shared
-                  </p>
-                  <p className="mt-2 text-sm font-semibold">Public zones sync live.</p>
+                  <p className="mt-2 text-sm font-semibold">Private hands, shared public zones.</p>
                 </div>
               </div>
             </div>

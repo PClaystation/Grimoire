@@ -22,6 +22,8 @@ Sideboard
 2 Negate
 2 Disdainful Stroke`
 
+const SAMPLE_ARCHIDEKT_URL = 'https://archidekt.com/decks/17524195'
+
 export function DeckImportModal({
   isOpen,
   isImporting,
@@ -68,15 +70,11 @@ export function DeckImportModal({
         <div className="mb-5 flex items-start justify-between gap-4">
           <div>
             <p className="text-xs font-semibold uppercase tracking-[0.22em] text-ink-400">
-              Bulk import
+              Import
             </p>
             <h2 id="deck-import-title" className="mt-2 font-display text-3xl text-ink-50">
-              Paste a decklist
+              Paste a decklist or deck URL
             </h2>
-            <p className="mt-3 max-w-2xl text-sm leading-6 text-ink-300">
-              Supports Arena-style lines, plain `4 Card Name` lists, `SB:` entries, and the JSON
-              export Grimoire generates.
-            </p>
           </div>
           <button
             type="button"
@@ -92,7 +90,7 @@ export function DeckImportModal({
             <textarea
               value={input}
               onChange={(event) => setInput(event.target.value)}
-              placeholder="Paste your decklist here"
+              placeholder="Paste deck text, JSON, or a supported deck URL"
               className="min-h-[20rem] w-full rounded-[1.5rem] border border-white/10 bg-ink-800/80 px-4 py-4 text-sm text-ink-50 outline-none transition focus:border-tide-400 focus:ring-2 focus:ring-tide-400/30"
             />
 
@@ -118,20 +116,30 @@ export function DeckImportModal({
                 className="inline-flex items-center gap-2 rounded-2xl border border-white/10 bg-ink-800 px-4 py-3 text-sm font-medium text-ink-200 transition hover:border-white/20 hover:bg-ink-700"
               >
                 <Download className="h-4 w-4" />
-                Load example
+                Load text example
+              </button>
+              <button
+                type="button"
+                onClick={() => setInput(SAMPLE_ARCHIDEKT_URL)}
+                className="inline-flex items-center gap-2 rounded-2xl border border-white/10 bg-ink-800 px-4 py-3 text-sm font-medium text-ink-200 transition hover:border-white/20 hover:bg-ink-700"
+              >
+                <Download className="h-4 w-4" />
+                Load URL example
               </button>
             </div>
           </div>
 
           <div className="rounded-[1.5rem] border border-white/10 bg-white/5 p-4">
             <p className="text-xs font-semibold uppercase tracking-[0.18em] text-ink-400">
-              Accepted formats
+              Accepted input
             </p>
             <ul className="mt-3 space-y-3 text-sm leading-6 text-ink-200">
               <li>`4 Lightning Bolt`</li>
               <li>`4 Lightning Bolt (M11) 146`</li>
               <li>`SB: 2 Disdainful Stroke`</li>
               <li>`# Format: modern`</li>
+              <li>`https://archidekt.com/decks/...`</li>
+              <li>`https://tappedout.net/mtg-decks/...`</li>
               <li>`Notes` and `Matchups` sections from Grimoire exports</li>
             </ul>
           </div>

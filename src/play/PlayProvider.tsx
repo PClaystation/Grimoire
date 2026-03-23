@@ -15,6 +15,11 @@ import {
   type ClientMessage,
   type ServerMessage,
 } from '@/shared/play'
+import {
+  buildPlaySessionRecap,
+  finalizePlaySessionRecap,
+  upsertPlaySessionRecap,
+} from '@/play/playRecapStorage'
 import { PlayContext, type PlayContextValue, type PlayState } from '@/play/playContext'
 import {
   readPlayPlayerName,
@@ -105,6 +110,8 @@ export function PlayProvider({ children }: PropsWithChildren) {
   const shouldReconnectRef = useRef(true)
   const sessionIdRef = useRef(state.sessionId)
   const playerNameRef = useRef(state.playerName)
+  const trackedGameIdRef = useRef<string | null>(null)
+  const recapSignatureRef = useRef('')
 
   useEffect(() => {
     sessionIdRef.current = state.sessionId
@@ -113,6 +120,48 @@ export function PlayProvider({ children }: PropsWithChildren) {
   useEffect(() => {
     playerNameRef.current = state.playerName
   }, [state.playerName])
+
+  useEffect(() => {
+    if (trackedGameIdRef.current && trackedGameIdRef.current !== state.game?.gameId) {
+      finalizePlaySessionRecap(trackedGameIdRef.current)
+      recapSignatureRef.current = ''
+    }
+
+    trackedGameIdRef.current = state.game?.gameId ?? null
+
+    if (!state.game) {
+      return
+    }
+
+    const recap = buildPlaySessionRecap(state.game, state.room, state.playerName)
+    const recapSignature = JSON.stringify({
+      gameId: recap.gameId,
+      roomId: recap.roomId,
+      roomName: recap.roomName,
+      roomCode: recap.roomCode,
+      localPlayerName: recap.localPlayerName,
+      activePlayerName: recap.activePlayerName,
+      turnNumber: recap.turnNumber,
+      actionCount: recap.actionCount,
+      debugMode: recap.debugMode,
+      players: recap.players,
+    })
+
+    if (recapSignature === recapSignatureRef.current) {
+      return
+    }
+
+    recapSignatureRef.current = recapSignature
+    upsertPlaySessionRecap(recap)
+  }, [state.game, state.playerName, state.room])
+
+  useEffect(() => {
+    return () => {
+      if (trackedGameIdRef.current) {
+        finalizePlaySessionRecap(trackedGameIdRef.current)
+      }
+    }
+  }, [])
 
   const handleServerMessage = useEffectEvent((message: ServerMessage) => {
     startTransition(() => {
