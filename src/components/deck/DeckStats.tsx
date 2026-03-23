@@ -131,7 +131,7 @@ function GraphCard({
   children: ReactNode
 }) {
   return (
-    <div className="rounded-[1.4rem] border border-white/10 bg-white/[0.04] p-4">
+    <div className="overflow-hidden rounded-[1.4rem] border border-white/10 bg-[linear-gradient(180deg,rgba(255,255,255,0.05),rgba(255,255,255,0.025))] p-4 shadow-[0_18px_42px_-34px_rgba(5,14,20,0.9)]">
       <div>
         <p className="text-sm font-semibold text-ink-50">{title}</p>
         <p className="mt-1 text-xs leading-5 text-ink-400">{subtitle}</p>
@@ -143,27 +143,50 @@ function GraphCard({
 
 function RatingFactorGraph({ stats }: DeckStatsProps) {
   const maxValue = Math.max(...stats.rating.factors.map((factor) => factor.score), 1)
+  const shortLabels: Record<string, string> = {
+    structure: 'Struct',
+    mana: 'Mana',
+    ramp: 'Ramp',
+    curve: 'Curve',
+    interaction: 'Interact',
+    cardFlow: 'Flow',
+    consistency: 'Consistency',
+    sideboard: 'Board',
+  }
 
   return (
-    <div className="flex h-40 items-end gap-3">
-      {stats.rating.factors.map((factor) => (
-        <div key={factor.id} className="flex flex-1 flex-col items-center gap-2">
-          <div className="flex h-full w-full items-end">
-            <div
-              className="w-full rounded-t-[1rem] bg-gradient-to-t from-tide-700 via-tide-500 to-cyan-300"
-              style={{
-                height: `${Math.max((factor.score / maxValue) * 100, factor.score > 0 ? 12 : 0)}%`,
-              }}
-            />
+    <div className="space-y-4">
+      <div className="flex h-40 items-end gap-2 rounded-[1.1rem] border border-white/10 bg-ink-950/20 px-3 pt-3">
+        {stats.rating.factors.map((factor) => (
+          <div key={factor.id} className="flex min-w-0 flex-1 flex-col items-center justify-end gap-2">
+            <div className="flex h-full w-full items-end">
+              <div
+                className="w-full rounded-t-[0.9rem] bg-gradient-to-t from-tide-700 via-tide-500 to-cyan-300 shadow-[0_12px_24px_-16px_rgba(62,171,199,0.85)]"
+                style={{
+                  height: `${Math.max((factor.score / maxValue) * 100, factor.score > 0 ? 12 : 0)}%`,
+                }}
+              />
+            </div>
+            <p className="truncate text-[10px] font-semibold uppercase tracking-[0.12em] text-ink-300">
+              {shortLabels[factor.id] ?? factor.label}
+            </p>
           </div>
-          <div className="text-center">
-            <p className="text-[11px] font-semibold text-ink-200">{factor.label}</p>
-            <p className="text-[10px] text-ink-400">
+        ))}
+      </div>
+
+      <div className="grid gap-2 sm:grid-cols-2">
+        {stats.rating.factors.map((factor) => (
+          <div
+            key={`${factor.id}-legend`}
+            className="flex items-center justify-between gap-3 rounded-[1rem] border border-white/10 bg-ink-950/20 px-3 py-2"
+          >
+            <p className="min-w-0 truncate text-xs font-semibold text-ink-200">{factor.label}</p>
+            <p className="shrink-0 text-[11px] uppercase tracking-[0.16em] text-ink-400">
               {factor.score}/{factor.maxScore}
             </p>
           </div>
-        </div>
-      ))}
+        ))}
+      </div>
     </div>
   )
 }
@@ -192,13 +215,13 @@ function HorizontalGraph({
         return (
           <div key={entry.id} className="space-y-1.5">
             <div className="flex items-center justify-between gap-3">
-              <div className="flex items-center gap-2">
+              <div className="flex min-w-0 items-center gap-2">
                 {entry.chipClassName ? (
                   <span className={`h-2.5 w-2.5 rounded-full ${entry.chipClassName}`} />
                 ) : null}
-                <p className="text-xs font-semibold text-ink-200">{entry.label}</p>
+                <p className="truncate text-xs font-semibold text-ink-200">{entry.label}</p>
               </div>
-              <p className="text-[11px] uppercase tracking-[0.16em] text-ink-400">
+              <p className="shrink-0 text-[11px] uppercase tracking-[0.16em] text-ink-400">
                 {entry.value} • {percentOfTotal}%
               </p>
             </div>
@@ -339,7 +362,7 @@ export function DeckStats({ stats }: DeckStatsProps) {
         </div>
       </div>
 
-      <div className="grid gap-4 xl:grid-cols-2">
+      <div className="grid gap-4">
         <GraphCard
           title="Rating factor graph"
           subtitle="Relative strength of each scoring bucket."
