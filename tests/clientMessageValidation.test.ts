@@ -180,6 +180,30 @@ test('parseClientMessage accepts room creation and room settings updates with se
   assert.equal(updateRoomSettings.settings.maxPlayers, 3)
 })
 
+test('parseClientMessage accepts spectator joins and room chat payloads', () => {
+  const joinSpectator = parseClientMessage(
+    JSON.stringify({
+      type: 'join_room',
+      roomId: 'ABC123',
+      role: 'spectator',
+    }),
+  )
+
+  const chatMessage = parseClientMessage(
+    JSON.stringify({
+      type: 'send_chat',
+      roomId: 'ABC123',
+      message: 'Spectator hello',
+    }),
+  )
+
+  assert.ok(joinSpectator)
+  assert.equal(joinSpectator.type, 'join_room')
+  assert.equal(joinSpectator.role, 'spectator')
+  assert.ok(chatMessage)
+  assert.equal(chatMessage.type, 'send_chat')
+})
+
 test('parseClientMessage accepts debug room unlock and placeholder seat actions', () => {
   const unlockDebugMode = parseClientMessage(
     JSON.stringify({

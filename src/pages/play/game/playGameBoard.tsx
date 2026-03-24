@@ -5,6 +5,7 @@ import {
   Crown,
   FlaskConical,
   Hand,
+  Keyboard,
   Minus,
   Plus,
   RefreshCcw,
@@ -18,6 +19,7 @@ import type {
   GamePlayerPublicSnapshot,
   GamePrivatePlayerState,
   PermanentPosition,
+  RoomParticipantRole,
 } from '@/shared/play'
 import {
   buildBattlefieldStackGroups,
@@ -45,8 +47,10 @@ export function TableHud({
   turn,
   activePlayer,
   localPlayer,
+  viewerRole,
   isLocalPlayersTurn,
   onAdvanceTurn,
+  onOpenShortcuts,
 }: {
   gameId: string
   roomCode: string
@@ -56,8 +60,10 @@ export function TableHud({
   turn: { turnNumber: number; activePlayerId: string }
   activePlayer: GamePlayerPublicSnapshot | null
   localPlayer: GamePlayerPublicSnapshot | null
+  viewerRole: RoomParticipantRole
   isLocalPlayersTurn: boolean
   onAdvanceTurn: () => void
+  onOpenShortcuts: () => void
 }) {
   return (
     <section
@@ -107,6 +113,12 @@ export function TableHud({
               icon={<Crown className="h-3.5 w-3.5" />}
               label={`Turn ${turn.turnNumber} • ${activePlayer?.name ?? 'Unknown player'} acting`}
             />
+            {viewerRole === 'spectator' ? (
+              <MetaPill
+                icon={<Swords className="h-3.5 w-3.5" />}
+                label="Spectating"
+              />
+            ) : null}
             {localPlayer ? (
               <>
                 <MetaPill
@@ -123,6 +135,10 @@ export function TableHud({
                 />
               </>
             ) : null}
+            <MetaPill
+              icon={<Keyboard className="h-3.5 w-3.5" />}
+              label="Press ? for shortcuts"
+            />
           </div>
         </div>
 
@@ -147,21 +163,34 @@ export function TableHud({
                         : 'bg-ember-300 shadow-[0_0_14px_rgba(253,186,116,0.75)]'
                     }`}
                   />
-                  {isLocalPlayersTurn ? 'Your turn' : `${activePlayer?.name ?? 'Unknown player'}'s turn`}
+                  {viewerRole === 'spectator'
+                    ? `${activePlayer?.name ?? 'Unknown player'}'s turn`
+                    : isLocalPlayersTurn
+                      ? 'Your turn'
+                      : `${activePlayer?.name ?? 'Unknown player'}'s turn`}
                 </p>
                 <h2 className="mt-2 text-2xl font-semibold text-ink-50">
-                  {isLocalPlayersTurn
-                    ? 'You can move cards and use the board.'
-                    : `Actions stay locked until ${activePlayer?.name ?? 'the active player'} passes.`}
+                  {viewerRole === 'spectator'
+                    ? 'You can inspect the table without taking actions.'
+                    : isLocalPlayersTurn
+                      ? 'You can move cards and use the board.'
+                      : `Actions stay locked until ${activePlayer?.name ?? 'the active player'} passes.`}
                 </h2>
               </div>
-              <HudButton
-                icon={<ArrowRight className="h-4 w-4" />}
-                label="Pass turn"
-                onClick={onAdvanceTurn}
-                disabled={!isLocalPlayersTurn}
-                dataTestId="table-hud-pass-turn"
-              />
+              <div className="flex flex-wrap items-center gap-2">
+                <HudButton
+                  icon={<Keyboard className="h-4 w-4" />}
+                  label="Shortcuts"
+                  onClick={onOpenShortcuts}
+                />
+                <HudButton
+                  icon={<ArrowRight className="h-4 w-4" />}
+                  label="Pass turn"
+                  onClick={onAdvanceTurn}
+                  disabled={!isLocalPlayersTurn}
+                  dataTestId="table-hud-pass-turn"
+                />
+              </div>
             </div>
           </div>
 
@@ -278,6 +307,17 @@ export function BattlefieldLane({
                 {isActiveTurnPlayer ? (
                   <span className="rounded-full border border-ember-400/30 bg-ember-500/12 px-2.5 py-1 text-[0.65rem] font-semibold uppercase tracking-[0.16em] text-ember-100">
                     Active turn
+                  </span>
+                ) : null}
+                {player.connectionState !== 'connected' ? (
+                  <span
+                    className={`rounded-full border px-2.5 py-1 text-[0.65rem] font-semibold uppercase tracking-[0.16em] ${
+                      player.connectionState === 'reconnecting'
+                        ? 'border-amber-400/30 bg-amber-500/12 text-amber-100'
+                        : 'border-rose-400/30 bg-rose-500/12 text-rose-100'
+                    }`}
+                  >
+                    {player.connectionState === 'reconnecting' ? 'Reconnecting' : 'Disconnected'}
                   </span>
                 ) : null}
               </div>

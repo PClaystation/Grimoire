@@ -18,6 +18,7 @@ import {
   type OwnedZone,
   type PermanentPosition,
   type PlayerDesignation,
+  type RoomParticipantRole,
   type RoomSettingsInput,
   type RoomDirectoryEntry,
   clampPermanentPosition,
@@ -66,6 +67,7 @@ import type {
   GameState,
   PlayServerDependencies,
   RoomPlayerState,
+  RoomSpectatorState,
   RoomState,
 } from './play-server/types.js'
 
@@ -114,10 +116,16 @@ export class PlayServer {
     }
 
     const roomPlayer = room.players.find((player) => player.sessionId === sessionId)
+    const roomSpectator = room.spectators.find((spectator) => spectator.sessionId === sessionId)
 
     if (roomPlayer) {
       roomPlayer.name = normalizedName
       roomPlayer.isConnected = true
+      roomPlayer.connectionState = 'connected'
+    }
+
+    if (roomSpectator) {
+      roomSpectator.name = normalizedName
     }
 
     const gamePlayer = room.game?.players.find((player) => player.sessionId === sessionId)
@@ -125,6 +133,11 @@ export class PlayServer {
     if (gamePlayer) {
       gamePlayer.name = normalizedName
       gamePlayer.isConnected = true
+      gamePlayer.connectionState = 'connected'
+    }
+
+    if (roomSpectator) {
+      roomSpectator.connectionState = 'connected'
     }
 
     this.emitRoomSnapshots(room)
@@ -133,6 +146,29 @@ export class PlayServer {
 
   handleDisconnect(sessionId: string) {
     this.clearPendingDisconnect(sessionId)
+
+    const room = this.getRoomBySession(sessionId)
+
+    if (room) {
+      const roomPlayer = room.players.find((player) => player.sessionId === sessionId)
+      const roomSpectator = room.spectators.find((spectator) => spectator.sessionId === sessionId)
+      const gamePlayer = room.game?.players.find((player) => player.sessionId === sessionId)
+
+      if (roomPlayer && roomPlayer.connectionState === 'connected') {
+        roomPlayer.connectionState = 'reconnecting'
+      }
+
+      if (roomSpectator && roomSpectator.connectionState === 'connected') {
+        roomSpectator.connectionState = 'reconnecting'
+      }
+
+      if (gamePlayer && gamePlayer.connectionState === 'connected') {
+        gamePlayer.connectionState = 'reconnecting'
+      }
+
+      this.emitRoomSnapshots(room)
+      this.emitGameSnapshots(room)
+    }
 
     if (this.disconnectGracePeriodMs === 0) {
       this.finalizeDisconnect(sessionId)
@@ -158,23 +194,36 @@ export class PlayServer {
 
     if (roomPlayer) {
       roomPlayer.isConnected = false
+      roomPlayer.connectionState = 'disconnected'
+    }
+
+    const roomSpectator = room.spectators.find((spectator) => spectator.sessionId === sessionId)
+
+    if (roomSpectator) {
+      roomSpectator.connectionState = 'disconnected'
     }
 
     const gamePlayer = room.game?.players.find((player) => player.sessionId === sessionId)
 
     if (gamePlayer) {
       gamePlayer.isConnected = false
+      gamePlayer.connectionState = 'disconnected'
     }
 
-    const connectedPlayers = room.players.filter((player) => player.isConnected)
+    const activePlayers = room.players.filter((player) => player.connectionState !== 'disconnected')
+    const activeSpectators = room.spectators.filter(
+      (spectator) => spectator.connectionState !== 'disconnected',
+    )
 
-    if (connectedPlayers.length === 0) {
+    if (activePlayers.length === 0 && activeSpectators.length === 0) {
       this.deleteRoom(room.roomId)
       return
     }
 
-    if (!room.game && !connectedPlayers.some((player) => player.id === room.hostPlayerId)) {
-      room.hostPlayerId = connectedPlayers[0].id
+    if (!room.game && !activePlayers.some((player) => player.id === room.hostPlayerId)) {
+      if (activePlayers[0]) {
+        room.hostPlayerId = activePlayers[0].id
+      }
     }
 
     this.emitRoomSnapshots(room)
@@ -204,7 +253,7 @@ export class PlayServer {
         this.createRoom(sessionId, message.settings)
         break
       case 'join_room':
-        this.joinRoom(sessionId, message.roomId)
+        this.joinRoom(sessionId, message.roomId, message.role)
         break
       case 'leave_room':
         this.leaveRoom(sessionId, message.roomId)
@@ -223,6 +272,9 @@ export class PlayServer {
         break
       case 'start_game':
         this.startGame(sessionId, message.roomId)
+        break
+      case 'send_chat':
+        this.sendChatMessage(sessionId, message.roomId, message.message)
         break
       case 'game_action':
         this.applyGameAction(sessionId, message.gameId, message.action)
@@ -250,6 +302,8 @@ export class PlayServer {
       debugMode: false,
       settings: normalizeRoomSettings(settings, player.name),
       players: [player],
+      spectators: [],
+      chat: [],
       gameId: null,
       game: null,
     }
@@ -308,6 +362,8 @@ export class PlayServer {
       debugMode: true,
       settings: normalizedSettings,
       players: [player],
+      spectators: [],
+      chat: [],
       gameId: null,
       game: null,
     }
@@ -321,9 +377,14 @@ export class PlayServer {
     this.emitRoomSnapshots(room)
   }
 
-  private joinRoom(sessionId: string, requestedRoomId: string) {
+  private joinRoom(
+    sessionId: string,
+    requestedRoomId: string,
+    requestedRole: RoomParticipantRole | undefined,
+  ) {
     const roomId = normalizeRoomCode(requestedRoomId)
     const room = this.rooms.get(roomId)
+    const role = requestedRole === 'spectator' ? 'spectator' : 'player'
 
     if (!room) {
       this.emitError(sessionId, 'Room not found.')
@@ -343,10 +404,29 @@ export class PlayServer {
     }
 
     const existingPlayer = room.players.find((player) => player.sessionId === sessionId)
+    const existingSpectator = room.spectators.find((spectator) => spectator.sessionId === sessionId)
 
     if (existingPlayer) {
       existingPlayer.name = this.getPlayerName(sessionId)
       existingPlayer.isConnected = true
+      existingPlayer.connectionState = 'connected'
+      this.sessionRoomIds.set(sessionId, room.roomId)
+      this.emitRoomSnapshots(room)
+      this.emitGameSnapshots(room)
+      return
+    }
+
+    if (existingSpectator) {
+      existingSpectator.name = this.getPlayerName(sessionId)
+      existingSpectator.connectionState = 'connected'
+      this.sessionRoomIds.set(sessionId, room.roomId)
+      this.emitRoomSnapshots(room)
+      this.emitGameSnapshots(room)
+      return
+    }
+
+    if (role === 'spectator') {
+      room.spectators.push(this.createSpectator(sessionId))
       this.sessionRoomIds.set(sessionId, room.roomId)
       this.emitRoomSnapshots(room)
       this.emitGameSnapshots(room)
@@ -354,7 +434,7 @@ export class PlayServer {
     }
 
     if (room.game) {
-      this.emitError(sessionId, 'This room already started a game.')
+      this.emitError(sessionId, 'This room already started a game. Join as a spectator instead.')
       return
     }
 
@@ -376,28 +456,41 @@ export class PlayServer {
       return
     }
 
-    if (room.game) {
-      this.emitError(sessionId, 'Leaving an active game is not supported yet. Close the tab to disconnect instead.')
+    const isPlayer = room.players.some((player) => player.sessionId === sessionId)
+    const isSpectator = room.spectators.some((spectator) => spectator.sessionId === sessionId)
+
+    if (room.game && isPlayer) {
+      this.emitError(
+        sessionId,
+        'Leaving an active game is not supported yet. Close the tab to disconnect instead.',
+      )
       return
     }
 
     room.players = room.players.filter((player) => player.sessionId !== sessionId)
+    room.spectators = room.spectators.filter((spectator) => spectator.sessionId !== sessionId)
     this.sessionRoomIds.delete(sessionId)
     this.dependencies.sendToSession(sessionId, {
       type: 'room_left',
       roomId: room.roomId,
     })
 
-    if (room.players.length === 0) {
+    if (room.players.length === 0 && room.spectators.length === 0) {
       this.deleteRoom(room.roomId)
       return
     }
 
     if (!room.players.some((player) => player.id === room.hostPlayerId)) {
-      room.hostPlayerId = room.players[0].id
+      if (room.players[0]) {
+        room.hostPlayerId = room.players[0].id
+      }
     }
 
     this.emitRoomSnapshots(room)
+
+    if (room.game && isSpectator) {
+      this.emitGameSnapshots(room)
+    }
   }
 
   private updateRoomSettings(
@@ -547,6 +640,46 @@ export class PlayServer {
     this.emitRoomSnapshots(room)
   }
 
+  private sendChatMessage(sessionId: string, requestedRoomId: string, message: string) {
+    const room = this.getRoomBySession(sessionId)
+
+    if (!room || room.roomId !== normalizeRoomCode(requestedRoomId)) {
+      this.emitError(sessionId, 'You are not in that room.')
+      return
+    }
+
+    const nextMessage = this.sanitizeChatMessage(message)
+
+    if (!nextMessage) {
+      this.emitError(sessionId, 'Chat messages cannot be empty.')
+      return
+    }
+
+    const roomPlayer = room.players.find((player) => player.sessionId === sessionId)
+    const roomSpectator = room.spectators.find((spectator) => spectator.sessionId === sessionId)
+
+    if (!roomPlayer && !roomSpectator) {
+      this.emitError(sessionId, 'Participant not found in room.')
+      return
+    }
+
+    const senderRole: RoomParticipantRole = roomPlayer ? 'player' : 'spectator'
+
+    room.chat = [
+      ...room.chat,
+      {
+        id: crypto.randomUUID(),
+        senderId: roomPlayer?.id ?? roomSpectator!.id,
+        senderName: roomPlayer?.name ?? roomSpectator!.name,
+        senderRole,
+        message: nextMessage,
+        createdAt: new Date().toISOString(),
+      },
+    ].slice(-80)
+
+    this.emitRoomSnapshots(room)
+  }
+
   private startGame(sessionId: string, requestedRoomId: string) {
     const room = this.getRoomBySession(sessionId)
 
@@ -578,7 +711,10 @@ export class PlayServer {
       }
     }
 
-    if (!room.debugMode && room.players.some((player) => !player.isConnected)) {
+    if (
+      !room.debugMode &&
+      room.players.some((player) => player.connectionState !== 'connected')
+    ) {
       this.emitError(
         sessionId,
         'All lobby players need to be connected before starting.',
@@ -617,6 +753,7 @@ export class PlayServer {
         sessionId: player.sessionId,
         name: player.name,
         isConnected: player.isConnected,
+        connectionState: player.connectionState,
         joinedAt: player.joinedAt,
         selectedDeck: buildDeckSelectionSummary(selectedDeck),
         lifeTotal:
@@ -675,6 +812,11 @@ export class PlayServer {
     const actor = game.players.find((player) => player.sessionId === sessionId)
 
     if (!actor) {
+      if (room.spectators.some((spectator) => spectator.sessionId === sessionId)) {
+        this.emitError(sessionId, 'Spectators cannot take game actions.')
+        return
+      }
+
       this.emitError(sessionId, 'You are not part of this game.')
       return
     }
@@ -1387,7 +1529,14 @@ export class PlayServer {
 
       this.dependencies.sendToSession(player.sessionId, {
         type: 'room_snapshot',
-        room: this.buildRoomSnapshot(room, player.id),
+        room: this.buildRoomSnapshot(room, { role: 'player', id: player.id }),
+      })
+    })
+
+    room.spectators.forEach((spectator) => {
+      this.dependencies.sendToSession(spectator.sessionId, {
+        type: 'room_snapshot',
+        room: this.buildRoomSnapshot(room, { role: 'spectator', id: spectator.id }),
       })
     })
 
@@ -1406,13 +1555,23 @@ export class PlayServer {
 
       this.dependencies.sendToSession(player.sessionId, {
         type: 'game_snapshot',
-        game: this.buildGameSnapshot(room.game!, player.id, room.debugMode),
+        game: this.buildGameSnapshot(room.game!, player.id, 'player', room.debugMode),
+      })
+    })
+
+    room.spectators.forEach((spectator) => {
+      this.dependencies.sendToSession(spectator.sessionId, {
+        type: 'game_snapshot',
+        game: this.buildGameSnapshot(room.game!, null, 'spectator', room.debugMode),
       })
     })
   }
 
-  private buildRoomSnapshot(room: RoomState, localPlayerId: string) {
-    return buildRoomSnapshot(room, localPlayerId)
+  private buildRoomSnapshot(
+    room: RoomState,
+    viewer: { role: 'player'; id: string } | { role: 'spectator'; id: string },
+  ) {
+    return buildRoomSnapshot(room, viewer)
   }
 
   private emitRoomDirectorySnapshots(targetSessionIds?: Iterable<string>) {
@@ -1435,8 +1594,13 @@ export class PlayServer {
     return buildRoomDirectoryEntry(room)
   }
 
-  private buildGameSnapshot(game: GameState, localPlayerId: string, debugMode: boolean) {
-    return buildGameSnapshot(game, localPlayerId, debugMode)
+  private buildGameSnapshot(
+    game: GameState,
+    localPlayerId: string | null,
+    viewerRole: RoomParticipantRole,
+    debugMode: boolean,
+  ) {
+    return buildGameSnapshot(game, localPlayerId, viewerRole, debugMode)
   }
 
   private recordEvent(
@@ -1474,8 +1638,19 @@ export class PlayServer {
       name: this.getPlayerName(sessionId),
       joinedAt: new Date().toISOString(),
       isConnected: true,
+      connectionState: 'connected',
       selectedDeck: null,
       isDebugPlaceholder: false,
+    }
+  }
+
+  private createSpectator(sessionId: string): RoomSpectatorState {
+    return {
+      id: crypto.randomUUID(),
+      sessionId,
+      name: this.getPlayerName(sessionId),
+      joinedAt: new Date().toISOString(),
+      connectionState: 'connected',
     }
   }
 
@@ -1488,6 +1663,7 @@ export class PlayServer {
       name: playerName,
       joinedAt: new Date().toISOString(),
       isConnected: false,
+      connectionState: 'disconnected',
       selectedDeck: buildDebugDeckSelection(playerName),
       isDebugPlaceholder: true,
     }
@@ -1520,6 +1696,10 @@ export class PlayServer {
       }
 
       this.sessionRoomIds.delete(player.sessionId)
+    })
+
+    room.spectators.forEach((spectator) => {
+      this.sessionRoomIds.delete(spectator.sessionId)
     })
 
     if (room.gameId) {
@@ -1580,6 +1760,10 @@ export class PlayServer {
       mainboardCount: countDeckCards(mainboard),
       sideboardCount: countDeckCards(sideboard),
     }
+  }
+
+  private sanitizeChatMessage(message: string) {
+    return message.trim().replace(/\s+/g, ' ').slice(0, 280)
   }
 
   private formatZoneLabel(zone: OwnedZone) {

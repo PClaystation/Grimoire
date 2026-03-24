@@ -7,18 +7,19 @@ import {
   ROOM_POWER_LEVEL_LABELS,
   ROOM_POWER_LEVEL_OPTIONS,
 } from '@/play/roomSettings'
-import type { RoomDirectoryEntry } from '@/shared/play'
+import type { ConnectionStatus } from '@/play/playContext'
+import type { RoomDirectoryEntry, RoomParticipantRole } from '@/shared/play'
 
 interface PublicRoomDirectoryProps {
   rooms: RoomDirectoryEntry[]
-  connectionStatus: 'connecting' | 'connected' | 'disconnected'
+  connectionStatus: ConnectionStatus
   activeRoomId: string | null
   title: string
   description: string
   emptyTitle: string
   emptyDescription: string
   joinButtonLabel?: string
-  onJoinRoom: (roomId: string) => void
+  onJoinRoom: (roomId: string, role: RoomParticipantRole) => void
   onUseCode?: (roomId: string) => void
 }
 
@@ -290,9 +291,14 @@ export function PublicRoomDirectory({
           {filteredRooms.map((room) => {
             const isCurrentRoom = activeRoomId === room.roomId
             const isBusyInOtherRoom = Boolean(activeRoomId && activeRoomId !== room.roomId)
+            const primaryRole: RoomParticipantRole =
+              room.phase === 'game' ? 'spectator' : 'player'
             const isFull = room.openSeatCount < 1
             const joinDisabled =
-              connectionStatus === 'disconnected' || isCurrentRoom || isBusyInOtherRoom || isFull
+              connectionStatus === 'disconnected' ||
+              isCurrentRoom ||
+              isBusyInOtherRoom ||
+              (primaryRole === 'player' && isFull)
 
             return (
               <article
@@ -308,6 +314,15 @@ export function PublicRoomDirectory({
                       </span>
                       <span className="rounded-full bg-ember-500/12 px-3 py-1 text-xs font-semibold text-ember-100 ring-1 ring-ember-400/25">
                         {ROOM_POWER_LEVEL_LABELS[room.settings.powerLevel]}
+                      </span>
+                      <span
+                        className={`rounded-full px-3 py-1 text-xs font-semibold ring-1 ${
+                          room.phase === 'game'
+                            ? 'bg-rose-500/12 text-rose-100 ring-rose-400/25'
+                            : 'bg-white/8 text-ink-200 ring-white/10'
+                        }`}
+                      >
+                        {room.phase === 'game' ? 'Live game' : 'Lobby'}
                       </span>
                       {room.playerCount >= room.settings.minPlayers ? (
                         <span className="rounded-full bg-emerald-500/12 px-3 py-1 text-xs font-semibold text-emerald-100 ring-1 ring-emerald-400/25">
@@ -327,6 +342,9 @@ export function PublicRoomDirectory({
                       </span>
                       <span className="rounded-full bg-white/8 px-3 py-1 text-xs font-semibold text-ink-200 ring-1 ring-white/10">
                         {room.playerCount} / {room.settings.maxPlayers} players
+                      </span>
+                      <span className="rounded-full bg-white/8 px-3 py-1 text-xs font-semibold text-ink-200 ring-1 ring-white/10">
+                        {room.spectatorCount} spectator{room.spectatorCount === 1 ? '' : 's'}
                       </span>
                       <span className="rounded-full bg-white/8 px-3 py-1 text-xs font-semibold text-ink-200 ring-1 ring-white/10">
                         Start at {room.settings.minPlayers}
@@ -360,8 +378,10 @@ export function PublicRoomDirectory({
                         <span
                           key={`${room.roomId}-${player.name}-${index}`}
                           className={`rounded-full px-3 py-1 text-xs font-semibold ring-1 ${
-                            player.isConnected
+                            player.connectionState === 'connected'
                               ? 'bg-white/8 text-ink-100 ring-white/10'
+                              : player.connectionState === 'reconnecting'
+                                ? 'bg-amber-500/12 text-amber-100 ring-amber-400/25'
                               : 'bg-rose-500/12 text-rose-100 ring-rose-400/25'
                           }`}
                         >
@@ -374,7 +394,7 @@ export function PublicRoomDirectory({
                       <button
                         type="button"
                         disabled={joinDisabled}
-                        onClick={() => onJoinRoom(room.roomId)}
+                        onClick={() => onJoinRoom(room.roomId, primaryRole)}
                         className="inline-flex items-center justify-center gap-2 rounded-2xl bg-tide-500 px-4 py-3 text-sm font-semibold text-white transition hover:bg-tide-400 disabled:cursor-not-allowed disabled:opacity-60"
                       >
                         <DoorOpen className="h-4 w-4" />
@@ -382,9 +402,11 @@ export function PublicRoomDirectory({
                           ? 'Already here'
                           : isBusyInOtherRoom
                             ? 'Leave current room first'
-                            : isFull
+                            : primaryRole === 'player' && isFull
                               ? 'Room is full'
-                              : joinButtonLabel}
+                              : room.phase === 'game'
+                                ? 'Spectate live table'
+                                : joinButtonLabel}
                       </button>
                       {onUseCode ? (
                         <button

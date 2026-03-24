@@ -22,6 +22,8 @@ export type RoomPowerLevel = 'casual' | 'focused' | 'competitive'
 export type OwnedZone = 'library' | 'hand' | 'battlefield' | 'graveyard' | 'exile' | 'command'
 export type StackItemType = 'spell' | 'ability' | 'trigger'
 export type PlayerDesignation = 'monarch' | 'initiative' | 'citys_blessing'
+export type RoomParticipantRole = 'player' | 'spectator'
+export type ParticipantConnectionState = 'connected' | 'reconnecting' | 'disconnected'
 
 export interface PermanentPosition {
   x: number
@@ -81,8 +83,24 @@ export interface RoomPlayerSnapshot {
   name: string
   isHost: boolean
   isConnected: boolean
+  connectionState: ParticipantConnectionState
   selectedDeck: DeckSelectionSummary | null
   isDebugPlaceholder: boolean
+}
+
+export interface RoomSpectatorSnapshot {
+  id: string
+  name: string
+  connectionState: ParticipantConnectionState
+}
+
+export interface RoomChatMessage {
+  id: string
+  senderId: string
+  senderName: string
+  senderRole: RoomParticipantRole
+  message: string
+  createdAt: string
 }
 
 export interface RoomSettings {
@@ -115,15 +133,20 @@ export interface RoomSnapshot {
   gameId: string | null
   hostPlayerId: string
   localPlayerId: string | null
+  localSpectatorId: string | null
+  viewerRole: RoomParticipantRole | null
   debugMode: boolean
   settings: RoomSettings
   players: RoomPlayerSnapshot[]
+  spectators: RoomSpectatorSnapshot[]
+  chat: RoomChatMessage[]
 }
 
 export interface RoomDirectoryPlayerSnapshot {
   name: string
   isHost: boolean
   isConnected: boolean
+  connectionState: ParticipantConnectionState
 }
 
 export interface RoomDirectoryEntry {
@@ -137,6 +160,7 @@ export interface RoomDirectoryEntry {
   playerCount: number
   connectedPlayerCount: number
   openSeatCount: number
+  spectatorCount: number
   players: RoomDirectoryPlayerSnapshot[]
 }
 
@@ -176,6 +200,7 @@ export interface GamePlayerPublicSnapshot {
   id: string
   name: string
   isConnected: boolean
+  connectionState: ParticipantConnectionState
   lifeTotal: number
   deck: DeckSelectionSummary | null
   zoneCounts: PlayerZoneCounts
@@ -219,6 +244,7 @@ export interface GameSnapshot {
   gameId: string
   roomId: string
   localPlayerId: string | null
+  viewerRole: RoomParticipantRole
   debugMode: boolean
   publicState: GamePublicState
   privateState: GamePrivatePlayerState | null
@@ -288,13 +314,14 @@ export type ClientMessage =
   | { type: 'unlock_debug_mode'; password: string }
   | { type: 'create_room'; settings?: RoomSettingsInput }
   | { type: 'create_debug_room'; settings?: RoomSettingsInput }
-  | { type: 'join_room'; roomId: string }
+  | { type: 'join_room'; roomId: string; role?: RoomParticipantRole }
   | { type: 'leave_room'; roomId: string }
   | { type: 'update_room_settings'; roomId: string; settings: RoomSettingsInput }
   | { type: 'add_debug_player'; roomId: string; name?: string }
   | { type: 'remove_debug_player'; roomId: string; playerId: string }
   | { type: 'select_deck'; roomId: string; deck: DeckSelectionSnapshot }
   | { type: 'start_game'; roomId: string }
+  | { type: 'send_chat'; roomId: string; message: string }
   | { type: 'game_action'; gameId: string; action: ClientGameAction }
 
 export type ServerMessage =

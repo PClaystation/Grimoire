@@ -1,4 +1,19 @@
-import type { DeckSelectionSummary, DeckSelectionSnapshot, PermanentCounter, PermanentPosition, PlayerCounter, PlayerDesignation, PlayerDesignations, RoomSettings, RoomSettingsInput, StackItemSnapshot, TurnStateSnapshot } from '../../src/shared/play.js'
+import type {
+  DeckSelectionSummary,
+  DeckSelectionSnapshot,
+  ParticipantConnectionState,
+  PermanentCounter,
+  PermanentPosition,
+  PlayerCounter,
+  PlayerDesignation,
+  PlayerDesignations,
+  RoomChatMessage,
+  RoomParticipantRole,
+  RoomSettings,
+  RoomSettingsInput,
+  StackItemSnapshot,
+  TurnStateSnapshot,
+} from '../../src/shared/play.js'
 import type { CardInstance } from '../../src/shared/playDeck.js'
 
 export interface RoomPlayerState {
@@ -7,8 +22,17 @@ export interface RoomPlayerState {
   name: string
   joinedAt: string
   isConnected: boolean
+  connectionState: ParticipantConnectionState
   selectedDeck: DeckSelectionSnapshot | null
   isDebugPlaceholder: boolean
+}
+
+export interface RoomSpectatorState {
+  id: string
+  sessionId: string
+  name: string
+  joinedAt: string
+  connectionState: ParticipantConnectionState
 }
 
 export interface BattlefieldPermanentState extends CardInstance {
@@ -42,6 +66,7 @@ export interface GamePlayerState {
   sessionId: string | null
   name: string
   isConnected: boolean
+  connectionState: ParticipantConnectionState
   joinedAt: string
   selectedDeck: DeckSelectionSummary
   lifeTotal: number
@@ -77,6 +102,8 @@ export interface RoomState {
   debugMode: boolean
   settings: RoomSettings
   players: RoomPlayerState[]
+  spectators: RoomSpectatorState[]
+  chat: RoomChatMessage[]
   gameId: string | null
   game: GameState | null
 }
@@ -91,3 +118,4 @@ export interface PlayServerDependencies {
 export type OwnedZone = import('../../src/shared/play.js').OwnedZone
 export type PlayerDesignationKey = PlayerDesignation
 export type RoomSettingsInputValue = RoomSettingsInput
+export type RoomParticipantRoleValue = RoomParticipantRole

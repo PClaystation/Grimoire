@@ -15,6 +15,7 @@ import {
 import { Link, useNavigate, useParams } from 'react-router-dom'
 
 import { useDeckRepository } from '@/decks/useDeckRepository'
+import { RoomChatPanel } from '@/play/components/RoomChatPanel'
 import { PlayFrame } from '@/play/components/PlayFrame'
 import { RoomSettingsForm } from '@/play/components/RoomSettingsForm'
 import {
@@ -26,6 +27,7 @@ import {
 import { usePlay } from '@/play/usePlay'
 import {
   createDeckSelectionSnapshot,
+  type ParticipantConnectionState,
   type RoomSettings,
   type RoomSnapshot,
 } from '@/shared/play'
@@ -40,6 +42,8 @@ export function PlayRoomPage() {
   const [statusMessage, setStatusMessage] = useState<string | null>(null)
   const {
     connectionStatus,
+    connectionMessage,
+    pendingMessageCount,
     room,
     game,
     error,
@@ -50,6 +54,7 @@ export function PlayRoomPage() {
     updateRoomSettings,
     selectDeck,
     startGame,
+    sendRoomChat,
   } = usePlay()
   const roomSettingsSignature = room ? JSON.stringify(room.settings) : ''
   const isDebugRoom = room?.debugMode ?? false
@@ -77,6 +82,8 @@ export function PlayRoomPage() {
         title="Looking for that room."
         description="If this browser is already connected, it will appear here after sync."
         connectionStatus={connectionStatus}
+        connectionMessage={connectionMessage}
+        pendingMessageCount={pendingMessageCount}
         error={error}
         onDismissError={clearError}
       >
@@ -102,22 +109,26 @@ export function PlayRoomPage() {
   }
 
   const localPlayer = room.players.find((player) => player.id === room.localPlayerId) ?? null
+  const localSpectator = room.spectators.find((spectator) => spectator.id === room.localSpectatorId) ?? null
+  const isSpectator = room.viewerRole === 'spectator'
   const isHost = room.hostPlayerId === room.localPlayerId
   const everyoneReady =
     room.players.length >= room.settings.minPlayers &&
-    room.players.every((player) => player.isConnected && player.selectedDeck)
-  const canStartGame = isHost && (isDebugRoom || everyoneReady)
+    room.players.every((player) => player.connectionState === 'connected' && player.selectedDeck)
+  const canStartGame = isHost && !isSpectator && (isDebugRoom || everyoneReady)
 
   return (
     <PlayFrame
       eyebrow="Room Lobby"
       title={room.settings.name}
-      description={`${room.settings.visibility === 'public' ? 'Public' : 'Private'} room ${room.code}. Players join, choose decks, and the host starts once the table matches the room settings.${
+      description={`${room.settings.visibility === 'public' ? 'Public' : 'Private'} room ${room.code}. Players join, spectators can follow along, and the host starts once the table matches the room settings.${
         isDebugRoom
           ? ' This is a hidden sandbox room, so you can add placeholder seats without inviting other accounts.'
           : ''
       }`}
       connectionStatus={connectionStatus}
+      connectionMessage={connectionMessage}
+      pendingMessageCount={pendingMessageCount}
       error={error}
       onDismissError={clearError}
       actions={
@@ -135,7 +146,7 @@ export function PlayRoomPage() {
             <Copy className="h-4 w-4" />
             Copy code
           </button>
-          {isHost ? (
+          {isHost && !isSpectator ? (
             <button
               type="button"
               onClick={() => startGame(room.roomId)}
@@ -159,6 +170,10 @@ export function PlayRoomPage() {
               <h2 className="mt-2 text-2xl font-semibold text-ink-50">
                 {room.players.length} / {room.settings.maxPlayers} players
               </h2>
+              <p className="mt-2 text-sm text-ink-300">
+                {room.spectators.length} spectator{room.spectators.length === 1 ? '' : 's'} in
+                room
+              </p>
             </div>
 
             <button
@@ -173,6 +188,18 @@ export function PlayRoomPage() {
               Leave lobby
             </button>
           </div>
+
+          {isSpectator ? (
+            <div className="mt-5 rounded-[1.6rem] border border-tide-400/20 bg-tide-500/10 p-5">
+              <p className="text-xs font-semibold uppercase tracking-[0.18em] text-tide-100">
+                Spectator mode
+              </p>
+              <p className="mt-2 text-sm leading-7 text-tide-50/90">
+                {localSpectator?.name ?? 'This browser'} is following the room without taking a
+                seat. Deck selection and start controls stay with seated players.
+              </p>
+            </div>
+          ) : null}
 
           <RoomSettingsSummary room={room} />
 
@@ -207,15 +234,7 @@ export function PlayRoomPage() {
                         Host
                       </span>
                     ) : null}
-                    <span
-                      className={`rounded-full px-3 py-1 text-xs font-semibold ring-1 ${
-                        player.isConnected
-                          ? 'bg-emerald-500/12 text-emerald-100 ring-emerald-400/25'
-                          : 'bg-rose-500/12 text-rose-100 ring-rose-400/25'
-                      }`}
-                    >
-                      {player.isConnected ? 'Connected' : 'Disconnected'}
-                    </span>
+                    <ParticipantConnectionBadge connectionState={player.connectionState} />
                     <span
                       className={`rounded-full px-3 py-1 text-xs font-semibold ring-1 ${
                         player.selectedDeck
@@ -239,7 +258,7 @@ export function PlayRoomPage() {
                   ? isHost
                     ? 'Everyone matches the room settings. You can start the game.'
                     : 'Everyone matches the room settings. Waiting for the host.'
-                  : `Need at least ${room.settings.minPlayers} connected players and a deck from everyone.`}
+                  : `Need at least ${room.settings.minPlayers} seated players, a live connection from each player, and a deck from everyone.`}
             </p>
           </div>
 
@@ -290,7 +309,48 @@ export function PlayRoomPage() {
             )}
           </section>
 
-          {isDebugRoom ? (
+          <section className="rounded-[2rem] border border-white/10 bg-[linear-gradient(180deg,rgba(18,33,41,0.96),rgba(11,24,31,0.99))] p-6 shadow-panel ring-1 ring-white/5">
+            <div className="flex items-start justify-between gap-4">
+              <div>
+                <p className="text-xs font-semibold uppercase tracking-[0.22em] text-ink-400">
+                  Spectators
+                </p>
+                <h2 className="mt-2 text-2xl font-semibold text-ink-50">
+                  {room.spectators.length} watching
+                </h2>
+              </div>
+              <RadioTower className="h-5 w-5 text-tide-200" />
+            </div>
+
+            {room.spectators.length > 0 ? (
+              <div className="mt-5 grid gap-3">
+                {room.spectators.map((spectator) => (
+                  <article
+                    key={spectator.id}
+                    className={`rounded-[1.5rem] border p-4 ${
+                      spectator.id === room.localSpectatorId
+                        ? 'border-tide-400/20 bg-tide-500/10'
+                        : 'border-white/10 bg-white/[0.04]'
+                    }`}
+                  >
+                    <div className="flex items-center justify-between gap-3">
+                      <div>
+                        <h3 className="text-lg font-semibold text-ink-50">{spectator.name}</h3>
+                        <p className="mt-2 text-sm text-ink-300">Read-only room access</p>
+                      </div>
+                      <ParticipantConnectionBadge connectionState={spectator.connectionState} />
+                    </div>
+                  </article>
+                ))}
+              </div>
+            ) : (
+              <div className="mt-5 rounded-[1.6rem] border border-white/10 bg-white/[0.04] p-5">
+                <p className="text-sm text-ink-300">No spectators have joined this room yet.</p>
+              </div>
+            )}
+          </section>
+
+          {isDebugRoom && !isSpectator ? (
             <section className="rounded-[2rem] border border-tide-400/20 bg-[linear-gradient(180deg,rgba(18,33,41,0.96),rgba(11,24,31,0.99))] p-6 shadow-panel ring-1 ring-tide-400/10">
               <div className="flex items-start justify-between gap-4">
                 <div>
@@ -349,81 +409,108 @@ export function PlayRoomPage() {
             </section>
           ) : null}
 
-          <section className="rounded-[2rem] border border-white/10 bg-[linear-gradient(180deg,rgba(18,33,41,0.96),rgba(11,24,31,0.99))] p-6 shadow-panel ring-1 ring-white/5">
-            <div className="flex items-start justify-between gap-4">
-              <div>
-                <p className="text-xs font-semibold uppercase tracking-[0.22em] text-ink-400">
-                  Your saved decks
-                </p>
-                <h2 className="mt-2 text-2xl font-semibold text-ink-50">
-                  Choose the deck for this room
-                </h2>
-              </div>
-              <RadioTower className="h-5 w-5 text-tide-200" />
-            </div>
+          <RoomChatPanel
+            connectionStatus={connectionStatus}
+            viewerRole={room.viewerRole}
+            messages={room.chat}
+            onSendMessage={(message) => sendRoomChat(room.roomId, message)}
+          />
 
-            {isSavedDecksLoading ? (
+          {isSpectator ? (
+            <section className="rounded-[2rem] border border-white/10 bg-[linear-gradient(180deg,rgba(18,33,41,0.96),rgba(11,24,31,0.99))] p-6 shadow-panel ring-1 ring-white/5">
+              <div className="flex items-start justify-between gap-4">
+                <div>
+                  <p className="text-xs font-semibold uppercase tracking-[0.22em] text-ink-400">
+                    Spectator note
+                  </p>
+                  <h2 className="mt-2 text-2xl font-semibold text-ink-50">Read-only seat</h2>
+                </div>
+                <RadioTower className="h-5 w-5 text-tide-200" />
+              </div>
               <div className="mt-5 rounded-[1.6rem] border border-white/10 bg-white/[0.04] p-5">
-                <p className="text-sm text-ink-300">Loading saved decks.</p>
+                <p className="text-sm leading-7 text-ink-300">
+                  Spectators can follow chat and room state, then move into the live table once the
+                  game starts. Seat claiming is not supported from spectator mode yet.
+                </p>
               </div>
-            ) : savedDecks.length > 0 ? (
-              <div className="mt-5 grid gap-3">
-                {savedDecks.map((deck) => {
-                  const isSelected = localPlayer?.selectedDeck?.id === deck.id
+            </section>
+          ) : (
+            <section className="rounded-[2rem] border border-white/10 bg-[linear-gradient(180deg,rgba(18,33,41,0.96),rgba(11,24,31,0.99))] p-6 shadow-panel ring-1 ring-white/5">
+              <div className="flex items-start justify-between gap-4">
+                <div>
+                  <p className="text-xs font-semibold uppercase tracking-[0.22em] text-ink-400">
+                    Your saved decks
+                  </p>
+                  <h2 className="mt-2 text-2xl font-semibold text-ink-50">
+                    Choose the deck for this room
+                  </h2>
+                </div>
+                <RadioTower className="h-5 w-5 text-tide-200" />
+              </div>
 
-                  return (
-                    <button
-                      key={deck.id}
-                      type="button"
-                      onClick={() => selectDeck(room.roomId, createDeckSelectionSnapshot(deck))}
-                      aria-pressed={isSelected}
-                      className={`rounded-[1.5rem] border px-4 py-4 text-left transition ${
-                        isSelected
-                          ? 'border-tide-400/30 bg-tide-500/12'
-                          : 'border-white/10 bg-white/[0.04] hover:bg-white/[0.08]'
-                      }`}
-                    >
-                      <div className="flex items-start justify-between gap-3">
-                        <div>
-                          <h3 className="text-lg font-semibold text-ink-50">{deck.name}</h3>
-                          <p className="mt-2 text-sm text-ink-300">
-                            {deck.format} •{' '}
-                            {deck.mainboard.reduce((sum, entry) => sum + entry.quantity, 0)} mainboard
-                            {deck.sideboard.length > 0
-                              ? ` • ${deck.sideboard.reduce((sum, entry) => sum + entry.quantity, 0)} sideboard`
-                              : ''}
-                          </p>
+              {isSavedDecksLoading ? (
+                <div className="mt-5 rounded-[1.6rem] border border-white/10 bg-white/[0.04] p-5">
+                  <p className="text-sm text-ink-300">Loading saved decks.</p>
+                </div>
+              ) : savedDecks.length > 0 ? (
+                <div className="mt-5 grid gap-3">
+                  {savedDecks.map((deck) => {
+                    const isSelected = localPlayer?.selectedDeck?.id === deck.id
+
+                    return (
+                      <button
+                        key={deck.id}
+                        type="button"
+                        onClick={() => selectDeck(room.roomId, createDeckSelectionSnapshot(deck))}
+                        aria-pressed={isSelected}
+                        className={`rounded-[1.5rem] border px-4 py-4 text-left transition ${
+                          isSelected
+                            ? 'border-tide-400/30 bg-tide-500/12'
+                            : 'border-white/10 bg-white/[0.04] hover:bg-white/[0.08]'
+                        }`}
+                      >
+                        <div className="flex items-start justify-between gap-3">
+                          <div>
+                            <h3 className="text-lg font-semibold text-ink-50">{deck.name}</h3>
+                            <p className="mt-2 text-sm text-ink-300">
+                              {deck.format} •{' '}
+                              {deck.mainboard.reduce((sum, entry) => sum + entry.quantity, 0)} mainboard
+                              {deck.sideboard.length > 0
+                                ? ` • ${deck.sideboard.reduce((sum, entry) => sum + entry.quantity, 0)} sideboard`
+                                : ''}
+                            </p>
+                          </div>
+
+                          <span
+                            className={`rounded-full px-3 py-1 text-xs font-semibold ring-1 ${
+                              isSelected
+                                ? 'bg-tide-500/15 text-tide-100 ring-tide-400/30'
+                                : 'bg-white/10 text-ink-200 ring-white/10'
+                            }`}
+                          >
+                            {isSelected ? 'Selected' : 'Use deck'}
+                          </span>
                         </div>
-
-                        <span
-                          className={`rounded-full px-3 py-1 text-xs font-semibold ring-1 ${
-                            isSelected
-                              ? 'bg-tide-500/15 text-tide-100 ring-tide-400/30'
-                              : 'bg-white/10 text-ink-200 ring-white/10'
-                          }`}
-                        >
-                          {isSelected ? 'Selected' : 'Use deck'}
-                        </span>
-                      </div>
-                    </button>
-                  )
-                })}
-              </div>
-            ) : (
-              <div className="mt-5 rounded-[1.6rem] border border-white/10 bg-white/[0.04] p-5">
-                <p className="text-sm text-ink-300">
-                  No saved decks yet. Build one first. Signed-in Continental ID decks appear after refresh.
-                </p>
-                <Link
-                  to="/"
-                  className="mt-4 inline-flex items-center gap-2 rounded-2xl border border-white/10 bg-ink-900/70 px-4 py-3 text-sm font-semibold text-ink-50 transition hover:bg-ink-800"
-                >
-                  Open deckbuilder
-                  <ArrowRight className="h-4 w-4" />
-                </Link>
-              </div>
-            )}
-          </section>
+                      </button>
+                    )
+                  })}
+                </div>
+              ) : (
+                <div className="mt-5 rounded-[1.6rem] border border-white/10 bg-white/[0.04] p-5">
+                  <p className="text-sm text-ink-300">
+                    No saved decks yet. Build one first. Signed-in Continental ID decks appear after refresh.
+                  </p>
+                  <Link
+                    to="/"
+                    className="mt-4 inline-flex items-center gap-2 rounded-2xl border border-white/10 bg-ink-900/70 px-4 py-3 text-sm font-semibold text-ink-50 transition hover:bg-ink-800"
+                  >
+                    Open deckbuilder
+                    <ArrowRight className="h-4 w-4" />
+                  </Link>
+                </div>
+              )}
+            </section>
+          )}
         </div>
       </div>
     </PlayFrame>
@@ -484,6 +571,29 @@ function RoomSettingsSummary({ room }: { room: RoomSnapshot }) {
         </div>
       ) : null}
     </div>
+  )
+}
+
+function ParticipantConnectionBadge({
+  connectionState,
+}: {
+  connectionState: ParticipantConnectionState
+}) {
+  const className =
+    connectionState === 'connected'
+      ? 'bg-emerald-500/12 text-emerald-100 ring-emerald-400/25'
+      : connectionState === 'reconnecting'
+        ? 'bg-amber-500/12 text-amber-100 ring-amber-400/25'
+        : 'bg-rose-500/12 text-rose-100 ring-rose-400/25'
+
+  return (
+    <span className={`rounded-full px-3 py-1 text-xs font-semibold ring-1 ${className}`}>
+      {connectionState === 'reconnecting'
+        ? 'Reconnecting'
+        : connectionState === 'connected'
+          ? 'Connected'
+          : 'Disconnected'}
+    </span>
   )
 }
 

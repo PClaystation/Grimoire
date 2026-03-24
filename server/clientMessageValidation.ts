@@ -7,6 +7,7 @@ import type {
   OwnedZone,
   PlayerDesignation,
   PermanentPosition,
+  RoomParticipantRole,
   RoomSettingsInput,
   StackItemType,
 } from '../src/shared/play.js'
@@ -51,6 +52,10 @@ function isStackItemType(value: unknown): value is StackItemType {
 
 function isPlayerDesignation(value: unknown): value is PlayerDesignation {
   return value === 'monarch' || value === 'initiative' || value === 'citys_blessing'
+}
+
+function isRoomParticipantRole(value: unknown): value is RoomParticipantRole {
+  return value === 'player' || value === 'spectator'
 }
 
 function isPermanentPosition(value: unknown): value is PermanentPosition {
@@ -261,6 +266,10 @@ function isClientMessagePayload(value: unknown): value is ClientMessage {
     case 'create_debug_room':
       return value.settings === undefined || isRoomSettingsPayload(value.settings)
     case 'join_room':
+      return (
+        isNonEmptyString(value.roomId) &&
+        (value.role === undefined || isRoomParticipantRole(value.role))
+      )
     case 'leave_room':
     case 'start_game':
       return isNonEmptyString(value.roomId)
@@ -272,6 +281,8 @@ function isClientMessagePayload(value: unknown): value is ClientMessage {
       return isNonEmptyString(value.roomId) && isNonEmptyString(value.playerId)
     case 'select_deck':
       return isNonEmptyString(value.roomId) && isDeckSelectionSnapshotPayload(value.deck)
+    case 'send_chat':
+      return isNonEmptyString(value.roomId) && typeof value.message === 'string'
     case 'game_action':
       return isNonEmptyString(value.gameId) && isClientGameActionPayload(value.action)
     default:

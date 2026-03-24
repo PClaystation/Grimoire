@@ -78,7 +78,10 @@ export function toStackItemSnapshot(
   }
 }
 
-export function buildRoomSnapshot(room: RoomState, localPlayerId: string): RoomSnapshot {
+export function buildRoomSnapshot(
+  room: RoomState,
+  viewer: { role: 'player'; id: string } | { role: 'spectator'; id: string },
+): RoomSnapshot {
   return {
     roomId: room.roomId,
     code: room.code,
@@ -86,7 +89,9 @@ export function buildRoomSnapshot(room: RoomState, localPlayerId: string): RoomS
     createdAt: room.createdAt,
     gameId: room.gameId,
     hostPlayerId: room.hostPlayerId,
-    localPlayerId,
+    localPlayerId: viewer.role === 'player' ? viewer.id : null,
+    localSpectatorId: viewer.role === 'spectator' ? viewer.id : null,
+    viewerRole: viewer.role,
     debugMode: room.debugMode,
     settings: room.settings,
     players: room.players.map((player) => ({
@@ -94,14 +99,21 @@ export function buildRoomSnapshot(room: RoomState, localPlayerId: string): RoomS
       name: player.name,
       isHost: player.id === room.hostPlayerId,
       isConnected: player.isConnected,
+      connectionState: player.connectionState,
       selectedDeck: player.selectedDeck ? buildDeckSelectionSummary(player.selectedDeck) : null,
       isDebugPlaceholder: player.isDebugPlaceholder,
     })),
+    spectators: room.spectators.map((spectator) => ({
+      id: spectator.id,
+      name: spectator.name,
+      connectionState: spectator.connectionState,
+    })),
+    chat: room.chat,
   }
 }
 
 export function buildRoomDirectoryEntry(room: RoomState): RoomDirectoryEntry | null {
-  if (room.debugMode || room.settings.visibility !== 'public' || room.game) {
+  if (room.debugMode || room.settings.visibility !== 'public') {
     return null
   }
 
@@ -114,31 +126,35 @@ export function buildRoomDirectoryEntry(room: RoomState): RoomDirectoryEntry | n
   return {
     roomId: room.roomId,
     code: room.code,
-    phase: 'lobby',
+    phase: room.game ? 'game' : 'lobby',
     createdAt: room.createdAt,
     hostPlayerId: room.hostPlayerId,
     hostPlayerName: hostPlayer.name,
     settings: room.settings,
     playerCount: room.players.length,
-    connectedPlayerCount: room.players.filter((player) => player.isConnected).length,
+    connectedPlayerCount: room.players.filter((player) => player.connectionState === 'connected').length,
     openSeatCount: Math.max(0, room.settings.maxPlayers - room.players.length),
+    spectatorCount: room.spectators.length,
     players: room.players.map((player) => ({
       name: player.name,
       isHost: player.id === room.hostPlayerId,
       isConnected: player.isConnected,
+      connectionState: player.connectionState,
     })),
   }
 }
 
 export function buildGameSnapshot(
   game: GameState,
-  localPlayerId: string,
+  localPlayerId: string | null,
+  viewerRole: 'player' | 'spectator',
   debugMode: boolean,
 ): GameSnapshot {
   const publicPlayers: GamePlayerPublicSnapshot[] = game.players.map((player) => ({
     id: player.id,
     name: player.name,
     isConnected: player.isConnected,
+    connectionState: player.connectionState,
     lifeTotal: player.lifeTotal,
     deck: player.selectedDeck,
     zoneCounts: {
@@ -159,12 +175,14 @@ export function buildGameSnapshot(
     commanderDamage: player.commanderDamage,
   }))
 
-  const localPlayer = game.players.find((player) => player.id === localPlayerId) ?? null
+  const localPlayer =
+    localPlayerId === null ? null : game.players.find((player) => player.id === localPlayerId) ?? null
 
   return {
     gameId: game.gameId,
     roomId: game.roomId,
     localPlayerId,
+    viewerRole,
     debugMode,
     publicState: {
       gameId: game.gameId,
@@ -172,9 +190,9 @@ export function buildGameSnapshot(
       createdAt: game.createdAt,
       startedAt: game.startedAt,
       turn: game.turn,
-      stack: game.stack.map((item) => toStackItemSnapshot(item, localPlayerId)),
+      stack: game.stack.map((item) => toStackItemSnapshot(item, localPlayerId ?? 'spectator')),
       battlefield: game.battlefield.map((card): BattlefieldPermanentSnapshot => ({
-        ...toBattlefieldCardSnapshot(card, localPlayerId),
+        ...toBattlefieldCardSnapshot(card, localPlayerId ?? 'spectator'),
         controllerPlayerId: card.controllerPlayerId,
         tapped: card.tapped,
         enteredAt: card.enteredAt,

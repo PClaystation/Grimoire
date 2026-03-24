@@ -1,6 +1,7 @@
 import {
   useDeferredValue,
   useEffect,
+  useEffectEvent,
   useRef,
   useState,
   type CSSProperties,
@@ -10,6 +11,7 @@ import {
   Hand,
   Layers3,
   Minus,
+  Monitor,
   Plus,
   RefreshCcw,
   ScrollText,
@@ -22,6 +24,7 @@ import {
 import { Link, useNavigate, useParams } from 'react-router-dom'
 
 import { SiteNav } from '@/components/layout/SiteNav'
+import { RoomChatPanel } from '@/play/components/RoomChatPanel'
 import {
   BattlefieldLane,
   HandTray,
@@ -69,18 +72,25 @@ export function PlayGamePage() {
   const { gameId = '' } = useParams()
   const {
     connectionStatus,
+    connectionMessage,
+    pendingMessageCount,
     room,
     game,
     error,
     clearError,
+    sendRoomChat,
     sendGameAction,
   } = usePlay()
   const [selectedCard, setSelectedCard] = useState<TableSelection | null>(null)
   const [focusedPlayerId, setFocusedPlayerId] = useState<string | null>(null)
   const [activeZone, setActiveZone] = useState<BrowseableZone>('graveyard')
+  const [zoneSearchQuery, setZoneSearchQuery] = useState('')
   const [isZoneOverlayOpen, setIsZoneOverlayOpen] = useState(false)
   const [isZoneOverlayClosing, setIsZoneOverlayClosing] = useState(false)
-  const [utilityPanel, setUtilityPanel] = useState<'players' | 'stack' | 'tokens' | 'log'>('players')
+  const [isShortcutHelpOpen, setIsShortcutHelpOpen] = useState(false)
+  const [utilityPanel, setUtilityPanel] = useState<
+    'players' | 'stack' | 'tokens' | 'log' | 'chat'
+  >('players')
   const [counterDraft, setCounterDraft] = useState(COUNTER_PRESETS[0])
   const [playerCounterDraft, setPlayerCounterDraft] = useState(PLAYER_COUNTER_PRESETS[0])
   const [noteEditor, setNoteEditor] = useState<{ cardId: string | null; value: string }>({
@@ -134,11 +144,12 @@ export function PlayGamePage() {
   const localPlayerId = activeGame?.localPlayerId ?? ''
   const localPublicPlayer = players.find((player) => player.id === localPlayerId) ?? null
   const localPrivatePlayer = activeGame?.privateState ?? null
+  const isSpectator = activeGame?.viewerRole === 'spectator'
   const turn = activeGame?.publicState.turn ?? null
   const activeTurnPlayer =
     players.find((player) => player.id === turn?.activePlayerId) ?? players[0] ?? null
-  const isLocalPlayersTurn = Boolean(localPlayerId) && activeTurnPlayer?.id === localPlayerId
-  const opponentPlayers = players.filter((player) => player.id !== localPlayerId)
+  const isLocalPlayersTurn =
+    !isSpectator && Boolean(localPlayerId) && activeTurnPlayer?.id === localPlayerId
   const battlefieldByController = players.map((player) => ({
     player,
     permanents: battlefield
@@ -176,34 +187,13 @@ export function PlayGamePage() {
     focusedPlayer && playerNoteEditor.playerId === focusedPlayer.id
       ? playerNoteEditor.value
       : focusedPlayer?.note ?? ''
-
-  if (!activeGame || activeGame.gameId !== gameId) {
-    return (
-      <PlayFrame
-        eyebrow="Game Table"
-        title="Waiting for the game state."
-        description="If this browser is in an active room, the game will appear after sync."
-        connectionStatus={connectionStatus}
-        error={error}
-        onDismissError={clearError}
-      >
-        <section className="rounded-[2rem] border border-white/10 bg-ink-900/82 p-6 shadow-panel">
-          <p className="text-sm text-ink-300">No matching game is loaded.</p>
-          <Link
-            to="/play"
-            className="mt-4 inline-flex items-center gap-2 rounded-2xl border border-white/10 bg-white/6 px-4 py-3 text-sm font-semibold text-ink-100 transition hover:bg-white/10"
-          >
-            Back to play
-          </Link>
-        </section>
-      </PlayFrame>
-    )
-  }
-
-  const activeGameId = activeGame.gameId
+  const canAct = !isSpectator && isLocalPlayersTurn
+  const reconnectingPlayers = players.filter((player) => player.connectionState === 'reconnecting')
+  const disconnectedPlayers = players.filter((player) => player.connectionState === 'disconnected')
+  const activeGameId = activeGame?.gameId ?? gameId
 
   function sendTurnAction(action: ClientGameAction) {
-    if (!isLocalPlayersTurn) {
+    if (!activeGame || !isLocalPlayersTurn) {
       return
     }
 
@@ -237,6 +227,7 @@ export function PlayGamePage() {
 
     setFocusedPlayerId(playerId)
     setActiveZone(zone)
+    setZoneSearchQuery('')
     setIsZoneOverlayOpen(true)
     setIsZoneOverlayClosing(false)
     setZoneOverlayAnimationToken((value) => value + 1)
@@ -276,6 +267,106 @@ export function PlayGamePage() {
     openZone(localPlayerId, 'library')
   }
 
+  const handleShortcutKeyDown = useEffectEvent((event: KeyboardEvent) => {
+    if (isEditableTarget(event.target)) {
+      return
+    }
+
+    if (event.key === '?') {
+      event.preventDefault()
+      setIsShortcutHelpOpen((current) => !current)
+      return
+    }
+
+    if (event.key === 'Escape' && isShortcutHelpOpen) {
+      setIsShortcutHelpOpen(false)
+      return
+    }
+
+    switch (event.key.toLowerCase()) {
+      case '1':
+        setUtilityPanel('players')
+        return
+      case '2':
+        setUtilityPanel('stack')
+        return
+      case '3':
+        setUtilityPanel('tokens')
+        return
+      case '4':
+        setUtilityPanel('log')
+        return
+      case '5':
+        setUtilityPanel('chat')
+        return
+      case 'g':
+        if (focusedPlayer) {
+          openZone(focusedPlayer.id, 'graveyard')
+        }
+        return
+      case 'e':
+        if (focusedPlayer) {
+          openZone(focusedPlayer.id, 'exile')
+        }
+        return
+      case 'c':
+        if (focusedPlayer) {
+          openZone(focusedPlayer.id, 'command')
+        }
+        return
+      case 'l':
+        openLocalLibrary()
+        return
+      case 'd':
+        if (canAct) {
+          sendTurnAction({ type: 'draw_card' })
+        }
+        return
+      case 'u':
+        if (canAct) {
+          sendTurnAction({ type: 'untap_all' })
+        }
+        return
+      case 'p':
+        if (canAct) {
+          sendTurnAction({ type: 'advance_turn' })
+        }
+        return
+      default:
+        return
+    }
+  })
+
+  useEffect(() => {
+    window.addEventListener('keydown', handleShortcutKeyDown)
+    return () => window.removeEventListener('keydown', handleShortcutKeyDown)
+  }, [])
+
+  if (!activeGame || activeGame.gameId !== gameId) {
+    return (
+      <PlayFrame
+        eyebrow="Game Table"
+        title="Waiting for the game state."
+        description="If this browser is in an active room, the game will appear after sync."
+        connectionStatus={connectionStatus}
+        connectionMessage={connectionMessage}
+        pendingMessageCount={pendingMessageCount}
+        error={error}
+        onDismissError={clearError}
+      >
+        <section className="rounded-[2rem] border border-white/10 bg-ink-900/82 p-6 shadow-panel">
+          <p className="text-sm text-ink-300">No matching game is loaded.</p>
+          <Link
+            to="/play"
+            className="mt-4 inline-flex items-center gap-2 rounded-2xl border border-white/10 bg-white/6 px-4 py-3 text-sm font-semibold text-ink-100 transition hover:bg-white/10"
+          >
+            Back to play
+          </Link>
+        </section>
+      </PlayFrame>
+    )
+  }
+
   return (
     <div className="relative min-h-screen overflow-hidden px-4 py-4 pb-28 text-ink-50 sm:px-6 sm:pb-32 lg:px-8 lg:pb-36">
       <div className="mx-auto flex w-full max-w-[1720px] flex-col gap-4">
@@ -290,9 +381,51 @@ export function PlayGamePage() {
           turn={activeGame.publicState.turn}
           activePlayer={activeTurnPlayer}
           localPlayer={localPublicPlayer}
+          viewerRole={activeGame.viewerRole}
           isLocalPlayersTurn={isLocalPlayersTurn}
           onAdvanceTurn={() => sendTurnAction({ type: 'advance_turn' })}
+          onOpenShortcuts={() => setIsShortcutHelpOpen(true)}
         />
+
+        {isSpectator || connectionStatus === 'reconnecting' || reconnectingPlayers.length > 0 || disconnectedPlayers.length > 0 ? (
+          <div className="grid gap-3 lg:grid-cols-2">
+            {isSpectator ? (
+              <div className="rounded-[1.5rem] border border-tide-400/25 bg-tide-500/10 px-4 py-3 shadow-card">
+                <div className="flex items-start gap-3">
+                  <Monitor className="mt-0.5 h-4 w-4 text-tide-100" />
+                  <div>
+                    <p className="text-sm font-semibold text-tide-100">Spectator mode</p>
+                    <p className="mt-1 text-sm text-tide-50/90">
+                      This browser can browse public zones, follow chat, and inspect the board, but
+                      table actions stay locked to seated players.
+                    </p>
+                  </div>
+                </div>
+              </div>
+            ) : null}
+
+            {connectionStatus === 'reconnecting' || reconnectingPlayers.length > 0 || disconnectedPlayers.length > 0 ? (
+              <div className="rounded-[1.5rem] border border-amber-400/25 bg-amber-500/10 px-4 py-3 shadow-card">
+                <p className="text-sm font-semibold text-amber-100">Reconnect status</p>
+                <p className="mt-1 text-sm text-amber-50/90">
+                  {connectionStatus === 'reconnecting'
+                    ? 'This browser is trying to restore the play server connection.'
+                    : 'The table has remote connection issues.'}
+                </p>
+                {reconnectingPlayers.length > 0 ? (
+                  <p className="mt-2 text-xs font-semibold uppercase tracking-[0.16em] text-amber-100/85">
+                    Reconnecting: {reconnectingPlayers.map((player) => player.name).join(', ')}
+                  </p>
+                ) : null}
+                {disconnectedPlayers.length > 0 ? (
+                  <p className="mt-2 text-xs font-semibold uppercase tracking-[0.16em] text-amber-100/85">
+                    Disconnected: {disconnectedPlayers.map((player) => player.name).join(', ')}
+                  </p>
+                ) : null}
+              </div>
+            ) : null}
+          </div>
+        ) : null}
 
         {error ? (
           <div className="flex flex-wrap items-center justify-between gap-3 rounded-[1.5rem] border border-rose-400/25 bg-rose-500/10 px-4 py-3 shadow-card">
@@ -319,12 +452,17 @@ export function PlayGamePage() {
                 <div className="pointer-events-none absolute inset-x-0 top-0 h-32 bg-[radial-gradient(circle_at_top,rgba(34,197,94,0.18),transparent_72%)] blur-2xl" />
               ) : null}
               <div className="relative grid gap-6">
-            {opponentPlayers.length > 0 ? (
+            {battlefieldByController
+              .filter(({ player }) => isSpectator || player.id !== localPlayerId).length > 0 ? (
               <section
-                className={`grid gap-4 ${opponentPlayers.length > 1 ? 'xl:grid-cols-2' : ''}`}
+                className={`grid gap-4 ${
+                  battlefieldByController.filter(({ player }) => isSpectator || player.id !== localPlayerId).length > 1
+                    ? 'xl:grid-cols-2'
+                    : ''
+                }`}
               >
                 {battlefieldByController
-                  .filter(({ player }) => player.id !== localPlayerId)
+                  .filter(({ player }) => isSpectator || player.id !== localPlayerId)
                   .map(({ player, permanents }) => (
                     <BattlefieldLane
                       key={player.id}
@@ -385,7 +523,8 @@ export function PlayGamePage() {
               </section>
             ) : null}
 
-            {battlefieldByController
+            {!isSpectator
+              ? battlefieldByController
               .filter(({ player }) => player.id === localPlayerId)
               .map(({ player, permanents }) => (
                 <BattlefieldLane
@@ -443,12 +582,13 @@ export function PlayGamePage() {
                   }
                   compactRail={false}
                 />
-              ))}
+              ))
+              : null}
 
-            {localPublicPlayer && localPrivatePlayer ? (
+            {localPublicPlayer && localPrivatePlayer && !isSpectator ? (
               <HandTray
                 privateState={localPrivatePlayer}
-                canAct={isLocalPlayersTurn}
+                canAct={canAct}
                 activePlayerName={activeTurnPlayer?.name ?? 'Unknown player'}
                 selectedCardId={
                   activeSelection?.zone === 'hand' || activeSelection?.zone === 'library'
@@ -464,16 +604,27 @@ export function PlayGamePage() {
 
             {isZoneOverlayOpen ? (
               <ZoneOverlay
+                players={players}
                 localPlayerId={localPlayerId}
-                canAct={isLocalPlayersTurn}
+                canAct={canAct}
                 focusedPlayer={focusedPlayer}
                 activeZone={activeZone}
                 cards={zoneCards}
+                searchQuery={zoneSearchQuery}
                 selectedCard={activeSelection}
                 onClose={closeZoneOverlay}
                 onClearSelection={() => setSelectedCard(null)}
                 onSelectCard={selectZoneCard}
                 onSelectLibraryCard={(cardId) => setSelectedCard({ zone: 'library', cardId })}
+                onSearchChange={setZoneSearchQuery}
+                onFocusPlayerChange={(playerId) => setFocusedPlayerId(playerId)}
+                onZoneChange={(zone) => {
+                  if (zone === 'library' && localPlayerId) {
+                    setFocusedPlayerId(localPlayerId)
+                  }
+                  setActiveZone(zone)
+                  setZoneSearchQuery('')
+                }}
                 onMoveOwnedCard={moveOwnedCard}
                 animationToken={zoneOverlayAnimationToken}
                 isClosing={isZoneOverlayClosing}
@@ -485,7 +636,7 @@ export function PlayGamePage() {
             <InspectorCard
               players={players}
               selected={selectedData}
-              canAct={isLocalPlayersTurn}
+              canAct={canAct}
               counterDraft={counterDraft}
               noteDraft={noteDraft}
               onCounterDraftChange={setCounterDraft}
@@ -546,18 +697,19 @@ export function PlayGamePage() {
               isLocalOwned={isSelectedCardLocalOwned}
             />
             <section className="rounded-[1.9rem] border border-white/10 bg-ink-900/90 p-3 shadow-panel">
-              <div className="grid grid-cols-2 gap-2">
+              <div className="grid grid-cols-3 gap-2">
                 {[
                   ['players', 'Players'],
                   ['stack', 'Stack'],
                   ['tokens', 'Tokens'],
                   ['log', 'Log'],
+                  ['chat', 'Chat'],
                 ].map(([value, label]) => (
                   <button
                     key={value}
                     type="button"
                     onClick={() =>
-                      setUtilityPanel(value as 'players' | 'stack' | 'tokens' | 'log')
+                      setUtilityPanel(value as 'players' | 'stack' | 'tokens' | 'log' | 'chat')
                     }
                     className={`rounded-2xl border px-3 py-2 text-sm font-semibold transition ${
                       utilityPanel === value
@@ -576,7 +728,7 @@ export function PlayGamePage() {
                     players={players}
                     focusedPlayer={focusedPlayer}
                     localPlayerId={localPlayerId}
-                    canAct={isLocalPlayersTurn}
+                    canAct={canAct}
                     counterDraft={playerCounterDraft}
                     noteDraft={focusedPlayerNoteDraft}
                     onCounterDraftChange={setPlayerCounterDraft}
@@ -633,7 +785,7 @@ export function PlayGamePage() {
                     stack={activeGame.publicState.stack}
                     selected={selectedData}
                     isLocalOwned={Boolean(isSelectedCardLocalOwned)}
-                    canAct={isLocalPlayersTurn}
+                    canAct={canAct}
                     draft={stackDraft}
                     onDraftChange={setStackDraft}
                     onCreateFromSelected={(itemType, note, faceDown) => {
@@ -673,7 +825,7 @@ export function PlayGamePage() {
 
                 {utilityPanel === 'tokens' ? (
                   <TokenWorkshop
-                    canAct={isLocalPlayersTurn}
+                    canAct={canAct}
                     draft={tokenDraft}
                     onDraftChange={setTokenDraft}
                     onCreateToken={(preset) =>
@@ -686,7 +838,18 @@ export function PlayGamePage() {
                 ) : null}
 
                 {utilityPanel === 'log' ? (
-                  <ActivityLog entries={activeGame.publicState.actionLog} />
+                  <ActivityLog entries={activeGame.publicState.actionLog} players={players} />
+                ) : null}
+
+                {utilityPanel === 'chat' ? (
+                  <RoomChatPanel
+                    title="Live room chat"
+                    description="Table talk and reconnect updates follow the room while the game is running."
+                    connectionStatus={connectionStatus}
+                    viewerRole={room?.viewerRole ?? activeGame.viewerRole}
+                    messages={room?.chat ?? []}
+                    onSendMessage={(message) => sendRoomChat(activeGame.roomId, message)}
+                  />
                 ) : null}
               </div>
             </section>
@@ -698,6 +861,13 @@ export function PlayGamePage() {
         isLocalPlayersTurn={isLocalPlayersTurn}
         onAdvanceTurn={() => sendTurnAction({ type: 'advance_turn' })}
       />
+      {isShortcutHelpOpen ? (
+        <ShortcutOverlay
+          isSpectator={Boolean(isSpectator)}
+          canAct={canAct}
+          onClose={() => setIsShortcutHelpOpen(false)}
+        />
+      ) : null}
     </div>
   )
 }
@@ -1000,30 +1170,40 @@ function InspectorCard({
 }
 
 function ZoneOverlay({
+  players,
   localPlayerId,
   canAct,
   focusedPlayer,
   activeZone,
   cards,
+  searchQuery,
   selectedCard,
   onClose,
   onClearSelection,
   onSelectCard,
   onSelectLibraryCard,
+  onSearchChange,
+  onFocusPlayerChange,
+  onZoneChange,
   onMoveOwnedCard,
   animationToken,
   isClosing,
 }: {
+  players: GamePlayerPublicSnapshot[]
   localPlayerId: string
   canAct: boolean
   focusedPlayer: GamePlayerPublicSnapshot | null
   activeZone: BrowseableZone
   cards: TableCardSnapshot[]
+  searchQuery: string
   selectedCard: TableSelection | null
   onClose: () => void
   onClearSelection: () => void
   onSelectCard: (playerId: string, zone: PublicZone, cardId: string) => void
   onSelectLibraryCard: (cardId: string) => void
+  onSearchChange: (value: string) => void
+  onFocusPlayerChange: (playerId: string) => void
+  onZoneChange: (zone: BrowseableZone) => void
   onMoveOwnedCard: (
     fromZone: OwnedZone,
     toZone: OwnedZone,
@@ -1033,7 +1213,18 @@ function ZoneOverlay({
   animationToken: number
   isClosing: boolean
 }) {
-  const visibleCards = cards
+  const visibleCards = cards.filter((card) => {
+    const normalizedQuery = searchQuery.trim().toLowerCase()
+
+    if (!normalizedQuery) {
+      return true
+    }
+
+    return [card.card.name, card.card.typeLine, card.card.oracleText]
+      .join(' ')
+      .toLowerCase()
+      .includes(normalizedQuery)
+  })
   const selectedZoneCardId =
     selectedCard &&
     ((activeZone === 'library' && selectedCard.zone === 'library') ||
@@ -1091,14 +1282,100 @@ function ZoneOverlay({
         <div
           data-zone-overlay-surface="true"
           key={`${activeZone}-${focusedPlayer?.id ?? 'none'}-${animationToken}`}
-          className={`zone-overlay-cards pointer-events-auto flex max-h-[calc(100vh-4.5rem)] ${
-            visibleCards.length > 0
-              ? 'w-fit max-w-[calc(100vw-1.5rem)]'
-              : 'min-w-[18rem] min-h-[11rem] w-fit'
-          } flex-wrap items-start justify-center gap-2.5 overflow-y-auto rounded-[1.8rem] border border-white/[0.04] bg-[linear-gradient(180deg,rgba(8,20,27,0.28),rgba(6,14,18,0.18))] px-2.5 py-2.5 shadow-[inset_0_1px_0_rgba(255,255,255,0.03)] sm:px-3 sm:py-3 ${
+          className={`zone-overlay-cards pointer-events-auto flex max-h-[calc(100vh-4.5rem)] w-full max-w-[min(108rem,calc(100vw-1.5rem))] flex-col overflow-hidden rounded-[1.8rem] border border-white/[0.04] bg-[linear-gradient(180deg,rgba(8,20,27,0.28),rgba(6,14,18,0.18))] px-2.5 py-2.5 shadow-[inset_0_1px_0_rgba(255,255,255,0.03)] sm:px-3 sm:py-3 ${
             visibleCards.length === 0 ? 'zone-overlay-empty' : ''
           }`}
         >
+          <div className="rounded-[1.4rem] border border-white/10 bg-ink-950/65 px-3 py-3">
+            <div className="flex flex-wrap items-start justify-between gap-3">
+              <div>
+                <p className="text-xs font-semibold uppercase tracking-[0.18em] text-ink-400">
+                  Zone browser
+                </p>
+                <h2 className="mt-2 text-xl font-semibold text-ink-50">
+                  {activeZone === 'library'
+                    ? 'Private library'
+                    : `${focusedPlayer?.name ?? 'Player'} • ${zoneLabel(activeZone)}`}
+                </h2>
+                <p className="mt-2 text-sm text-ink-300">
+                  Search crowded piles without leaving the overlay.
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={onClose}
+                className="rounded-full border border-white/10 px-3 py-1.5 text-xs font-semibold text-ink-200 transition hover:bg-white/6"
+              >
+                Close
+              </button>
+            </div>
+
+            <div className="mt-3 flex flex-wrap gap-2">
+              {players.map((player) => (
+                <button
+                  key={player.id}
+                  type="button"
+                  onClick={() => onFocusPlayerChange(player.id)}
+                  disabled={activeZone === 'library' && player.id !== localPlayerId}
+                  className={`rounded-full px-3 py-1.5 text-xs font-semibold ring-1 transition ${
+                    focusedPlayer?.id === player.id
+                      ? 'bg-tide-500/15 text-tide-100 ring-tide-400/30'
+                      : 'bg-white/6 text-ink-200 ring-white/10 hover:bg-white/10'
+                  } disabled:cursor-not-allowed disabled:opacity-50`}
+                >
+                  {player.name}
+                </button>
+              ))}
+            </div>
+
+            <div className="mt-3 flex flex-wrap gap-2">
+              {(['graveyard', 'command', 'exile'] as BrowseableZone[]).map((zone) => (
+                <button
+                  key={zone}
+                  type="button"
+                  onClick={() => onZoneChange(zone)}
+                  className={`rounded-full px-3 py-1.5 text-xs font-semibold ring-1 transition ${
+                    activeZone === zone
+                      ? 'bg-ember-500/15 text-ember-100 ring-ember-400/30'
+                      : 'bg-white/6 text-ink-200 ring-white/10 hover:bg-white/10'
+                  }`}
+                >
+                  {zoneLabel(zone)}
+                </button>
+              ))}
+              <button
+                type="button"
+                onClick={() => onZoneChange('library')}
+                disabled={!localPlayerId}
+                className={`rounded-full px-3 py-1.5 text-xs font-semibold ring-1 transition ${
+                  activeZone === 'library'
+                    ? 'bg-ember-500/15 text-ember-100 ring-ember-400/30'
+                    : 'bg-white/6 text-ink-200 ring-white/10 hover:bg-white/10'
+                } disabled:cursor-not-allowed disabled:opacity-50`}
+              >
+                Library
+              </button>
+            </div>
+
+            <div className="mt-3 grid gap-3 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-center">
+              <input
+                type="text"
+                value={searchQuery}
+                onChange={(event) => onSearchChange(event.target.value)}
+                placeholder="Search by name, type, or rules text"
+                className="w-full rounded-2xl border border-white/10 bg-ink-950/80 px-3 py-2 text-sm text-ink-100 outline-none transition focus:border-tide-400/35"
+              />
+              <p className="text-xs font-semibold uppercase tracking-[0.16em] text-ink-400">
+                {visibleCards.length} / {cards.length} cards
+              </p>
+            </div>
+          </div>
+
+          <div
+            className={`mt-3 flex min-h-[11rem] flex-wrap items-start justify-center gap-2.5 overflow-y-auto ${
+              visibleCards.length === 0 ? 'relative flex-1' : 'flex-1'
+            }`}
+          >
           {visibleCards.length > 0 ? (
             visibleCards.map((card, index) => {
               const isSelected = selectedZoneCardId === card.instanceId
@@ -1174,6 +1451,69 @@ function ZoneOverlay({
               </div>
             </div>
           )}
+          </div>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+function ShortcutOverlay({
+  isSpectator,
+  canAct,
+  onClose,
+}: {
+  isSpectator: boolean
+  canAct: boolean
+  onClose: () => void
+}) {
+  const shortcuts = [
+    ['?', 'Toggle shortcuts'],
+    ['1-5', 'Switch utility panels'],
+    ['G / E / C', 'Open graveyard, exile, or command'],
+    ['L', 'Open your library'],
+    ['D', canAct ? 'Draw a card' : 'Draw when your turn is active'],
+    ['U', canAct ? 'Untap all' : 'Untap when your turn is active'],
+    ['P', canAct ? 'Pass the turn' : 'Pass when your turn is active'],
+    ['Esc', 'Close the active overlay'],
+  ] as const
+
+  return (
+    <div className="fixed inset-0 z-[60] flex items-start justify-center bg-ink-950/72 px-4 pt-10 backdrop-blur-sm">
+      <div className="w-full max-w-2xl rounded-[2rem] border border-white/10 bg-[linear-gradient(180deg,rgba(12,25,33,0.98),rgba(7,18,24,0.98))] p-5 shadow-panel">
+        <div className="flex items-start justify-between gap-3">
+          <div>
+            <p className="text-xs font-semibold uppercase tracking-[0.18em] text-ink-400">
+              Keyboard shortcuts
+            </p>
+            <h2 className="mt-2 text-2xl font-semibold text-ink-50">Table controls</h2>
+            <p className="mt-2 text-sm text-ink-300">
+              {isSpectator
+                ? 'Spectators can browse panels and zones, but action keys stay read-only.'
+                : 'Shortcuts ignore focused inputs so chat and notes still type normally.'}
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={onClose}
+            className="rounded-full border border-white/10 px-3 py-1.5 text-xs font-semibold text-ink-200 transition hover:bg-white/6"
+          >
+            Close
+          </button>
+        </div>
+
+        <div className="mt-4 grid gap-2 sm:grid-cols-2">
+          {shortcuts.map(([shortcut, description]) => (
+            <article
+              key={shortcut}
+              className="rounded-[1.3rem] border border-white/10 bg-white/5 px-4 py-3"
+            >
+              <p className="text-[0.68rem] font-semibold uppercase tracking-[0.18em] text-tide-100">
+                {shortcut}
+              </p>
+              <p className="mt-2 text-sm text-ink-300">{description}</p>
+            </article>
+          ))}
         </div>
       </div>
     </div>
@@ -1900,5 +2240,19 @@ function renderSelectedActions({
         </div>
       ) : null}
     </>
+  )
+}
+
+function isEditableTarget(target: EventTarget | null) {
+  if (!(target instanceof HTMLElement)) {
+    return false
+  }
+
+  const tagName = target.tagName.toLowerCase()
+  return (
+    tagName === 'input' ||
+    tagName === 'textarea' ||
+    tagName === 'select' ||
+    target.isContentEditable
   )
 }

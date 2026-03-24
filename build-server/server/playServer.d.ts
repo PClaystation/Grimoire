@@ -29,6 +29,7 @@ export declare class PlayServer {
     private addDebugPlayer;
     private removeDebugPlayer;
     private selectDeck;
+    private sendChatMessage;
     private startGame;
     private applyGameAction;
     private takeOwnedCard;
@@ -50,6 +51,7 @@ export declare class PlayServer {
     private recordEvent;
     private generateUniqueRoomId;
     private createRoomPlayer;
+    private createSpectator;
     private createDebugPlaceholderPlayer;
     private getPlayerName;
     private getRoomBySession;
@@ -57,5 +59,6 @@ export declare class PlayServer {
     private deleteRoom;
     private emitError;
     private normalizeDeckSelection;
+    private sanitizeChatMessage;
     private formatZoneLabel;
 }

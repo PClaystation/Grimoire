@@ -3,12 +3,15 @@ import type { ReactNode } from 'react'
 
 import { ContinentalBranding } from '@/components/layout/ContinentalBranding'
 import { SiteNav } from '@/components/layout/SiteNav'
+import type { ConnectionStatus } from '@/play/playContext'
 
 interface PlayFrameProps {
   eyebrow: string
   title: string
   description: string
-  connectionStatus: 'connecting' | 'connected' | 'disconnected'
+  connectionStatus: ConnectionStatus
+  connectionMessage?: string | null
+  pendingMessageCount?: number
   error: string | null
   onDismissError: () => void
   actions?: ReactNode
@@ -20,6 +23,8 @@ export function PlayFrame({
   title,
   description,
   connectionStatus,
+  connectionMessage = null,
+  pendingMessageCount = 0,
   error,
   onDismissError,
   actions,
@@ -28,7 +33,7 @@ export function PlayFrame({
   const statusToneClassName =
     connectionStatus === 'connected'
       ? 'border-emerald-400/25 bg-emerald-500/10 text-emerald-100'
-      : connectionStatus === 'connecting'
+      : connectionStatus === 'connecting' || connectionStatus === 'reconnecting'
         ? 'border-amber-400/25 bg-amber-500/10 text-amber-100'
         : 'border-rose-400/25 bg-rose-500/10 text-rose-100'
 
@@ -61,6 +66,14 @@ export function PlayFrame({
                 <div className={`rounded-[1.2rem] border px-4 py-3 ${statusToneClassName}`}>
                   <p className="text-[0.68rem] font-semibold uppercase tracking-[0.18em]">Socket</p>
                   <p className="mt-2 text-sm font-semibold capitalize">{connectionStatus}</p>
+                  {connectionMessage ? (
+                    <p className="mt-2 text-xs leading-5 text-current/85">{connectionMessage}</p>
+                  ) : null}
+                  {pendingMessageCount > 0 ? (
+                    <p className="mt-2 text-xs font-semibold uppercase tracking-[0.14em] text-current/85">
+                      {pendingMessageCount} queued action{pendingMessageCount === 1 ? '' : 's'}
+                    </p>
+                  ) : null}
                 </div>
                 <div className="rounded-[1.2rem] border border-white/10 bg-white/[0.04] px-4 py-3 text-ink-100">
                   <p className="text-[0.68rem] font-semibold uppercase tracking-[0.18em] text-ink-400">

@@ -13,9 +13,8 @@ import { Link, NavLink } from 'react-router-dom'
 import { useAuth } from '@/auth/useAuth'
 import { ContinentalBranding } from '@/components/layout/ContinentalBranding'
 import { CONTINENTAL_DASHBOARD_URL } from '@/constants/continental'
+import type { ConnectionStatus } from '@/play/playContext'
 import { useAppSettings } from '@/settings/useAppSettings'
-
-type ConnectionStatus = 'connecting' | 'connected' | 'disconnected'
 
 interface SiteNavProps {
   connectionStatus?: ConnectionStatus
@@ -25,6 +24,7 @@ interface SiteNavProps {
 const STATUS_STYLES: Record<ConnectionStatus, string> = {
   connected: 'bg-emerald-500/10 text-emerald-100 ring-emerald-400/25',
   connecting: 'bg-amber-500/10 text-amber-100 ring-amber-400/25',
+  reconnecting: 'bg-amber-500/10 text-amber-100 ring-amber-400/25',
   disconnected: 'bg-rose-500/10 text-rose-100 ring-rose-400/25',
 }
 

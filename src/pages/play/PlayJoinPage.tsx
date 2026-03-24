@@ -12,6 +12,8 @@ export function PlayJoinPage() {
   const [searchParams] = useSearchParams()
   const {
     connectionStatus,
+    connectionMessage,
+    pendingMessageCount,
     playerName,
     room,
     roomDirectory,
@@ -25,6 +27,7 @@ export function PlayJoinPage() {
   const [roomCodeInput, setRoomCodeInput] = useState(() =>
     normalizeRoomCode(searchParams.get('room') ?? ''),
   )
+  const [joinMode, setJoinMode] = useState<'player' | 'spectator'>('player')
 
   useEffect(() => {
     if (game) {
@@ -41,8 +44,10 @@ export function PlayJoinPage() {
     <PlayFrame
       eyebrow="Join Room"
       title="Join by code or browse public rooms."
-      description="Use a room code or jump straight into a public lobby."
+      description="Use a room code to take a seat or spectate a live table. Public rooms stay browseable below."
       connectionStatus={connectionStatus}
+      connectionMessage={connectionMessage}
+      pendingMessageCount={pendingMessageCount}
       error={error}
       onDismissError={clearError}
     >
@@ -53,9 +58,32 @@ export function PlayJoinPage() {
             onSubmit={(event) => {
               event.preventDefault()
               setPlayerName(nameInput)
-              joinRoom(roomCodeInput)
+              joinRoom(roomCodeInput, joinMode)
             }}
           >
+            <div className="grid gap-2">
+              <span className="text-sm font-semibold text-ink-100">Join mode</span>
+              <div className="flex flex-wrap gap-2">
+                {([
+                  ['player', 'Take a seat'],
+                  ['spectator', 'Spectate only'],
+                ] as const).map(([value, label]) => (
+                  <button
+                    key={value}
+                    type="button"
+                    onClick={() => setJoinMode(value)}
+                    className={`rounded-full px-4 py-2 text-sm font-semibold ring-1 transition ${
+                      joinMode === value
+                        ? 'bg-tide-500/15 text-tide-100 ring-tide-400/30'
+                        : 'bg-white/6 text-ink-200 ring-white/10 hover:bg-white/10'
+                    }`}
+                  >
+                    {label}
+                  </button>
+                ))}
+              </div>
+            </div>
+
             <label className="grid gap-2">
               <span className="text-sm font-semibold text-ink-100">Display name</span>
               <input
@@ -94,7 +122,7 @@ export function PlayJoinPage() {
                 className="inline-flex items-center gap-2 rounded-2xl bg-ember-500 px-5 py-3 text-sm font-semibold text-white transition hover:bg-ember-400 disabled:cursor-not-allowed disabled:opacity-60"
               >
                 <DoorOpen className="h-4 w-4" />
-                Join room
+                {joinMode === 'spectator' ? 'Spectate room' : 'Join room'}
               </button>
               <Link
                 to="/play"
@@ -115,9 +143,9 @@ export function PlayJoinPage() {
           emptyTitle="No public rooms are live right now."
           emptyDescription="Create a public room from the play page if you want it to show up here for everyone else."
           joinButtonLabel="Join from directory"
-          onJoinRoom={(nextRoomId) => {
+          onJoinRoom={(nextRoomId, role) => {
             setPlayerName(nameInput)
-            joinRoom(nextRoomId)
+            joinRoom(nextRoomId, role)
           }}
           onUseCode={(nextRoomId) => {
             setRoomCodeInput(nextRoomId)

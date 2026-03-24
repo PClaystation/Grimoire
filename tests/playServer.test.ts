@@ -286,11 +286,12 @@ test('PlayServer keeps a player connected when they reconnect before the grace t
   playServer.handleDisconnect('session-bob')
 
   assert.equal(harness.pendingTimeoutCount(), 1)
-  assert.equal(harness.roomSnapshotCount('session-alice'), 0)
+  assert.equal(findPlayer(harness.latestRoomSnapshot('session-alice'), 'Bob').connectionState, 'reconnecting')
   playServer.handleHello('session-bob', 'Bob')
 
   assert.equal(harness.pendingTimeoutCount(), 0)
   assert.equal(findPlayer(harness.latestRoomSnapshot('session-alice'), 'Bob').isConnected, true)
+  assert.equal(findPlayer(harness.latestRoomSnapshot('session-alice'), 'Bob').connectionState, 'connected')
 })
 
 test('PlayServer marks a player disconnected after the grace timeout expires', () => {
@@ -314,11 +315,13 @@ test('PlayServer marks a player disconnected after the grace timeout expires', (
   playServer.handleDisconnect('session-bob')
 
   assert.equal(harness.pendingTimeoutCount(), 1)
+  assert.equal(findPlayer(harness.latestRoomSnapshot('session-alice'), 'Bob').connectionState, 'reconnecting')
   assert.equal(harness.runNextTimeout(), 5_000)
   assert.equal(findPlayer(harness.latestRoomSnapshot('session-alice'), 'Bob').isConnected, false)
+  assert.equal(findPlayer(harness.latestRoomSnapshot('session-alice'), 'Bob').connectionState, 'disconnected')
 })
 
-test('PlayServer lists public rooms in the shared directory and removes them when hidden or started', () => {
+test('PlayServer lists public rooms in the shared directory and keeps live public games spectatable', () => {
   const harness = createHarness()
   const playServer = new PlayServer({
     sendToSession: harness.sendToSession,
@@ -396,7 +399,73 @@ test('PlayServer lists public rooms in the shared directory and removes them whe
   playServer.handleMessage('session-alice', { type: 'start_game', roomId })
 
   directory = harness.latestRoomDirectory('session-bob')
-  assert.equal(directory.length, 0)
+  assert.equal(directory.length, 1)
+  assert.equal(directory[0].phase, 'game')
+})
+
+test('PlayServer lets new sessions spectate an active game without private state access', () => {
+  const harness = createHarness()
+  const { playServer, roomId, gameId } = createStartedGame(harness)
+
+  playServer.handleHello('session-charlie', 'Charlie')
+  playServer.handleMessage('session-charlie', {
+    type: 'join_room',
+    roomId,
+    role: 'spectator',
+  })
+
+  const spectatorRoom = harness.latestRoomSnapshot('session-charlie')
+  const spectatorGame = harness.latestGameSnapshot('session-charlie')
+
+  assert.equal(spectatorRoom.viewerRole, 'spectator')
+  assert.equal(spectatorRoom.localPlayerId, null)
+  assert.ok(spectatorRoom.localSpectatorId)
+  assert.equal(spectatorRoom.spectators.length, 1)
+  assert.equal(spectatorGame.viewerRole, 'spectator')
+  assert.equal(spectatorGame.localPlayerId, null)
+  assert.equal(spectatorGame.privateState, null)
+
+  playServer.handleMessage('session-charlie', {
+    type: 'game_action',
+    gameId,
+    action: {
+      type: 'draw_card',
+    },
+  })
+
+  assert.equal(harness.latestError('session-charlie'), 'Spectators cannot take game actions.')
+})
+
+test('PlayServer shares room chat between players and spectators', () => {
+  const harness = createHarness()
+  const { playServer, roomId } = createStartedGame(harness)
+
+  playServer.handleHello('session-charlie', 'Charlie')
+  playServer.handleMessage('session-charlie', {
+    type: 'join_room',
+    roomId,
+    role: 'spectator',
+  })
+
+  playServer.handleMessage('session-alice', {
+    type: 'send_chat',
+    roomId,
+    message: 'Ready for game two?',
+  })
+
+  let roomSnapshot = harness.latestRoomSnapshot('session-charlie')
+  assert.equal(roomSnapshot.chat.at(-1)?.message, 'Ready for game two?')
+  assert.equal(roomSnapshot.chat.at(-1)?.senderRole, 'player')
+
+  playServer.handleMessage('session-charlie', {
+    type: 'send_chat',
+    roomId,
+    message: 'Spectator check-in',
+  })
+
+  roomSnapshot = harness.latestRoomSnapshot('session-alice')
+  assert.equal(roomSnapshot.chat.at(-1)?.message, 'Spectator check-in')
+  assert.equal(roomSnapshot.chat.at(-1)?.senderRole, 'spectator')
 })
 
 test('PlayServer enforces host-only room settings changes and custom seat limits', () => {

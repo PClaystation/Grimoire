@@ -19,15 +19,27 @@ import { formatDateTimeLabel } from '@/utils/format'
 export function PlayHomePage() {
   const navigate = useNavigate()
   const recaps = usePlayRecaps()
-  const { connectionStatus, playerName, room, roomDirectory, game, error, clearError, joinRoom } =
-    usePlay()
+  const {
+    connectionStatus,
+    connectionMessage,
+    pendingMessageCount,
+    playerName,
+    room,
+    roomDirectory,
+    game,
+    error,
+    clearError,
+    joinRoom,
+  } = usePlay()
 
   return (
     <PlayFrame
       eyebrow="Online Tabletop"
       title="Run a shared MTG table."
-      description="Create a room, browse public tables, and keep public zones in sync."
+      description="Create a room, browse public tables, spectate live games, and keep public zones in sync."
       connectionStatus={connectionStatus}
+      connectionMessage={connectionMessage}
+      pendingMessageCount={pendingMessageCount}
       error={error}
       onDismissError={clearError}
       actions={
@@ -177,8 +189,8 @@ export function PlayHomePage() {
         description={`Jump straight into any public room with the saved display name "${playerName}". Use the join page if you want to change your name first or join a private code-only room.`}
         emptyTitle="No public rooms are available yet."
         emptyDescription="Create a public room to have it listed for everyone on the play page. Private rooms stay hidden and can still be joined by code."
-        onJoinRoom={(roomId) => {
-          joinRoom(roomId)
+        onJoinRoom={(roomId, role) => {
+          joinRoom(roomId, role)
           navigate(`/play/room/${roomId}`)
         }}
       />

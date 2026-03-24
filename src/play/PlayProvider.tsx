@@ -13,6 +13,7 @@ import {
   normalizePlayerName,
   normalizeRoomCode,
   type ClientMessage,
+  type RoomParticipantRole,
   type ServerMessage,
 } from '@/shared/play'
 import {
@@ -97,6 +98,9 @@ export function PlayProvider({ children }: PropsWithChildren) {
       sessionId: readPlaySessionId(),
       playerName: storedPlayerName ? normalizePlayerName(storedPlayerName) : 'Planeswalker',
       connectionStatus: 'connecting',
+      connectionMessage: null,
+      pendingMessageCount: 0,
+      reconnectAttemptCount: 0,
       room: null,
       roomDirectory: [],
       game: null,
@@ -112,6 +116,7 @@ export function PlayProvider({ children }: PropsWithChildren) {
   const sessionIdRef = useRef(state.sessionId)
   const playerNameRef = useRef(state.playerName)
   const pendingMessagesRef = useRef<Exclude<ClientMessage, { type: 'hello' }>[]>([])
+  const hasConnectedRef = useRef(false)
   const trackedGameIdRef = useRef<string | null>(null)
   const recapSignatureRef = useRef('')
 
@@ -186,6 +191,7 @@ export function PlayProvider({ children }: PropsWithChildren) {
               ...currentState,
               sessionId: message.sessionId,
               playerName: message.playerName,
+              connectionMessage: null,
               room:
                 activeRoomId && currentState.room?.roomId === activeRoomId
                   ? currentState.room
@@ -207,6 +213,7 @@ export function PlayProvider({ children }: PropsWithChildren) {
             return {
               ...currentState,
               room: message.room,
+              connectionMessage: null,
               error: null,
             }
 
@@ -218,6 +225,7 @@ export function PlayProvider({ children }: PropsWithChildren) {
             return {
               ...currentState,
               game: message.game,
+              connectionMessage: null,
               error: null,
             }
 
@@ -242,6 +250,7 @@ export function PlayProvider({ children }: PropsWithChildren) {
                 currentState.room?.roomId === message.roomId ? null : currentState.room,
               game:
                 currentState.game?.roomId === message.roomId ? null : currentState.game,
+              connectionMessage: null,
               error: null,
             }
 
@@ -283,6 +292,10 @@ export function PlayProvider({ children }: PropsWithChildren) {
 
       const queuedMessages = pendingMessagesRef.current
       pendingMessagesRef.current = []
+      setState((currentState) => ({
+        ...currentState,
+        pendingMessageCount: 0,
+      }))
 
       queuedMessages.forEach((message) => {
         socket.send(JSON.stringify(message))
@@ -299,7 +312,10 @@ export function PlayProvider({ children }: PropsWithChildren) {
 
       setState((currentState) => ({
         ...currentState,
-        connectionStatus: 'connecting',
+        connectionStatus: hasConnectedRef.current ? 'reconnecting' : 'connecting',
+        connectionMessage: hasConnectedRef.current
+          ? 'Trying to restore the play server connection.'
+          : null,
       }))
 
       socket.addEventListener('open', () => {
@@ -308,9 +324,12 @@ export function PlayProvider({ children }: PropsWithChildren) {
           return
         }
 
+        hasConnectedRef.current = true
         setState((currentState) => ({
           ...currentState,
           connectionStatus: 'connected',
+          connectionMessage: null,
+          reconnectAttemptCount: 0,
           error: null,
         }))
 
@@ -339,15 +358,22 @@ export function PlayProvider({ children }: PropsWithChildren) {
 
         socketRef.current = null
 
-        setState((currentState) => ({
-          ...currentState,
-          connectionStatus: 'disconnected',
-          error: currentState.error ?? getSocketCloseMessage(event),
-        }))
-
         if (!shouldReconnectRef.current || event.code === 4001) {
+          setState((currentState) => ({
+            ...currentState,
+            connectionStatus: 'disconnected',
+            connectionMessage: null,
+            error: currentState.error ?? getSocketCloseMessage(event),
+          }))
           return
         }
+
+        setState((currentState) => ({
+          ...currentState,
+          connectionStatus: 'reconnecting',
+          connectionMessage: getSocketCloseMessage(event),
+          reconnectAttemptCount: currentState.reconnectAttemptCount + 1,
+        }))
 
         if (reconnectTimerRef.current !== null) {
           window.clearTimeout(reconnectTimerRef.current)
@@ -365,7 +391,8 @@ export function PlayProvider({ children }: PropsWithChildren) {
 
         setState((currentState) => ({
           ...currentState,
-          error: currentState.error ?? 'Unable to reach the play server right now.',
+          connectionMessage:
+            currentState.connectionMessage ?? 'Unable to reach the play server right now.',
         }))
       })
     }
@@ -389,26 +416,36 @@ export function PlayProvider({ children }: PropsWithChildren) {
   }, [])
 
   function sendMessage(message: Exclude<ClientMessage, { type: 'hello' }>) {
+    function queuePendingMessage() {
+      pendingMessagesRef.current.push(message)
+      setState((currentState) => ({
+        ...currentState,
+        pendingMessageCount: pendingMessagesRef.current.length,
+      }))
+    }
+
     const socket = socketRef.current
 
     if (!socket) {
-      pendingMessagesRef.current.push(message)
+      queuePendingMessage()
       connectSocketRef.current?.()
       setState((currentState) => ({
         ...currentState,
-        connectionStatus: currentState.connectionStatus === 'connected' ? 'connecting' : currentState.connectionStatus,
+        connectionStatus:
+          currentState.connectionStatus === 'connected' ? 'reconnecting' : currentState.connectionStatus,
+        connectionMessage: 'Queueing your action while the play server reconnects.',
         error: null,
       }))
       return
     }
 
     if (socket.readyState === WebSocket.CONNECTING) {
-      pendingMessagesRef.current.push(message)
+      queuePendingMessage()
       return
     }
 
     if (socket.readyState !== WebSocket.OPEN) {
-      pendingMessagesRef.current.push(message)
+      queuePendingMessage()
 
       if (socketRef.current === socket) {
         socketRef.current = null
@@ -417,7 +454,8 @@ export function PlayProvider({ children }: PropsWithChildren) {
       connectSocketRef.current?.()
       setState((currentState) => ({
         ...currentState,
-        connectionStatus: 'connecting',
+        connectionStatus: 'reconnecting',
+        connectionMessage: 'Queueing your action while the play server reconnects.',
         error: null,
       }))
       return
@@ -491,10 +529,11 @@ export function PlayProvider({ children }: PropsWithChildren) {
         playerId,
       })
     },
-    joinRoom(roomId: string) {
+    joinRoom(roomId: string, role?: RoomParticipantRole) {
       sendMessage({
         type: 'join_room',
         roomId: normalizeRoomCode(roomId),
+        role,
       })
     },
     leaveRoom(roomId: string) {
@@ -514,6 +553,13 @@ export function PlayProvider({ children }: PropsWithChildren) {
       sendMessage({
         type: 'start_game',
         roomId: normalizeRoomCode(roomId),
+      })
+    },
+    sendRoomChat(roomId: string, message: string) {
+      sendMessage({
+        type: 'send_chat',
+        roomId: normalizeRoomCode(roomId),
+        message,
       })
     },
     sendGameAction(gameId: string, action: ClientGameAction) {

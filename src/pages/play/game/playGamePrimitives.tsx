@@ -1,7 +1,11 @@
-import type { ReactNode } from 'react'
+import { useState, type ReactNode } from 'react'
 import { ArrowRight, History } from 'lucide-react'
 
-import type { GameActionEvent, PermanentCounter } from '@/shared/play'
+import type {
+  GameActionEvent,
+  GamePlayerPublicSnapshot,
+  PermanentCounter,
+} from '@/shared/play'
 import type { MagicCard } from '@/types/scryfall'
 import { formatManaCost, formatTypeLine } from '@/utils/format'
 
@@ -386,7 +390,56 @@ export function ClockPip() {
   return <span className="h-2.5 w-2.5 rounded-full bg-emerald-300" />
 }
 
-export function ActivityLog({ entries }: { entries: GameActionEvent[] }) {
+function actionFamilyLabel(actionType: GameActionEvent['actionType']) {
+  switch (actionType) {
+    case 'advance_turn':
+    case 'set_active_player':
+    case 'game_start':
+      return 'Turn'
+    case 'draw_card':
+    case 'shuffle_library':
+    case 'move_owned_card':
+    case 'tap_card':
+    case 'untap_all':
+      return 'Cards'
+    case 'adjust_life':
+    case 'adjust_player_counter':
+    case 'adjust_commander_tax':
+    case 'adjust_commander_damage':
+      return 'Resources'
+    case 'create_stack_item':
+    case 'resolve_stack_item':
+    case 'remove_stack_item':
+      return 'Stack'
+    default:
+      return 'Table'
+  }
+}
+
+export function ActivityLog({
+  entries,
+  players,
+}: {
+  entries: GameActionEvent[]
+  players: GamePlayerPublicSnapshot[]
+}) {
+  const [actorFilter, setActorFilter] = useState<'all' | string>('all')
+  const [familyFilter, setFamilyFilter] = useState<'all' | string>('all')
+  const filteredEntries = entries.filter((entry) => {
+    if (actorFilter !== 'all' && entry.actorPlayerId !== actorFilter) {
+      return false
+    }
+
+    if (familyFilter !== 'all' && actionFamilyLabel(entry.actionType) !== familyFilter) {
+      return false
+    }
+
+    return true
+  })
+  const actionFamilies = Array.from(
+    new Set(entries.map((entry) => actionFamilyLabel(entry.actionType))),
+  )
+
   return (
     <section className="rounded-[1.9rem] border border-white/10 bg-ink-900/90 p-4 shadow-panel">
       <div className="flex items-center gap-2">
@@ -401,17 +454,86 @@ export function ActivityLog({ entries }: { entries: GameActionEvent[] }) {
 
       {entries.length > 0 ? (
         <div className="mt-4 grid max-h-[18rem] gap-2 overflow-y-auto pr-1">
-          {entries.map((entry) => (
+          <div className="flex flex-wrap gap-2">
+            <button
+              type="button"
+              onClick={() => setActorFilter('all')}
+              className={`rounded-full px-3 py-1 text-xs font-semibold ring-1 transition ${
+                actorFilter === 'all'
+                  ? 'bg-tide-500/15 text-tide-100 ring-tide-400/30'
+                  : 'bg-white/6 text-ink-200 ring-white/10 hover:bg-white/10'
+              }`}
+            >
+              All actors
+            </button>
+            {players.map((player) => (
+              <button
+                key={player.id}
+                type="button"
+                onClick={() => setActorFilter(player.id)}
+                className={`rounded-full px-3 py-1 text-xs font-semibold ring-1 transition ${
+                  actorFilter === player.id
+                    ? 'bg-tide-500/15 text-tide-100 ring-tide-400/30'
+                    : 'bg-white/6 text-ink-200 ring-white/10 hover:bg-white/10'
+                }`}
+              >
+                {player.name}
+              </button>
+            ))}
+          </div>
+
+          <div className="flex flex-wrap gap-2">
+            <button
+              type="button"
+              onClick={() => setFamilyFilter('all')}
+              className={`rounded-full px-3 py-1 text-xs font-semibold ring-1 transition ${
+                familyFilter === 'all'
+                  ? 'bg-ember-500/15 text-ember-100 ring-ember-400/30'
+                  : 'bg-white/6 text-ink-200 ring-white/10 hover:bg-white/10'
+              }`}
+            >
+              All categories
+            </button>
+            {actionFamilies.map((family) => (
+              <button
+                key={family}
+                type="button"
+                onClick={() => setFamilyFilter(family)}
+                className={`rounded-full px-3 py-1 text-xs font-semibold ring-1 transition ${
+                  familyFilter === family
+                    ? 'bg-ember-500/15 text-ember-100 ring-ember-400/30'
+                    : 'bg-white/6 text-ink-200 ring-white/10 hover:bg-white/10'
+                }`}
+              >
+                {family}
+              </button>
+            ))}
+          </div>
+
+          {filteredEntries.map((entry) => (
             <article
               key={entry.id}
               className="rounded-[1.25rem] border border-white/10 bg-white/5 px-3 py-3"
             >
+              <div className="flex flex-wrap items-center gap-2">
+                <span className="rounded-full bg-white/10 px-2.5 py-1 text-[0.65rem] font-semibold uppercase tracking-[0.14em] text-ink-200 ring-1 ring-white/10">
+                  {players.find((player) => player.id === entry.actorPlayerId)?.name ?? 'Table'}
+                </span>
+                <span className="rounded-full bg-ember-500/12 px-2.5 py-1 text-[0.65rem] font-semibold uppercase tracking-[0.14em] text-ember-100 ring-1 ring-ember-400/25">
+                  {actionFamilyLabel(entry.actionType)}
+                </span>
+              </div>
               <p className="text-sm font-medium text-ink-100">{entry.message}</p>
               <p className="mt-2 text-[0.65rem] font-semibold uppercase tracking-[0.16em] text-ink-400">
                 {new Date(entry.createdAt).toLocaleTimeString()}
               </p>
             </article>
           ))}
+          {filteredEntries.length === 0 ? (
+            <div className="rounded-[1.25rem] border border-white/10 bg-white/5 px-4 py-5 text-sm text-ink-300">
+              No actions match the current filters.
+            </div>
+          ) : null}
         </div>
       ) : (
         <div className="mt-4 rounded-[1.5rem] border border-white/10 bg-white/5 px-4 py-5 text-sm text-ink-300">
