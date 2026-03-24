@@ -312,3 +312,18 @@ Original prompt: You are extending an existing MTG deckbuilder web app into an o
     - `npm run build` passed.
     - Ran a focused three-player browser validation against `http://127.0.0.1:8787` and visually reviewed `artifacts/playwright/revamp/three-player-rail-counts/alice-three-player.png`.
   - Tightened the local zone-pile card frame to the actual card aspect ratio so the border no longer extends taller than the image.
+
+2026-03-24
+- Improvement implementation and lab websocket race fix:
+  - Extracted shared deck-query loading and deck-builder action creation out of `src/App.tsx`, and split large play-page primitives/board helpers into `src/pages/play/game/` modules.
+  - Split `server/playServer.ts` responsibilities into `server/play-server/` helper, type, snapshot, and game-state modules so the main server file is mostly orchestration.
+  - Added route-level lazy loading in `src/AppRouter.tsx`, Playwright browser coverage under `tests/e2e/`, and a GitHub Actions CI workflow that runs lint, unit tests, build, and browser tests.
+  - Hardened `server/index.ts` with forwarded-proto handling, JSON request logging, simple rate limiting, and proxy timeout handling.
+  - Ignored generated artifact directories in `.gitignore` and documented the CI/browser-test workflow in `README.md`.
+  - Fixed a `PlayProvider` development/StrictMode websocket race where a stale socket close event could clear the live socket ref after reconnect, leaving the UI showing `connected` while actions failed with `The play server is still connecting. Try again in a moment.` The provider now ignores stale socket events and queues messages through transient reconnect/null-ref windows.
+  - Simplified the `/play/lab` Playwright test back to a single unlock click so it validates the real client behavior instead of a retry workaround.
+  - Verification:
+    - `npm run lint` passed.
+    - `npm test` passed.
+    - `npm run build` passed.
+    - `npm run test:e2e` passed.

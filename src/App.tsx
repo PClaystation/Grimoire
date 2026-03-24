@@ -1,5 +1,7 @@
-import { useEffect, useRef, useState } from 'react'
+import { useState } from 'react'
 
+import { createDeckBuilderActions } from '@/app/createDeckBuilderActions'
+import { useSharedDeckQueryLoader } from '@/app/useSharedDeckQueryLoader'
 import { useAuth } from '@/auth/useAuth'
 import { ContinentalAccountPanel } from '@/components/auth/ContinentalAccountPanel'
 import { CardDetailsModal } from '@/components/cards/CardDetailsModal'
@@ -18,17 +20,10 @@ import { useCardSets } from '@/hooks/useCardSets'
 import { useAppSettings } from '@/settings/useAppSettings'
 import { useDeckBuilder } from '@/state/useDeckBuilder'
 import { useSavedDecks } from '@/state/useSavedDecks'
-import type { DeckFormat, SavedDeck } from '@/types/deck'
 import type { CardSearchFilters, CardSortOption } from '@/types/filters'
 import type { MagicCard } from '@/types/scryfall'
-import { copyTextToClipboard } from '@/utils/clipboard'
-import { buildAppRouteUrl } from '@/utils/appRouteUrl'
-import { resolveDeckImportInput } from '@/utils/deckSiteImport'
-import { buildDeckExportJson, buildDecklistText, buildPortableDeckPayload } from '@/utils/decklist'
 import { getDeckStats } from '@/utils/deckStats'
-import { resolveImportedDeckInput } from '@/utils/resolveImportedDeck'
-import { countDeckEntries, formatDateTimeLabel } from '@/utils/format'
-import { decodeDeckSharePayload, encodeDeckSharePayload } from '@/utils/share'
+import { formatDateTimeLabel } from '@/utils/format'
 
 function App() {
   const [draftFilters, setDraftFilters] = useState<CardSearchFilters>(() =>
@@ -49,7 +44,6 @@ function App() {
   const [activeWorkspaceTab, setActiveWorkspaceTab] = useState<'browser' | 'deck'>(
     () => settings.defaultDeckWorkspaceTab,
   )
-  const hasProcessedSharedDeckRef = useRef(false)
   const {
     status: authStatus,
     user: authUser,
@@ -116,365 +110,69 @@ function App() {
   const savedDecksSubtitle = savedDecksSubtitleParts.join(' ')
   const hasCurrentDeckCards = mainboard.length > 0 || sideboard.length > 0
 
-  function buildDeckViewHref(deck: SavedDeck | typeof deckDraft) {
-    return buildAppRouteUrl('/decks/view', {
-      deck: encodeDeckSharePayload(buildPortableDeckPayload(deck)),
-    })
-  }
+  useSharedDeckQueryLoader({
+    replaceDeck,
+    setDraftFilters,
+    setAppliedFilters,
+    setCurrentPage,
+    setStatusMessage,
+  })
 
-  function buildDeckCompareHref(
-    leftDeck: SavedDeck | typeof deckDraft,
-    rightDeck: SavedDeck | typeof deckDraft,
-  ) {
-    return buildAppRouteUrl('/decks/compare', {
-      left: encodeDeckSharePayload(buildPortableDeckPayload(leftDeck)),
-      right: encodeDeckSharePayload(buildPortableDeckPayload(rightDeck)),
-    })
-  }
-
-  async function copyUrlToClipboard(url: string, successMessage: string, failureMessage: string) {
-    try {
-      const didCopy = await copyTextToClipboard(url)
-      setStatusMessage(didCopy ? successMessage : failureMessage)
-    } catch {
-      setStatusMessage(failureMessage)
-    }
-  }
-
-  function syncFiltersToFormat(nextFormat: DeckFormat) {
-    setDraftFilters((currentFilters) => ({
-      ...normalizeCardSearchFilters(currentFilters),
-      format: nextFormat,
-    }))
-    setAppliedFilters((currentFilters) => ({
-      ...normalizeCardSearchFilters(currentFilters),
-      format: nextFormat,
-    }))
-    setCurrentPage(1)
-  }
-
-  function downloadFile(filename: string, content: string, contentType: string) {
-    const blob = new Blob([content], { type: contentType })
-    const url = URL.createObjectURL(blob)
-    const link = document.createElement('a')
-    link.href = url
-    link.download = filename
-    document.body.appendChild(link)
-    link.click()
-    document.body.removeChild(link)
-    URL.revokeObjectURL(url)
-  }
-
-  useEffect(() => {
-    if (hasProcessedSharedDeckRef.current) {
-      return
-    }
-
-    hasProcessedSharedDeckRef.current = true
-    const deckParam = new URLSearchParams(window.location.search).get('deck')
-
-    if (!deckParam) {
-      return
-    }
-
-    const sharedPayload = decodeDeckSharePayload(deckParam)
-
-    if (!sharedPayload) {
-      setStatusMessage('Unable to decode the shared deck link.')
-      return
-    }
-
-    let isCancelled = false
-
-    void (async () => {
-      try {
-        const importedDeck = await resolveImportedDeckInput(
-          JSON.stringify(sharedPayload),
-          sharedPayload.format,
-        )
-
-        if (isCancelled) {
-          return
-        }
-
-        replaceDeck(importedDeck.deck)
-        setDraftFilters((currentFilters) => ({
-          ...normalizeCardSearchFilters(currentFilters),
-          format: importedDeck.deck.format,
-        }))
-        setAppliedFilters((currentFilters) => ({
-          ...normalizeCardSearchFilters(currentFilters),
-          format: importedDeck.deck.format,
-        }))
-        setCurrentPage(1)
-
-        const suffix =
-          importedDeck.missingCards.length > 0
-            ? ` Missing ${importedDeck.missingCards.length} unresolved cards.`
-            : ''
-
-        setStatusMessage(`Loaded shared deck "${importedDeck.deck.name}".${suffix}`)
-      } catch {
-        if (!isCancelled) {
-          setStatusMessage('Unable to load the shared deck from Scryfall.')
-        }
-      }
-    })()
-
-    return () => {
-      isCancelled = true
-    }
-  }, [replaceDeck])
-
-  function handleApplyFilters() {
-    setCurrentPage(1)
-    setAppliedFilters(normalizeCardSearchFilters(draftFilters))
-  }
-
-  function handleResetFilters() {
-    const nextFilters: CardSearchFilters = {
-      ...normalizeCardSearchFilters(DEFAULT_FILTERS),
-      format,
-    }
-
-    setDraftFilters(nextFilters)
-    setAppliedFilters(nextFilters)
-    setCurrentPage(1)
-    setSortBy('RELEVANCE')
-  }
-
-  function handleDeckFormatChange(nextFormat: DeckFormat) {
-    setDeckFormat(nextFormat)
-    syncFiltersToFormat(nextFormat)
-  }
-
-  function handleSaveDeck() {
-    if (mainboard.length === 0 && sideboard.length === 0) {
-      return
-    }
-
-    void (async () => {
-      try {
-        const result = await saveDeck(deckDraft)
-        syncSavedDeck(result.savedDeck)
-        setStatusMessage(
-          result.syncState.mode === 'cloud'
-            ? result.syncState.health === 'ready'
-              ? `Saved and synced "${result.savedDeck.name}" to your Continental ID account.`
-              : `Saved "${result.savedDeck.name}". ${result.syncState.message ?? 'Cloud sync will retry automatically.'}`
-            : `Saved "${result.savedDeck.name}" to local browser storage.`,
-        )
-      } catch (saveError) {
-        setStatusMessage(
-          saveError instanceof Error
-            ? saveError.message
-            : 'Unable to save this deck in local browser storage.',
-        )
-      }
-    })()
-  }
-
-  async function handleCopyDecklist() {
-    if (mainboard.length === 0 && sideboard.length === 0) {
-      return
-    }
-
-    const decklist = buildDecklistText(
-      deckName,
-      format,
-      mainboard,
-      sideboard,
-      notes,
-      matchupNotes,
-    )
-
-    try {
-      const didCopy = await copyTextToClipboard(decklist)
-      setStatusMessage(
-        didCopy
-          ? 'Copied decklist to the clipboard.'
-          : 'Unable to copy decklist in this browser.',
-      )
-    } catch {
-      setStatusMessage('Unable to copy decklist in this browser.')
-    }
-  }
-
-  async function handleCopyShareLink() {
-    if (!hasCurrentDeckCards) {
-      return
-    }
-
-    const payload = buildPortableDeckPayload(deckDraft)
-    const url = new URL(window.location.href)
-    url.searchParams.set('deck', encodeDeckSharePayload(payload))
-
-    try {
-      const didCopy = await copyTextToClipboard(url.toString())
-      setStatusMessage(
-        didCopy
-          ? 'Copied a shareable deck link to the clipboard.'
-          : 'Unable to copy the share link in this browser.',
-      )
-    } catch {
-      setStatusMessage('Unable to copy the share link in this browser.')
-    }
-  }
-
-  async function handleCopyPublicDeckPageLink() {
-    if (!hasCurrentDeckCards) {
-      return
-    }
-
-    await copyUrlToClipboard(
-      buildDeckViewHref(deckDraft),
-      'Copied the public deck page link to the clipboard.',
-      'Unable to copy the public deck page link in this browser.',
-    )
-  }
-
-  function handleDownloadTxt() {
-    if (!hasCurrentDeckCards) {
-      return
-    }
-
-    downloadFile(
-      `${(deckName.trim() || 'deck').replace(/\s+/g, '-').toLowerCase()}.txt`,
-      buildDecklistText(deckName, format, mainboard, sideboard, notes, matchupNotes),
-      'text/plain;charset=utf-8',
-    )
-
-    setStatusMessage('Downloaded a text export of the current deck.')
-  }
-
-  function handleDownloadJson() {
-    if (!hasCurrentDeckCards) {
-      return
-    }
-
-    downloadFile(
-      `${(deckName.trim() || 'deck').replace(/\s+/g, '-').toLowerCase()}.json`,
-      buildDeckExportJson(deckDraft),
-      'application/json;charset=utf-8',
-    )
-
-    setStatusMessage('Downloaded a JSON export of the current deck.')
-  }
-
-  async function handleImportDeck(input: string) {
-    setIsImporting(true)
-    setImportError(null)
-
-    try {
-      const { normalizedInput, sourceLabel } = await resolveDeckImportInput(input)
-      const importedDeck = await resolveImportedDeckInput(normalizedInput, format)
-      const importedMainboardCount = countDeckEntries(importedDeck.deck.mainboard)
-      const importedSideboardCount = countDeckEntries(importedDeck.deck.sideboard)
-
-      replaceDeck(importedDeck.deck)
-      syncFiltersToFormat(importedDeck.deck.format)
-      setIsImportOpen(false)
-
-      const warningParts: string[] = []
-
-      if (importedDeck.missingCards.length > 0) {
-        warningParts.push(`${importedDeck.missingCards.length} unresolved cards`)
-      }
-
-      if (importedDeck.warnings.length > 0) {
-        warningParts.push(`${importedDeck.warnings.length} skipped lines`)
-      }
-
-      setStatusMessage(
-        `Imported "${importedDeck.deck.name}"${sourceLabel ? ` from ${sourceLabel}` : ''} with ${importedMainboardCount} mainboard cards and ${importedSideboardCount} sideboard cards.${warningParts.length > 0 ? ` ${warningParts.join(', ')}.` : ''}`,
-      )
-    } catch (importDeckError) {
-      setImportError(
-        importDeckError instanceof Error
-          ? importDeckError.message
-          : 'Unable to import that decklist.',
-      )
-    } finally {
-      setIsImporting(false)
-    }
-  }
-
-  function handleLoadDeck(deckId: string) {
-    const deckToLoad = savedDecks.find((deck) => deck.id === deckId)
-
-    if (!deckToLoad) {
-      return
-    }
-
-    loadDeck(deckToLoad)
-    syncFiltersToFormat(deckToLoad.format)
-    setStatusMessage(`Loaded "${deckToLoad.name}".`)
-  }
-
-  function handleDeleteSavedDeck(deckId: string) {
-    const deckToDelete = savedDecks.find((deck) => deck.id === deckId)
-
-    void (async () => {
-      try {
-        const result = await deleteDeck(deckId)
-
-        if (activeDeckId === deckId) {
-          detachSavedDeck()
-        }
-
-        if (deckToDelete) {
-          setStatusMessage(
-            result.syncState.mode === 'cloud'
-              ? result.syncState.health === 'ready'
-                ? `Deleted and synced "${deckToDelete.name}" across your Continental ID deck list.`
-                : `Deleted "${deckToDelete.name}". ${result.syncState.message ?? 'Cloud sync will retry automatically.'}`
-              : `Deleted "${deckToDelete.name}".`,
-          )
-        }
-      } catch (deleteError) {
-        setStatusMessage(
-          deleteError instanceof Error
-            ? deleteError.message
-            : 'Unable to delete that saved deck right now.',
-        )
-      }
-    })()
-  }
-
-  function handleStartNewDeck() {
-    resetDeck()
-    syncFiltersToFormat(DEFAULT_FILTERS.format)
-    setStatusMessage('Started a fresh deck list.')
-  }
-
-  function handleAddToMainboard(card: MagicCard) {
-    addCard(card, 'mainboard')
-    setStatusMessage(`Added ${card.name} to the mainboard.`)
-  }
-
-  function handleAddToSideboard(card: MagicCard) {
-    addCard(card, 'sideboard')
-    setStatusMessage(`Added ${card.name} to the sideboard.`)
-  }
-
-  function handleBudgetTargetChange(nextValue: number | null) {
-    setBudgetTargetUsd(
-      nextValue !== null && Number.isFinite(nextValue) && nextValue >= 0 ? nextValue : null,
-    )
-  }
-
-  function handleActiveWorkspaceTabChange(nextTab: 'browser' | 'deck') {
-    setActiveWorkspaceTab(nextTab)
-
-    if (
-      settings.rememberLastDeckWorkspaceTab &&
-      settings.defaultDeckWorkspaceTab !== nextTab
-    ) {
-      updateSettings({
-        defaultDeckWorkspaceTab: nextTab,
-      })
-    }
-  }
+  const {
+    buildDeckViewHref,
+    buildDeckCompareHref,
+    handleApplyFilters,
+    handleResetFilters,
+    handleDeckFormatChange,
+    handleSaveDeck,
+    handleCopyDecklist,
+    handleCopyShareLink,
+    handleCopyPublicDeckPageLink,
+    handleDownloadTxt,
+    handleDownloadJson,
+    handleImportDeck,
+    handleLoadDeck,
+    handleDeleteSavedDeck,
+    handleStartNewDeck,
+    handleAddToMainboard,
+    handleAddToSideboard,
+    handleBudgetTargetChange,
+    handleActiveWorkspaceTabChange,
+  } = createDeckBuilderActions({
+    deckDraft,
+    deckName,
+    format,
+    notes,
+    matchupNotes,
+    activeDeckId,
+    hasCurrentDeckCards,
+    mainboard,
+    sideboard,
+    savedDecks,
+    activeWorkspaceTab,
+    settings,
+    updateSettings,
+    syncState,
+    saveDeck,
+    deleteDeck,
+    replaceDeck,
+    loadDeck,
+    resetDeck,
+    syncSavedDeck,
+    detachSavedDeck,
+    addCard,
+    setDeckFormat,
+    setBudgetTargetUsd,
+    setDraftFilters,
+    setAppliedFilters,
+    setCurrentPage,
+    setSortBy,
+    setStatusMessage,
+    setIsImportOpen,
+    setIsImporting,
+    setImportError,
+    setActiveWorkspaceTab,
+  })
 
   return (
     <div className="relative isolate min-h-screen overflow-hidden px-4 py-6 text-ink-50 sm:px-6 lg:px-10 lg:py-8">
@@ -540,7 +238,7 @@ function App() {
           <FilterBar
             filters={draftFilters}
             onFiltersChange={setDraftFilters}
-            onApply={handleApplyFilters}
+            onApply={() => handleApplyFilters(draftFilters)}
             onReset={handleResetFilters}
             sets={sets}
             setsError={setsError}

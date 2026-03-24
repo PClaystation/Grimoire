@@ -43,7 +43,10 @@ npm run dev
 npm run build
 npm run lint
 npm test
+npm run test:e2e
 ```
+
+Local visual captures and browser-test outputs should stay out of git. Use ignored working directories such as `tmp-debug/`, `tmp-visual-audit/`, `output/`, `zone-overlay-check/`, `playwright-report/`, and `test-results/` for generated artifacts.
 
 ## Deployment
 
@@ -124,9 +127,12 @@ Notes:
 - `VITE_ROUTER_MODE=hash` avoids GitHub Pages SPA refresh problems because Pages does not provide app rewrites.
 - If you later move the frontend off GitHub Pages and onto a host with SPA rewrites, use `VITE_ROUTER_MODE=browser`.
 
-### GitHub Pages workflow
+### GitHub workflows
 
-This repo now includes a Pages workflow at `.github/workflows/deploy-pages.yml`.
+This repo now includes:
+
+- Pages deployment at `.github/workflows/deploy-pages.yml`
+- CI for lint, unit tests, build, and Playwright coverage at `.github/workflows/ci.yml`
 
 Before using it:
 

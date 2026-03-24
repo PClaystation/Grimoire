@@ -108,8 +108,10 @@ export function PlayProvider({ children }: PropsWithChildren) {
   const socketRef = useRef<WebSocket | null>(null)
   const reconnectTimerRef = useRef<number | null>(null)
   const shouldReconnectRef = useRef(true)
+  const connectSocketRef = useRef<(() => void) | null>(null)
   const sessionIdRef = useRef(state.sessionId)
   const playerNameRef = useRef(state.playerName)
+  const pendingMessagesRef = useRef<Exclude<ClientMessage, { type: 'hello' }>[]>([])
   const trackedGameIdRef = useRef<string | null>(null)
   const recapSignatureRef = useRef('')
 
@@ -258,10 +260,10 @@ export function PlayProvider({ children }: PropsWithChildren) {
   })
 
   useEffect(() => {
-    function sendHelloMessage() {
-      const socket = socketRef.current
+    shouldReconnectRef.current = true
 
-      if (!socket || socket.readyState !== WebSocket.OPEN) {
+    function sendHelloMessage(socket: WebSocket) {
+      if (socket.readyState !== WebSocket.OPEN) {
         return
       }
 
@@ -272,6 +274,19 @@ export function PlayProvider({ children }: PropsWithChildren) {
       }
 
       socket.send(JSON.stringify(message))
+    }
+
+    function flushPendingMessages(socket: WebSocket) {
+      if (socket.readyState !== WebSocket.OPEN || pendingMessagesRef.current.length === 0) {
+        return
+      }
+
+      const queuedMessages = pendingMessagesRef.current
+      pendingMessagesRef.current = []
+
+      queuedMessages.forEach((message) => {
+        socket.send(JSON.stringify(message))
+      })
     }
 
     function connectSocket() {
@@ -288,16 +303,23 @@ export function PlayProvider({ children }: PropsWithChildren) {
       }))
 
       socket.addEventListener('open', () => {
+        if (socketRef.current !== socket) {
+          socket.close()
+          return
+        }
+
         setState((currentState) => ({
           ...currentState,
           connectionStatus: 'connected',
+          error: null,
         }))
 
-        sendHelloMessage()
+        sendHelloMessage(socket)
+        flushPendingMessages(socket)
       })
 
       socket.addEventListener('message', (event) => {
-        if (typeof event.data !== 'string') {
+        if (socketRef.current !== socket || typeof event.data !== 'string') {
           return
         }
 
@@ -311,6 +333,10 @@ export function PlayProvider({ children }: PropsWithChildren) {
       })
 
       socket.addEventListener('close', (event) => {
+        if (socketRef.current !== socket) {
+          return
+        }
+
         socketRef.current = null
 
         setState((currentState) => ({
@@ -333,6 +359,10 @@ export function PlayProvider({ children }: PropsWithChildren) {
       })
 
       socket.addEventListener('error', () => {
+        if (socketRef.current !== socket) {
+          return
+        }
+
         setState((currentState) => ({
           ...currentState,
           error: currentState.error ?? 'Unable to reach the play server right now.',
@@ -340,27 +370,55 @@ export function PlayProvider({ children }: PropsWithChildren) {
       })
     }
 
+    connectSocketRef.current = connectSocket
     connectSocket()
 
     return () => {
       shouldReconnectRef.current = false
+      connectSocketRef.current = null
 
       if (reconnectTimerRef.current !== null) {
         window.clearTimeout(reconnectTimerRef.current)
       }
 
-      socketRef.current?.close()
+      const socket = socketRef.current
       socketRef.current = null
+      socket?.close()
+      pendingMessagesRef.current = []
     }
   }, [])
 
   function sendMessage(message: Exclude<ClientMessage, { type: 'hello' }>) {
     const socket = socketRef.current
 
-    if (!socket || socket.readyState !== WebSocket.OPEN) {
+    if (!socket) {
+      pendingMessagesRef.current.push(message)
+      connectSocketRef.current?.()
       setState((currentState) => ({
         ...currentState,
-        error: 'The play server is still connecting. Try again in a moment.',
+        connectionStatus: currentState.connectionStatus === 'connected' ? 'connecting' : currentState.connectionStatus,
+        error: null,
+      }))
+      return
+    }
+
+    if (socket.readyState === WebSocket.CONNECTING) {
+      pendingMessagesRef.current.push(message)
+      return
+    }
+
+    if (socket.readyState !== WebSocket.OPEN) {
+      pendingMessagesRef.current.push(message)
+
+      if (socketRef.current === socket) {
+        socketRef.current = null
+      }
+
+      connectSocketRef.current?.()
+      setState((currentState) => ({
+        ...currentState,
+        connectionStatus: 'connecting',
+        error: null,
       }))
       return
     }

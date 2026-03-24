@@ -16,6 +16,10 @@ const DIST_DIR = resolve(process.cwd(), 'dist')
 const MAX_CLIENT_MESSAGE_BYTES = 256 * 1024
 const SOCKET_HEARTBEAT_INTERVAL_MS = 25_000
 const AUTH_BACKEND_ORIGIN = process.env.AUTH_BACKEND_ORIGIN ?? 'http://127.0.0.1:5000'
+const PROXY_REQUEST_TIMEOUT_MS = Number(process.env.PROXY_REQUEST_TIMEOUT_MS ?? 12_000)
+const RATE_LIMIT_WINDOW_MS = Number(process.env.RATE_LIMIT_WINDOW_MS ?? 60_000)
+const IMPORT_RATE_LIMIT_MAX_REQUESTS = Number(process.env.IMPORT_RATE_LIMIT_MAX_REQUESTS ?? 20)
+const API_RATE_LIMIT_MAX_REQUESTS = Number(process.env.API_RATE_LIMIT_MAX_REQUESTS ?? 120)
 
 const MIME_TYPES: Record<string, string> = {
   '.css': 'text/css; charset=utf-8',
@@ -27,6 +31,8 @@ const MIME_TYPES: Record<string, string> = {
   '.woff2': 'font/woff2',
 }
 
+const rateLimitBuckets = new Map<string, { windowStartedAt: number; count: number }>()
+
 function buildBaseHeaders() {
   return {
     'Permissions-Policy': 'camera=(), microphone=(), geolocation=()',
@@ -34,6 +40,114 @@ function buildBaseHeaders() {
     'X-Content-Type-Options': 'nosniff',
     'X-Frame-Options': 'DENY',
   }
+}
+
+function getClientIp(request: import('node:http').IncomingMessage) {
+  const forwardedFor = request.headers['x-forwarded-for']
+  const headerValue = Array.isArray(forwardedFor) ? forwardedFor[0] : forwardedFor
+  const forwardedIp = headerValue?.split(',')[0]?.trim()
+
+  if (forwardedIp) {
+    return forwardedIp
+  }
+
+  return request.socket.remoteAddress ?? 'unknown'
+}
+
+function getForwardedProto(request: import('node:http').IncomingMessage) {
+  const forwardedProto = request.headers['x-forwarded-proto']
+  const headerValue = Array.isArray(forwardedProto) ? forwardedProto[0] : forwardedProto
+  const normalizedHeader = headerValue?.split(',')[0]?.trim()
+
+  if (normalizedHeader === 'https' || normalizedHeader === 'http') {
+    return normalizedHeader
+  }
+
+  return 'encrypted' in request.socket && request.socket.encrypted ? 'https' : 'http'
+}
+
+function appendForwardedFor(request: import('node:http').IncomingMessage) {
+  const clientIp = getClientIp(request)
+  const existingForwardedFor = request.headers['x-forwarded-for']
+  const existingValue = Array.isArray(existingForwardedFor)
+    ? existingForwardedFor.join(', ')
+    : existingForwardedFor
+
+  return existingValue ? `${existingValue}, ${clientIp}` : clientIp
+}
+
+function writeJson(
+  response: import('node:http').ServerResponse,
+  statusCode: number,
+  payload: unknown,
+  headers: Record<string, string> = {},
+) {
+  response.writeHead(statusCode, {
+    ...buildBaseHeaders(),
+    'Cache-Control': 'no-store',
+    'Content-Type': 'application/json; charset=utf-8',
+    ...headers,
+  })
+  response.end(JSON.stringify(payload))
+}
+
+function isRateLimited(
+  scope: 'api' | 'imports',
+  request: import('node:http').IncomingMessage,
+  response: import('node:http').ServerResponse,
+) {
+  const maxRequests =
+    scope === 'imports' ? IMPORT_RATE_LIMIT_MAX_REQUESTS : API_RATE_LIMIT_MAX_REQUESTS
+  const now = Date.now()
+  const key = `${scope}:${getClientIp(request)}`
+  const currentBucket = rateLimitBuckets.get(key)
+
+  if (!currentBucket || now - currentBucket.windowStartedAt >= RATE_LIMIT_WINDOW_MS) {
+    rateLimitBuckets.set(key, {
+      windowStartedAt: now,
+      count: 1,
+    })
+    return false
+  }
+
+  currentBucket.count += 1
+
+  if (currentBucket.count <= maxRequests) {
+    return false
+  }
+
+  const retryAfterSeconds = Math.max(
+    1,
+    Math.ceil((RATE_LIMIT_WINDOW_MS - (now - currentBucket.windowStartedAt)) / 1000),
+  )
+
+  writeJson(
+    response,
+    429,
+    { message: 'Too many requests. Please slow down and try again.' },
+    { 'Retry-After': String(retryAfterSeconds) },
+  )
+  return true
+}
+
+function logRequest(
+  request: import('node:http').IncomingMessage,
+  response: import('node:http').ServerResponse,
+  url: URL,
+  startedAt: number,
+) {
+  const durationMs = Date.now() - startedAt
+  const logEvent = {
+    type: 'http_request',
+    method: request.method ?? 'GET',
+    path: url.pathname,
+    statusCode: response.statusCode,
+    durationMs,
+    clientIp: getClientIp(request),
+    forwardedProto: getForwardedProto(request),
+  }
+
+  process.stdout.write(`${JSON.stringify(logEvent)}\n`)
 }
 
 function buildCorsHeaders(origin = '*') {
@@ -87,6 +201,10 @@ async function handleDeckImportRequest(
 ) {
   const requestOrigin = request.headers.origin ?? '*'
 
+  if (request.method !== 'OPTIONS' && isRateLimited('imports', request, response)) {
+    return
+  }
+
   if (request.method === 'OPTIONS') {
     response.writeHead(204, {
       ...buildBaseHeaders(),
@@ -98,51 +216,30 @@ async function handleDeckImportRequest(
   }
 
   if (request.method !== 'GET') {
-    response.writeHead(405, {
-      ...buildBaseHeaders(),
-      ...buildCorsHeaders(requestOrigin),
-      'Cache-Control': 'no-store',
-      'Content-Type': 'application/json; charset=utf-8',
-    })
-    response.end(JSON.stringify({ message: 'Method not allowed.' }))
+    writeJson(response, 405, { message: 'Method not allowed.' }, buildCorsHeaders(requestOrigin))
     return
   }
 
   const sourceUrl = url.searchParams.get('url')?.trim() ?? ''
 
   if (!sourceUrl) {
-    response.writeHead(400, {
-      ...buildBaseHeaders(),
-      ...buildCorsHeaders(requestOrigin),
-      'Cache-Control': 'no-store',
-      'Content-Type': 'application/json; charset=utf-8',
-    })
-    response.end(JSON.stringify({ message: 'Missing deck URL.' }))
+    writeJson(response, 400, { message: 'Missing deck URL.' }, buildCorsHeaders(requestOrigin))
     return
   }
 
   try {
     const result = await resolveDeckSiteImport(sourceUrl)
 
-    response.writeHead(200, {
-      ...buildBaseHeaders(),
-      ...buildCorsHeaders(requestOrigin),
-      'Cache-Control': 'no-store',
-      'Content-Type': 'application/json; charset=utf-8',
-    })
-    response.end(JSON.stringify(result))
+    writeJson(response, 200, result, buildCorsHeaders(requestOrigin))
   } catch (error) {
-    response.writeHead(422, {
-      ...buildBaseHeaders(),
-      ...buildCorsHeaders(requestOrigin),
-      'Cache-Control': 'no-store',
-      'Content-Type': 'application/json; charset=utf-8',
-    })
-    response.end(
-      JSON.stringify({
+    writeJson(
+      response,
+      422,
+      {
         message:
           error instanceof Error ? error.message : 'Unable to import that deck URL right now.',
-      }),
+      },
+      buildCorsHeaders(requestOrigin),
     )
   }
 }
@@ -152,17 +249,16 @@ function proxyApiRequest(
   response: import('node:http').ServerResponse,
   url: URL,
 ) {
+  if (isRateLimited('api', request, response)) {
+    return
+  }
+
   let upstream: URL
 
   try {
     upstream = new URL(url.pathname + url.search, AUTH_BACKEND_ORIGIN)
   } catch {
-    response.writeHead(502, {
-      ...buildBaseHeaders(),
-      'Cache-Control': 'no-store',
-      'Content-Type': 'application/json; charset=utf-8',
-    })
-    response.end(JSON.stringify({ message: 'Auth backend origin is invalid.' }))
+    writeJson(response, 502, { message: 'Auth backend origin is invalid.' })
     return
   }
 
@@ -179,7 +275,8 @@ function proxyApiRequest(
 
   forwardedHeaders.host = upstream.host
   forwardedHeaders['x-forwarded-host'] = request.headers.host ?? ''
-  forwardedHeaders['x-forwarded-proto'] = 'http'
+  forwardedHeaders['x-forwarded-proto'] = getForwardedProto(request)
+  forwardedHeaders['x-forwarded-for'] = appendForwardedFor(request)
 
   const proxyRequest = requestUpstream(
     upstream,
@@ -196,18 +293,17 @@ function proxyApiRequest(
     },
   )
 
+  proxyRequest.setTimeout(PROXY_REQUEST_TIMEOUT_MS, () => {
+    proxyRequest.destroy(new Error('Upstream auth request timed out.'))
+  })
+
   proxyRequest.on('error', () => {
     if (response.headersSent) {
       response.end()
       return
     }
 
-    response.writeHead(502, {
-      ...buildBaseHeaders(),
-      'Cache-Control': 'no-store',
-      'Content-Type': 'application/json; charset=utf-8',
-    })
-    response.end(JSON.stringify({ message: 'Unable to reach the auth backend.' }))
+    writeJson(response, 502, { message: 'Unable to reach the auth backend.' })
   })
 
   request.pipe(proxyRequest)
@@ -218,6 +314,11 @@ function handleHttpRequest(
   response: import('node:http').ServerResponse,
 ) {
   const url = new URL(request.url ?? '/', 'http://localhost')
+  const startedAt = Date.now()
+
+  response.on('finish', () => {
+    logRequest(request, response, url, startedAt)
+  })
 
   if (url.pathname === '/imports/deck-source') {
     void handleDeckImportRequest(request, response, url)

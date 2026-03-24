@@ -7,12 +7,14 @@
     "dev": "concurrently -k \"npm:dev:server\" \"npm:dev:client\"",
     "dev:client": "vite",
     "dev:server": "tsx watch server/index.ts",
+    "dev:e2e": "concurrently -k \"npm:dev:server\" \"vite --host 127.0.0.1 --port 4173\"",
     "build:client": "vite build",
     "build:server": "tsc -p tsconfig.server.json",
     "start:server": "node build-server/server/index.js",
     "build": "tsc -b && vite build",
     "lint": "eslint .",
     "test": "tsx --tsconfig tsconfig.app.json --test tests/*.test.ts",
+    "test:e2e": "playwright test",
     "preview": "node build-server/server/index.js"
   },
   "dependencies": {
@@ -24,6 +26,7 @@
   },
   "devDependencies": {
     "@eslint/js": "^9.39.4",
+    "@playwright/test": "^1.58.2",
     "@types/node": "^24.12.0",
     "@types/react": "^19.2.14",
     "@types/react-dom": "^19.2.3",

@@ -1,10 +1,5 @@
-import { type ClientMessage, type ServerMessage } from '../src/shared/play.js';
-interface PlayServerDependencies {
-    sendToSession: (sessionId: string, message: ServerMessage) => void;
-    disconnectGracePeriodMs?: number;
-    setTimeout?: (callback: () => void, delayMs: number) => ReturnType<typeof globalThis.setTimeout>;
-    clearTimeout?: (timeoutId: ReturnType<typeof globalThis.setTimeout>) => void;
-}
+import { type ClientMessage } from '../src/shared/play.js';
+import type { PlayServerDependencies } from './play-server/types.js';
 export declare class PlayServer {
     private readonly dependencies;
     private readonly rooms;
@@ -41,8 +36,6 @@ export declare class PlayServer {
     private getNextPlayer;
     private applyPlayerDesignation;
     private getControllablePermanent;
-    private getStackMembers;
-    private normalizeStack;
     private setStackPosition;
     private setPermanentStack;
     private unstackPermanent;
@@ -54,9 +47,6 @@ export declare class PlayServer {
     private emitRoomDirectorySnapshots;
     private buildRoomDirectoryEntry;
     private buildGameSnapshot;
-    private toTableCardSnapshot;
-    private toBattlefieldCardSnapshot;
-    private toStackItemSnapshot;
     private recordEvent;
     private generateUniqueRoomId;
     private createRoomPlayer;
@@ -69,4 +59,3 @@ export declare class PlayServer {
     private normalizeDeckSelection;
     private formatZoneLabel;
 }
-export {};

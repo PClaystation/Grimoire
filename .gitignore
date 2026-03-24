@@ -13,6 +13,13 @@ dist-ssr
 build-server
 artifacts
 *.local
+playwright-report
+test-results
+blob-report
+output
+tmp-debug
+tmp-visual-audit
+zone-overlay-check
 
 # Editor directories and files
 .vscode/*
