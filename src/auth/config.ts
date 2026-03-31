@@ -27,14 +27,14 @@ export function getDefaultLoginPopupUrl() {
   const runtimeWindow = getRuntimeWindow()
 
   if (!runtimeWindow) {
-    return 'https://grimoire.continental-hub.com/login/popup.html'
+    return 'https://login.continental-hub.com/popup.html'
   }
 
   if (LOCAL_HOSTS.has(runtimeWindow.location.hostname)) {
     return new URL('../login popup/popup.html', runtimeWindow.location.href).toString()
   }
 
-  return new URL('/login/popup.html', runtimeWindow.location.origin).toString()
+  return 'https://login.continental-hub.com/popup.html'
 }
 
 export const API_BASE_URL = trimTrailingSlash(
