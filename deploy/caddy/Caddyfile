@@ -5,6 +5,15 @@
 
 mpmc.ddns.net {
   encode zstd gzip
+  header {
+    Content-Security-Policy "default-src 'self'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'; object-src 'none'; img-src 'self' data: https:; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; connect-src 'self' http: https: ws: wss:; font-src 'self' data:;"
+    Cross-Origin-Opener-Policy "same-origin-allow-popups"
+    Permissions-Policy "camera=(), microphone=(), geolocation=()"
+    Referrer-Policy "strict-origin-when-cross-origin"
+    Strict-Transport-Security "max-age=31536000; includeSubDomains; preload"
+    X-Content-Type-Options "nosniff"
+    X-Frame-Options "DENY"
+  }
 
   @play_backend path /ws /health
   handle @play_backend {

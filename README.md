@@ -48,6 +48,28 @@ npm run test:e2e
 
 Local visual captures and browser-test outputs should stay out of git. Use ignored working directories such as `tmp-debug/`, `tmp-visual-audit/`, `output/`, `zone-overlay-check/`, `playwright-report/`, and `test-results/` for generated artifacts.
 
+## Web Metadata And Static Assets
+
+The repo now includes the common static-site assets that belong in source control for this project:
+
+- `index.html` with favicon, manifest, robots meta, and JSON-LD metadata
+- `public/robots.txt`
+- `public/sitemap.xml`
+- `public/manifest.json`
+- `public/404.html`
+- `public/privacy-policy.html`
+- `public/terms-of-service.html`
+- `public/data.json`
+- `public/favicon.svg`
+- `.env.example`
+
+Deployment notes:
+
+- Update `public/sitemap.xml`, `public/data.json`, and the JSON-LD block in `index.html` if you publish the frontend at a domain other than `https://charlemagne404.github.io/Grimoire/`.
+- Apache-specific `.htaccess` is intentionally not included because this repo is set up for Caddy or Nginx, not Apache.
+- TLS certificate files are server-managed and should not be committed to git. The sample Caddy and Nginx configs cover HTTPS termination and security headers.
+- A `LICENSE` file is still an owner decision. Add one only after choosing the actual license terms for the repository.
+
 ## Deployment
 
 ### Backend on your own server

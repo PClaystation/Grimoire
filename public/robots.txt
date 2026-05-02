@@ -1,0 +1,4 @@
+User-agent: *
+Allow: /
+
+Sitemap: https://charlemagne404.github.io/Grimoire/sitemap.xml

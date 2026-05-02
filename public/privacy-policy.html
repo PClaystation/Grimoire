@@ -1,0 +1,124 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="robots" content="index,follow" />
+  <title>Privacy Policy | Grimoire</title>
+  <style>
+    :root {
+      color-scheme: dark;
+      --bg: #07131b;
+      --panel: rgba(11, 24, 31, 0.95);
+      --text: #f4f7f9;
+      --muted: #b7c8d1;
+      --border: rgba(255, 255, 255, 0.1);
+      --accent: #1d96a7;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+      background:
+        radial-gradient(circle at top left, rgba(29, 150, 167, 0.16), transparent 22%),
+        linear-gradient(180deg, #0d1a22, var(--bg));
+      color: var(--text);
+      padding: 24px;
+    }
+
+    main {
+      width: min(860px, 100%);
+      margin: 0 auto;
+      padding: 32px;
+      border: 1px solid var(--border);
+      border-radius: 28px;
+      background: var(--panel);
+      box-shadow: 0 24px 80px rgba(0, 0, 0, 0.28);
+    }
+
+    h1, h2 {
+      line-height: 1.15;
+    }
+
+    p, li {
+      color: var(--muted);
+      line-height: 1.7;
+    }
+
+    a {
+      color: #8ad9ff;
+    }
+
+    nav {
+      margin-top: 32px;
+      display: flex;
+      gap: 12px;
+      flex-wrap: wrap;
+    }
+  </style>
+</head>
+<body>
+  <main>
+    <h1>Privacy Policy</h1>
+    <p>Last updated: April 27, 2026</p>
+    <p>
+      This document covers Grimoire deployments that use the frontend, multiplayer backend, and
+      optional account features shipped in this repository. Site operators should review and adapt
+      this policy before using it in production.
+    </p>
+
+    <h2>Information Grimoire Processes</h2>
+    <p>
+      Grimoire can store decklists, notes, room names, player display names, and gameplay state.
+      Depending on deployment settings, the application may also process account identifiers and
+      authentication tokens through a separate auth backend.
+    </p>
+
+    <h2>How Data Is Used</h2>
+    <p>
+      Data is processed to provide deck building, shared links, multiplayer synchronization, account
+      session handling, and basic security controls such as request logging and rate limiting.
+    </p>
+
+    <h2>Local Browser Storage</h2>
+    <p>
+      The app stores some information in your browser, including saved decks and local settings.
+      Clearing site storage or using a different browser profile can remove that data.
+    </p>
+
+    <h2>Server Logs and Security</h2>
+    <p>
+      Self-hosted deployments may log request metadata such as timestamps, IP addresses, requested
+      paths, and response codes to diagnose service issues and protect the service from abuse.
+    </p>
+
+    <h2>Third-Party Services</h2>
+    <p>
+      Card search uses Scryfall data. Account features may depend on a separate authentication
+      service configured by the site operator. Those services may have their own privacy practices.
+    </p>
+
+    <h2>Your Choices</h2>
+    <p>
+      You can avoid cloud-backed features by using a deployment without account integration. If you
+      use an authenticated deployment, contact that site operator for requests related to access,
+      correction, export, or deletion of personal data.
+    </p>
+
+    <h2>Contact</h2>
+    <p>
+      Use the support or contact channel published by the operator of the specific Grimoire
+      deployment you are using.
+    </p>
+
+    <nav aria-label="Policy navigation">
+      <a href="./">Return to app</a>
+      <a href="./terms-of-service.html">Terms of Service</a>
+    </nav>
+  </main>
+</body>
+</html>

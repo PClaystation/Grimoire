@@ -3,8 +3,11 @@
   <head>
     <meta charset="UTF-8" />
     <link rel="icon" type="image/png" href="%BASE_URL%favicon.png" />
+    <link rel="icon" type="image/svg+xml" href="%BASE_URL%favicon.svg" />
+    <link rel="manifest" href="%BASE_URL%manifest.json" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta name="application-name" content="Grimoire by Continental" />
+    <meta name="robots" content="index,follow,max-image-preview:large" />
     <meta name="theme-color" content="#07131b" />
     <meta
       name="description"
@@ -22,6 +25,28 @@
       name="twitter:description"
       content="Build MTG decks, save local lists, and jump into synchronized online tabletop rooms from the same app."
     />
+    <script type="application/ld+json">
+      {
+        "@context": "https://schema.org",
+        "@graph": [
+          {
+            "@type": "WebSite",
+            "name": "Grimoire by Continental",
+            "url": "https://charlemagne404.github.io/Grimoire/",
+            "description": "Responsive MTG deckbuilder with shared deck links and online tabletop play."
+          },
+          {
+            "@type": "WebApplication",
+            "name": "Grimoire by Continental",
+            "applicationCategory": "GameApplication",
+            "operatingSystem": "Any",
+            "browserRequirements": "Requires JavaScript and a modern browser.",
+            "url": "https://charlemagne404.github.io/Grimoire/",
+            "sameAs": ["https://charlemagne404.github.io/Grimoire/"]
+          }
+        ]
+      }
+    </script>
     <title>Grimoire by Continental</title>
   </head>
   <body>

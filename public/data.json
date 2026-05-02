@@ -1,0 +1,27 @@
+{
+  "@context": "https://schema.org",
+  "@graph": [
+    {
+      "@type": "WebSite",
+      "@id": "https://charlemagne404.github.io/Grimoire/#website",
+      "name": "Grimoire by Continental",
+      "url": "https://charlemagne404.github.io/Grimoire/",
+      "description": "Responsive MTG deckbuilder with live search, local saves, and online tabletop play.",
+      "inLanguage": "en"
+    },
+    {
+      "@type": "WebApplication",
+      "@id": "https://charlemagne404.github.io/Grimoire/#webapp",
+      "name": "Grimoire by Continental",
+      "url": "https://charlemagne404.github.io/Grimoire/",
+      "applicationCategory": "GameApplication",
+      "operatingSystem": "Any",
+      "browserRequirements": "Requires JavaScript and a modern browser.",
+      "isAccessibleForFree": true,
+      "publisher": {
+        "@type": "Organization",
+        "name": "Continental"
+      }
+    }
+  ]
+}

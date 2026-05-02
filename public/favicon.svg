@@ -1,0 +1,26 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" role="img" aria-labelledby="title desc">
+  <title id="title">Grimoire favicon</title>
+  <desc id="desc">A stylized spellbook mark for Grimoire by Continental.</desc>
+  <defs>
+    <linearGradient id="bg" x1="0%" x2="100%" y1="0%" y2="100%">
+      <stop offset="0%" stop-color="#07131b" />
+      <stop offset="100%" stop-color="#0f2f3c" />
+    </linearGradient>
+    <linearGradient id="accent" x1="0%" x2="100%" y1="0%" y2="100%">
+      <stop offset="0%" stop-color="#df6b0b" />
+      <stop offset="100%" stop-color="#1d96a7" />
+    </linearGradient>
+  </defs>
+  <rect width="256" height="256" rx="56" fill="url(#bg)" />
+  <path
+    d="M72 56h84c24.301 0 44 19.699 44 44v96c0 2.209-1.791 4-4 4h-40c-11.046 0-20 8.954-20 20 0-11.046-8.954-20-20-20H60c-2.209 0-4-1.791-4-4V100c0-24.301 19.699-44 44-44h16c11.046 0 20 8.954 20 20 0-11.046 8.954-20 20-20Z"
+    fill="url(#accent)"
+  />
+  <path
+    d="M92 94h72M92 126h72M92 158h48"
+    fill="none"
+    stroke="#f6f7f9"
+    stroke-linecap="round"
+    stroke-width="14"
+  />
+</svg>
