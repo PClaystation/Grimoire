@@ -1,6 +1,6 @@
 import { useState } from 'react'
 
-import type { DeckCardEntry, DeckDraft, DeckFormat, DeckSection, SavedDeck } from '@/types/deck'
+import type { DeckCardEntry, DeckDraft, DeckFormat, DeckSection, SavedDeck, SavedDeckVersion } from '@/types/deck'
 import type { MagicCard } from '@/types/scryfall'
 
 const DEFAULT_DECK_NAME = 'New Deck'
@@ -11,6 +11,7 @@ interface DeckBuilderState {
   format: DeckFormat
   mainboard: DeckCardEntry[]
   sideboard: DeckCardEntry[]
+  commanderCardId: string | null
   notes: string
   matchupNotes: string
   budgetTargetUsd: number | null
@@ -29,6 +30,7 @@ const DEFAULT_DECK_STATE: DeckBuilderState = {
   format: 'standard',
   mainboard: [],
   sideboard: [],
+  commanderCardId: null,
   notes: '',
   matchupNotes: '',
   budgetTargetUsd: null,
@@ -57,6 +59,7 @@ function createDeckState(
     | 'format'
     | 'mainboard'
     | 'sideboard'
+    | 'commanderCardId'
     | 'notes'
     | 'matchupNotes'
     | 'budgetTargetUsd'
@@ -69,6 +72,7 @@ function createDeckState(
     format: deck.format,
     mainboard: sortDeckEntries(deck.mainboard),
     sideboard: sortDeckEntries(deck.sideboard),
+    commanderCardId: deck.commanderCardId ?? null,
     notes: deck.notes,
     matchupNotes: deck.matchupNotes,
     budgetTargetUsd: deck.budgetTargetUsd,
@@ -211,6 +215,10 @@ export function useDeckBuilder() {
     applyChange((currentState) => ({ ...currentState, format }))
   }
 
+  function setCommanderCardId(commanderCardId: string | null) {
+    applyChange((currentState) => ({ ...currentState, commanderCardId }))
+  }
+
   function setNotes(notes: string) {
     applyChange((currentState) => ({ ...currentState, notes }))
   }
@@ -235,12 +243,27 @@ export function useDeckBuilder() {
     applyChange(() => createDeckState(draft, draft.id))
   }
 
+  function restoreVersion(deck: SavedDeck, version: SavedDeckVersion) {
+    applyChange(() =>
+      createDeckState(
+        {
+          ...version,
+          name: deck.name,
+          format: deck.format,
+          createdAt: deck.createdAt,
+        },
+        deck.id,
+      ),
+    )
+  }
+
   function syncSavedDeck(deck: SavedDeck) {
     applyChange(
       (currentState) => ({
         ...currentState,
         deckName: deck.name,
         format: deck.format,
+        commanderCardId: deck.commanderCardId ?? null,
         notes: deck.notes,
         matchupNotes: deck.matchupNotes,
         budgetTargetUsd: deck.budgetTargetUsd,
@@ -298,6 +321,7 @@ export function useDeckBuilder() {
     format,
     mainboard,
     sideboard,
+    commanderCardId,
     notes,
     matchupNotes,
     budgetTargetUsd,
@@ -311,6 +335,7 @@ export function useDeckBuilder() {
     format,
     mainboard,
     sideboard,
+    commanderCardId,
     notes,
     matchupNotes,
     budgetTargetUsd,
@@ -322,6 +347,8 @@ export function useDeckBuilder() {
     setDeckName,
     format,
     setDeckFormat,
+    commanderCardId,
+    setCommanderCardId,
     mainboard,
     sideboard,
     notes,
@@ -339,6 +366,7 @@ export function useDeckBuilder() {
     resetDeck,
     loadDeck,
     replaceDeck,
+    restoreVersion,
     syncSavedDeck,
     detachSavedDeck,
     undo,

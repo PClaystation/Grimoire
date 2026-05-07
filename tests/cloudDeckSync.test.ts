@@ -9,6 +9,7 @@ import {
 import {
   persistDeckSyncStatus,
   persistPendingDeckImports,
+  buildSavedDeckFromDraft,
   readCloudCachedDecks,
   readLocalSavedDecks,
   readPendingDeckImports,
@@ -22,6 +23,8 @@ function createDeck(id: string, updatedAt: string, name = id): SavedDeck {
     format: 'standard',
     createdAt: '2026-03-01T10:00:00.000Z',
     updatedAt,
+    commanderCardId: null,
+    versions: [],
     mainboard: [
       {
         quantity: 4,
@@ -210,4 +213,35 @@ test('pending deck imports still upload after later sync activity advances lastS
       ['pending-after-failure'],
     )
   })
+})
+
+
+test('saving over an existing deck stores the previous deck as a restorable version', () => {
+  const existingDeck = createDeck('versioned', '2026-03-18T10:00:00.000Z', 'Versioned Deck')
+  const savedDeck = buildSavedDeckFromDraft(
+    {
+      id: existingDeck.id,
+      name: existingDeck.name,
+      format: existingDeck.format,
+      mainboard: [
+        {
+          ...existingDeck.mainboard[0],
+          quantity: 2,
+        },
+      ],
+      sideboard: existingDeck.sideboard,
+      commanderCardId: null,
+      notes: 'Updated plan',
+      matchupNotes: existingDeck.matchupNotes,
+      budgetTargetUsd: existingDeck.budgetTargetUsd,
+      createdAt: existingDeck.createdAt,
+    },
+    [existingDeck],
+  )
+
+  assert.equal(savedDeck.versions.length, 1)
+  assert.equal(savedDeck.versions[0].mainboard[0].quantity, 4)
+  assert.equal(savedDeck.versions[0].notes, existingDeck.notes)
+  assert.equal(savedDeck.mainboard[0].quantity, 2)
+  assert.equal(savedDeck.notes, 'Updated plan')
 })

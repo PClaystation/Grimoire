@@ -4,8 +4,17 @@ import { Link, useNavigate } from 'react-router-dom'
 
 import { PlayFrame } from '@/play/components/PlayFrame'
 import { usePlay } from '@/play/usePlay'
+import { SITE_NAME, useSeoMetadata } from '@/seo/useSeoMetadata'
 
 export function PlayLabPage() {
+  useSeoMetadata({
+    title: `Hidden Lab | ${SITE_NAME}`,
+    description:
+      'Private Grimoire sandbox used for hidden multiplayer layout checks and placeholder table seats.',
+    canonicalPath: '/play/lab',
+    robots: 'noindex,nofollow',
+  })
+
   const navigate = useNavigate()
   const { connectionStatus, room, game, error, clearError, debugUnlocked, unlockDebugMode, createDebugRoom } =
     usePlay()

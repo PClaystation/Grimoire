@@ -52,13 +52,52 @@
       color: #8ad9ff;
     }
 
-    nav {
-      margin-top: 32px;
-      display: flex;
-      gap: 12px;
-      flex-wrap: wrap;
-    }
-  </style>
+	    nav {
+	      margin-top: 32px;
+	      display: flex;
+	      gap: 12px;
+	      flex-wrap: wrap;
+	    }
+
+	    .site-footer {
+	      width: min(860px, 100%);
+	      margin: 18px auto 0;
+	      display: flex;
+	      align-items: center;
+	      justify-content: space-between;
+	      flex-wrap: wrap;
+	      gap: 14px;
+	      border: 1px solid var(--border);
+	      border-radius: 24px;
+	      background: rgba(11, 24, 31, 0.72);
+	      padding: 14px 18px;
+	    }
+
+	    .site-footer-mark {
+	      display: inline-flex;
+	      align-items: center;
+	      gap: 9px;
+	      color: var(--muted);
+	      font-size: 0.68rem;
+	      font-weight: 800;
+	      letter-spacing: 0.13em;
+	      text-transform: uppercase;
+	    }
+
+	    .site-footer-mark img {
+	      width: min(164px, 48vw);
+	      height: auto;
+	      opacity: 0.86;
+	    }
+
+	    .site-footer-links {
+	      display: flex;
+	      flex-wrap: wrap;
+	      gap: 12px;
+	      font-size: 0.9rem;
+	      font-weight: 800;
+	    }
+	  </style>
 </head>
 <body>
   <main>
@@ -104,14 +143,27 @@
 
     <h2>Contact</h2>
     <p>
-      Use the support or contact channel published by the operator of the specific Grimoire
-      deployment you are using.
+      Use <a href="https://contact.continental-hub.com" target="_blank" rel="noreferrer">contact.continental-hub.com</a>
+      for questions about this Grimoire deployment.
     </p>
 
     <nav aria-label="Policy navigation">
       <a href="./">Return to app</a>
       <a href="./privacy-policy.html">Privacy Policy</a>
-    </nav>
-  </main>
-</body>
-</html>
+	    </nav>
+	  </main>
+	  <footer class="site-footer" aria-label="Grimoire footer">
+	    <div class="site-footer-mark" aria-label="Made by Continental">
+	      <span>Made by</span>
+	      <img src="./branding/made-by-continental-white.png" alt="Continental" width="200" height="50" />
+	    </div>
+	    <nav class="site-footer-links" aria-label="Site links">
+	      <a href="https://github.com/Charlemagne404" target="_blank" rel="noreferrer">GitHub</a>
+	      <a href="https://www.patreon.com/cw/ContinentalStudios" target="_blank" rel="noreferrer">Patreon</a>
+	      <a href="https://contact.continental-hub.com" target="_blank" rel="noreferrer">Contact</a>
+	      <a href="./privacy-policy.html">Privacy</a>
+	      <a href="./terms-of-service.html">Terms</a>
+	    </nav>
+	  </footer>
+	</body>
+	</html>

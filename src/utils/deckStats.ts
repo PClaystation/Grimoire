@@ -111,6 +111,7 @@ export function getDeckStats(
   sideboard: DeckCardEntry[],
   format: DeckFormat,
   budgetTargetUsd: number | null,
+  commanderCardId: string | null = null,
 ): DeckStats {
   const mainboardStats = getSectionStats(mainboard)
   const sideboardStats = getSectionStats(sideboard)
@@ -122,6 +123,7 @@ export function getDeckStats(
     format,
     budgetTargetUsd,
     totalEstimatedValueUsd,
+    commanderCardId,
   )
   const ratingDetails = getDeckRating(mainboard, sideboard, format)
 
@@ -140,6 +142,7 @@ export function getDeckStats(
       format,
       budgetTargetUsd,
       ratingDetails,
+      mainboard,
     ),
   }
 }

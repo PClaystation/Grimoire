@@ -248,6 +248,7 @@ export function buildImportedDeck(
       format: parsedImport.format ?? fallbackFormat,
       mainboard,
       sideboard,
+      commanderCardId: null,
       notes: parsedImport.notes,
       matchupNotes: parsedImport.matchupNotes,
       budgetTargetUsd: parsedImport.budgetTargetUsd,

@@ -1,10 +1,39 @@
 import { DECK_FORMAT_CONFIG } from '@/constants/mtg'
-import type { DeckFormat, DeckRecommendation, DeckStats } from '@/types/deck'
+import type { DeckCardEntry, DeckFormat, DeckRecommendation, DeckStats } from '@/types/deck'
 import type { DeckRatingDetails } from '@/utils/deckRater'
 
 interface RecommendationCandidate {
   priority: number
   item: DeckRecommendation
+}
+
+
+function findExpensiveCuts(mainboard: DeckCardEntry[], format: DeckFormat): string[] {
+  const threshold = format === 'commander' ? 6 : 5
+  return mainboard
+    .filter((entry) => !entry.card.typeLine.includes('Land') && entry.card.manaValue >= threshold)
+    .sort((left, right) => right.card.manaValue - left.card.manaValue || left.card.name.localeCompare(right.card.name))
+    .slice(0, 3)
+    .map((entry) => entry.card.name)
+}
+
+function findLowImpactCuts(mainboard: DeckCardEntry[]): string[] {
+  return mainboard
+    .filter((entry) => !entry.card.typeLine.includes('Land'))
+    .sort((left, right) => right.card.manaValue - left.card.manaValue || left.quantity - right.quantity)
+    .slice(0, 3)
+    .map((entry) => entry.card.name)
+}
+
+function findExcessLandCuts(mainboard: DeckCardEntry[]): string[] {
+  return mainboard
+    .filter((entry) => entry.card.typeLine.includes('Land') && !entry.card.typeLine.includes('Basic Land'))
+    .slice(0, 3)
+    .map((entry) => entry.card.name)
+}
+
+function joinCuts(cuts: string[], fallback = 'your weakest flex slots') {
+  return cuts.length > 0 ? cuts.join(', ') : fallback
 }
 
 function pushRecommendation(
@@ -20,6 +49,7 @@ export function getDeckRecommendations(
   format: DeckFormat,
   budgetTargetUsd: number | null,
   ratingDetails: DeckRatingDetails,
+  mainboard: DeckCardEntry[] = [],
 ): DeckRecommendation[] {
   const recommendations: RecommendationCandidate[] = []
   const formatConfig = DECK_FORMAT_CONFIG[format]
@@ -49,6 +79,13 @@ export function getDeckRecommendations(
       tone: 'warning',
       title: 'Trim back to the minimum size',
       description: `You are at ${profile.mainboardCount} cards. Cut ${profile.mainboardCount - formatConfig.recommendedMainboard} of the weakest or most situational cards so your best draws happen more often.`,
+      swaps: [
+        {
+          cut: joinCuts(findLowImpactCuts(mainboard)),
+          add: 'Open slots for your strongest game-plan cards',
+          reason: 'Trimming to the format minimum raises the average quality of every draw.',
+        },
+      ],
     })
   }
 
@@ -76,6 +113,13 @@ export function getDeckRecommendations(
       tone: 'warning',
       title: 'Add more mana sources',
       description: `You only have ${profile.landCount} lands. This curve wants about ${profile.expectedLandRange.min}-${profile.expectedLandRange.max}. Add lands or real ramp and cut some slower spells.`,
+      swaps: [
+        {
+          cut: joinCuts(findExpensiveCuts(mainboard, format)),
+          add: format === 'commander' ? 'Two-color lands or reliable ramp rocks' : 'Untapped lands that match your primary colors',
+          reason: 'Replacing clunky top-end with mana improves opening-hand keepability.',
+        },
+      ],
     })
   } else if (profile.landCount > profile.expectedLandRange.max) {
     pushRecommendation(recommendations, 82, {
@@ -83,6 +127,13 @@ export function getDeckRecommendations(
       tone: 'info',
       title: 'You can shave a few lands',
       description: `You are at ${profile.landCount} lands while this shell points closer to ${profile.expectedLandRange.min}-${profile.expectedLandRange.max}. Turn a couple of excess lands into threats, draw, or interaction.`,
+      swaps: [
+        {
+          cut: joinCuts(findExcessLandCuts(mainboard), 'excess lands above the target range'),
+          add: 'A cheap threat, draw spell, or removal spell',
+          reason: 'Once the mana count is high enough, every extra land should compete with action.',
+        },
+      ],
     })
   }
 
@@ -101,6 +152,13 @@ export function getDeckRecommendations(
       tone: 'warning',
       title: 'Rebalance the curve',
       description: `You have only ${profile.earlyPlayCount} cheap plays but ${profile.topEndCount} expensive spells. Shift 3-6 slots from the top end into one- and two-mana setup cards, threats, or interaction.`,
+      swaps: [
+        {
+          cut: joinCuts(findExpensiveCuts(mainboard, format)),
+          add: 'One- and two-mana setup cards that advance the deck plan',
+          reason: 'The fastest tuning gain is converting late-game clunk into early plays.',
+        },
+      ],
     })
   } else if (profile.earlyPlayCount < profile.expectedEarlyMin) {
     pushRecommendation(recommendations, 84, {
@@ -116,6 +174,13 @@ export function getDeckRecommendations(
       tone: 'info',
       title: 'Trim some expensive spells',
       description: `You are running ${profile.topEndCount} ${expensiveLabel} mana spells. Cut a few of the clunkiest ones until you are closer to ${profile.topEndLimit} so the deck stops stumbling in the opening turns.`,
+      swaps: [
+        {
+          cut: joinCuts(findExpensiveCuts(mainboard, format)),
+          add: 'Lower-curve threats or flexible answers',
+          reason: 'Top-end cards are strongest when the rest of the deck reliably reaches them.',
+        },
+      ],
     })
   }
 
@@ -125,6 +190,13 @@ export function getDeckRecommendations(
       tone: 'warning',
       title: 'Add more interaction',
       description: `You only have ${profile.interactionCount} answer cards. Most ${formatConfig.label} decks want at least ${profile.expectedInteractionRange.min} so they can stop opposing engines instead of goldfishing.`,
+      swaps: [
+        {
+          cut: joinCuts(findLowImpactCuts(mainboard)),
+          add: 'Efficient removal, counterspells, or flexible answers in your colors',
+          reason: 'Interaction should replace cards that do not affect contested board states.',
+        },
+      ],
     })
   }
 
@@ -134,6 +206,13 @@ export function getDeckRecommendations(
       tone: 'info',
       title: 'Add more draw or selection',
       description: `You are at ${profile.cardFlowCount} card-flow pieces. Push that closer to ${profile.expectedCardFlowRange.min}-${profile.expectedCardFlowRange.max} so the deck finds lands, threats, and sideboard cards more reliably.`,
+      swaps: [
+        {
+          cut: joinCuts(findLowImpactCuts(mainboard)),
+          add: 'Card draw, selection, or repeatable advantage engines',
+          reason: 'Replacing low-impact cards with card flow makes the deck recover from stalls.',
+        },
+      ],
     })
   }
 
@@ -146,6 +225,13 @@ export function getDeckRecommendations(
       tone: 'warning',
       title: 'Commander shells want more ramp',
       description: `You only have ${profile.rampCount} ramp pieces. Push toward ${profile.expectedRampRange.min}-${profile.expectedRampRange.max} with two-mana rocks, dorks, or land-ramp so the deck reaches its stronger turns on time.`,
+      swaps: [
+        {
+          cut: joinCuts(findExpensiveCuts(mainboard, format)),
+          add: 'Two-mana rocks, mana dorks, or land-ramp in commander colors',
+          reason: 'Commander decks usually get stronger by casting the same top-end earlier, not adding more top-end.',
+        },
+      ],
     })
   }
 

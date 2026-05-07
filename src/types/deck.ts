@@ -22,10 +22,23 @@ export interface DeckDraft {
   format: DeckFormat
   mainboard: DeckCardEntry[]
   sideboard: DeckCardEntry[]
+  commanderCardId: string | null
   notes: string
   matchupNotes: string
   budgetTargetUsd: number | null
   createdAt: string | null
+}
+
+export interface SavedDeckVersion {
+  id: string
+  label: string
+  createdAt: string
+  mainboard: DeckCardEntry[]
+  sideboard: DeckCardEntry[]
+  commanderCardId: string | null
+  notes: string
+  matchupNotes: string
+  budgetTargetUsd: number | null
 }
 
 export interface SavedDeck {
@@ -34,9 +47,11 @@ export interface SavedDeck {
   format: DeckFormat
   mainboard: DeckCardEntry[]
   sideboard: DeckCardEntry[]
+  commanderCardId: string | null
   notes: string
   matchupNotes: string
   budgetTargetUsd: number | null
+  versions: SavedDeckVersion[]
   createdAt: string
   updatedAt: string
 }
@@ -72,11 +87,18 @@ export interface DeckValidationIssue {
   description: string
 }
 
+export interface DeckSwapSuggestion {
+  cut: string
+  add: string
+  reason: string
+}
+
 export interface DeckRecommendation {
   id: string
   tone: 'success' | 'warning' | 'info'
   title: string
   description: string
+  swaps?: DeckSwapSuggestion[]
 }
 
 export interface DeckRatingFactor {

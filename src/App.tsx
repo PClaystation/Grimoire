@@ -12,11 +12,13 @@ import { DeckPanel } from '@/components/deck/DeckPanel'
 import { PlaytestModal } from '@/components/deck/PlaytestModal'
 import { FilterBar } from '@/components/filters/FilterBar'
 import { AppHeader } from '@/components/layout/AppHeader'
+import { SiteFooter } from '@/components/layout/SiteFooter'
 import { SiteNav } from '@/components/layout/SiteNav'
 import { DEFAULT_FILTERS, normalizeCardSearchFilters } from '@/constants/mtg'
 import { useDeckRepository } from '@/decks/useDeckRepository'
 import { useCardSearch } from '@/hooks/useCardSearch'
 import { useCardSets } from '@/hooks/useCardSets'
+import { useSeoMetadata } from '@/seo/useSeoMetadata'
 import { useAppSettings } from '@/settings/useAppSettings'
 import { useDeckBuilder } from '@/state/useDeckBuilder'
 import { useSavedDecks } from '@/state/useSavedDecks'
@@ -25,7 +27,16 @@ import type { MagicCard } from '@/types/scryfall'
 import { getDeckStats } from '@/utils/deckStats'
 import { formatDateTimeLabel } from '@/utils/format'
 
+const HOME_PAGE_DESCRIPTION =
+  'Build Magic: The Gathering decks with live Scryfall search, save decklists locally or in the cloud, compare shared lists, and jump into synchronized online tabletop play.'
+
 function App() {
+  useSeoMetadata({
+    title: 'MTG Deck Builder & Online Tabletop | Grimoire by Continental',
+    description: HOME_PAGE_DESCRIPTION,
+    canonicalPath: '/',
+  })
+
   const [draftFilters, setDraftFilters] = useState<CardSearchFilters>(() =>
     normalizeCardSearchFilters(DEFAULT_FILTERS),
   )
@@ -59,6 +70,8 @@ function App() {
     setDeckName,
     format,
     setDeckFormat,
+    commanderCardId,
+    setCommanderCardId,
     notes,
     setNotes,
     matchupNotes,
@@ -73,6 +86,7 @@ function App() {
     resetDeck,
     loadDeck,
     replaceDeck,
+    restoreVersion,
     syncSavedDeck,
     detachSavedDeck,
     undo,
@@ -98,7 +112,7 @@ function App() {
   } = useCardSearch(appliedFilters, sortBy, currentPage)
   const { sets, isLoading: areSetsLoading, error: setsError } = useCardSets()
 
-  const deckStats = getDeckStats(mainboard, sideboard, format, budgetTargetUsd)
+  const deckStats = getDeckStats(mainboard, sideboard, format, budgetTargetUsd, commanderCardId)
   const isCloudSyncEnabled = syncState.mode === 'cloud'
   const savedDecksSubtitleParts = [savedDecksPresentation.subtitle]
   if (isCloudSyncEnabled && lastSyncedAt) {
@@ -109,6 +123,21 @@ function App() {
   }
   const savedDecksSubtitle = savedDecksSubtitleParts.join(' ')
   const hasCurrentDeckCards = mainboard.length > 0 || sideboard.length > 0
+  const activeSavedDeck = activeDeckId
+    ? savedDecks.find((deck) => deck.id === activeDeckId) ?? null
+    : null
+
+  function handleRestoreVersion(versionId: string) {
+    const deck = activeSavedDeck
+    const version = deck?.versions.find((entry) => entry.id === versionId) ?? null
+
+    if (!deck || !version) {
+      return
+    }
+
+    restoreVersion(deck, version)
+    setStatusMessage(`Restored ${version.label}. Save to make it the current version.`)
+  }
 
   useSharedDeckQueryLoader({
     replaceDeck,
@@ -252,6 +281,7 @@ function App() {
             className="order-2 xl:order-2"
             deckName={deckName}
             format={format}
+            commanderCardId={commanderCardId}
             notes={notes}
             matchupNotes={matchupNotes}
             budgetTargetUsd={budgetTargetUsd}
@@ -259,6 +289,7 @@ function App() {
             sideboard={sideboard}
             stats={deckStats}
             activeDeckId={activeDeckId}
+            activeSavedDeck={activeSavedDeck}
             savedDecks={savedDecks}
             isSavedDecksLoading={isSavedDecksLoading}
             savedDecksLabel={savedDecksPresentation.badgeLabel}
@@ -269,6 +300,7 @@ function App() {
             canRedo={canRedo}
             onDeckNameChange={setDeckName}
             onFormatChange={handleDeckFormatChange}
+            onCommanderChange={setCommanderCardId}
             onNotesChange={setNotes}
             onMatchupNotesChange={setMatchupNotes}
             onBudgetTargetChange={handleBudgetTargetChange}
@@ -289,6 +321,7 @@ function App() {
             onMove={moveCard}
             onLoadDeck={handleLoadDeck}
             onDeleteSavedDeck={handleDeleteSavedDeck}
+            onRestoreVersion={handleRestoreVersion}
             publicDeckPageHref={hasCurrentDeckCards ? buildDeckViewHref(deckDraft) : null}
             buildSavedDeckViewHref={buildDeckViewHref}
             buildSavedDeckCompareHref={(savedDeck) =>
@@ -326,6 +359,8 @@ function App() {
             />
           )}
         </div>
+
+        <SiteFooter />
       </div>
 
       <CardDetailsModal

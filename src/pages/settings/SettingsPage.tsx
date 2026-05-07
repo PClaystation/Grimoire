@@ -14,8 +14,10 @@ import {
 import { Link } from 'react-router-dom'
 
 import { useAuth } from '@/auth/useAuth'
+import { SiteFooter } from '@/components/layout/SiteFooter'
 import { SiteNav } from '@/components/layout/SiteNav'
 import { CONTINENTAL_DASHBOARD_URL } from '@/constants/continental'
+import { SITE_NAME, useSeoMetadata } from '@/seo/useSeoMetadata'
 import {
   DEFAULT_APP_SETTINGS,
   type DashboardLinkTarget,
@@ -138,6 +140,14 @@ function SettingCard({ icon: Icon, title, description, children }: SettingCardPr
 }
 
 export function SettingsPage() {
+  useSeoMetadata({
+    title: `Settings | ${SITE_NAME}`,
+    description:
+      'Adjust local Grimoire preferences for startup behavior, account links, interface motion, and deckbuilder defaults.',
+    canonicalPath: '/settings',
+    robots: 'noindex,nofollow',
+  })
+
   const { settings, updateSettings, resetSettings } = useAppSettings()
   const { status, user, isBusy, signIn, signOut } = useAuth()
   const accountUser = status === 'authenticated' ? user : null
@@ -435,6 +445,8 @@ export function SettingsPage() {
             </section>
           </aside>
         </div>
+
+        <SiteFooter />
       </div>
     </div>
   )

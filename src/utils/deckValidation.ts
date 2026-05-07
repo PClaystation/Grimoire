@@ -10,12 +10,21 @@ function hasUnlimitedCopies(entry: DeckCardEntry): boolean {
   return entry.card.oracleText.includes('A deck can have any number of cards named')
 }
 
+function isLegendaryCreature(entry: DeckCardEntry): boolean {
+  return entry.card.typeLine.includes('Legendary') && entry.card.typeLine.includes('Creature')
+}
+
+function getCommanderEntry(mainboard: DeckCardEntry[], commanderCardId: string | null) {
+  return commanderCardId ? mainboard.find((entry) => entry.card.id === commanderCardId) ?? null : null
+}
+
 export function getDeckValidationIssues(
   mainboard: DeckCardEntry[],
   sideboard: DeckCardEntry[],
   format: DeckFormat,
   budgetTargetUsd: number | null,
   totalEstimatedValueUsd: number,
+  commanderCardId: string | null = null,
 ): DeckValidationIssue[] {
   const issues: DeckValidationIssue[] = []
   const mainboardCount = countDeckEntries(mainboard)
@@ -40,6 +49,43 @@ export function getDeckValidationIssues(
       title: `Mainboard below ${formatConfig.minMainboard} cards`,
       description: `${formatConfig.label} decks need at least ${formatConfig.minMainboard} mainboard cards. You currently have ${mainboardCount}.`,
     })
+  }
+
+  if (format === 'commander') {
+    const commanderEntry = getCommanderEntry(mainboard, commanderCardId)
+
+    if (!commanderEntry) {
+      issues.push({
+        id: 'commander-missing',
+        severity: 'error',
+        title: 'Choose a commander',
+        description: 'Commander decks need a selected legendary creature so color identity and the 99-card shell can be checked.',
+      })
+    } else {
+      if (!isLegendaryCreature(commanderEntry)) {
+        issues.push({
+          id: 'commander-type',
+          severity: 'warning',
+          title: 'Commander should be legendary creature',
+          description: `${commanderEntry.card.name} is selected as commander, but it is not a legendary creature.`,
+        })
+      }
+
+      const commanderIdentity = new Set(commanderEntry.card.colorIdentity)
+      const offIdentityCards = mainboard
+        .filter((entry) => entry.card.id !== commanderEntry.card.id)
+        .filter((entry) => entry.card.colorIdentity.some((color) => !commanderIdentity.has(color)))
+        .map((entry) => entry.card.name)
+
+      if (offIdentityCards.length > 0) {
+        issues.push({
+          id: 'commander-color-identity',
+          severity: 'error',
+          title: 'Cards outside commander color identity',
+          description: [...new Set(offIdentityCards)].slice(0, 4).join(', '),
+        })
+      }
+    }
   }
 
   if (format === 'commander' && mainboardCount > formatConfig.recommendedMainboard) {

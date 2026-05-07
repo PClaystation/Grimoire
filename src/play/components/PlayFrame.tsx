@@ -2,6 +2,7 @@ import { AlertTriangle } from 'lucide-react'
 import type { ReactNode } from 'react'
 
 import { ContinentalBranding } from '@/components/layout/ContinentalBranding'
+import { SiteFooter } from '@/components/layout/SiteFooter'
 import { SiteNav } from '@/components/layout/SiteNav'
 import type { ConnectionStatus } from '@/play/playContext'
 
@@ -109,6 +110,8 @@ export function PlayFrame({
         ) : null}
 
         {children}
+
+        <SiteFooter />
       </div>
     </div>
   )

@@ -1,4 +1,4 @@
-import type { DeckCardEntry, DeckDraft, SavedDeck } from '@/types/deck'
+import type { DeckCardEntry, DeckDraft, SavedDeck, SavedDeckVersion } from '@/types/deck'
 import type { MagicCard } from '@/types/scryfall'
 
 const LEGACY_STORAGE_KEY = 'grimoire.saved-decks.v1'
@@ -111,6 +111,37 @@ function normalizeDeckCardEntry(value: unknown): DeckCardEntry | null {
   }
 }
 
+
+function normalizeSavedDeckVersion(value: unknown): SavedDeckVersion | null {
+  if (!(isRecord(value) && typeof value.id === 'string' && typeof value.createdAt === 'string')) {
+    return null
+  }
+
+  const rawMainboard = Array.isArray(value.mainboard) ? value.mainboard : []
+  const rawSideboard = Array.isArray(value.sideboard) ? value.sideboard : []
+  const mainboard = rawMainboard
+    .map((entry) => normalizeDeckCardEntry(entry))
+    .filter((entry): entry is DeckCardEntry => entry !== null)
+  const sideboard = rawSideboard
+    .map((entry) => normalizeDeckCardEntry(entry))
+    .filter((entry): entry is DeckCardEntry => entry !== null)
+
+  return {
+    id: value.id,
+    label: typeof value.label === 'string' ? value.label : `Saved ${value.createdAt}`,
+    createdAt: value.createdAt,
+    mainboard,
+    sideboard,
+    commanderCardId: typeof value.commanderCardId === 'string' ? value.commanderCardId : null,
+    notes: typeof value.notes === 'string' ? value.notes : '',
+    matchupNotes: typeof value.matchupNotes === 'string' ? value.matchupNotes : '',
+    budgetTargetUsd:
+      isNullableNumber(value.budgetTargetUsd) && value.budgetTargetUsd !== undefined
+        ? value.budgetTargetUsd
+        : null,
+  }
+}
+
 function normalizeSavedDeck(value: unknown): SavedDeck | null {
   if (
     !(
@@ -151,12 +182,18 @@ function normalizeSavedDeck(value: unknown): SavedDeck | null {
     updatedAt: value.updatedAt,
     mainboard,
     sideboard,
+    commanderCardId: typeof value.commanderCardId === 'string' ? value.commanderCardId : null,
     notes: typeof value.notes === 'string' ? value.notes : '',
     matchupNotes: typeof value.matchupNotes === 'string' ? value.matchupNotes : '',
     budgetTargetUsd:
       isNullableNumber(value.budgetTargetUsd) && value.budgetTargetUsd !== undefined
         ? value.budgetTargetUsd
         : null,
+    versions: Array.isArray(value.versions)
+      ? value.versions
+          .map((version) => normalizeSavedDeckVersion(version))
+          .filter((version): version is SavedDeckVersion => version !== null)
+      : [],
   }
 }
 
@@ -326,9 +363,46 @@ export function persistPendingDeckImports(
   }
 }
 
+const DECK_VERSION_LIMIT = 20
+
+function buildDeckSnapshotSignature(deck: Pick<SavedDeck | DeckDraft | SavedDeckVersion, 'mainboard' | 'sideboard' | 'commanderCardId' | 'notes' | 'matchupNotes' | 'budgetTargetUsd'>) {
+  return JSON.stringify({
+    mainboard: deck.mainboard.map((entry) => ({ id: entry.card.id, quantity: entry.quantity })),
+    sideboard: deck.sideboard.map((entry) => ({ id: entry.card.id, quantity: entry.quantity })),
+    commanderCardId: deck.commanderCardId ?? null,
+    notes: deck.notes.trim(),
+    matchupNotes: deck.matchupNotes.trim(),
+    budgetTargetUsd: deck.budgetTargetUsd,
+  })
+}
+
+function createVersionFromSavedDeck(deck: SavedDeck): SavedDeckVersion {
+  return {
+    id: crypto.randomUUID(),
+    label: `Before ${new Date().toLocaleDateString(undefined, {
+      month: 'short',
+      day: 'numeric',
+      year: 'numeric',
+    })}`,
+    createdAt: deck.updatedAt,
+    mainboard: deck.mainboard,
+    sideboard: deck.sideboard,
+    commanderCardId: deck.commanderCardId ?? null,
+    notes: deck.notes,
+    matchupNotes: deck.matchupNotes,
+    budgetTargetUsd: deck.budgetTargetUsd,
+  }
+}
+
 export function buildSavedDeckFromDraft(draft: DeckDraft, currentDecks: SavedDeck[]) {
   const now = new Date().toISOString()
   const existingDeck = draft.id ? currentDecks.find((deck) => deck.id === draft.id) ?? null : null
+  const nextSnapshot = buildDeckSnapshotSignature(draft)
+  const existingSnapshot = existingDeck ? buildDeckSnapshotSignature(existingDeck) : null
+  const shouldVersionExistingDeck = existingDeck !== null && existingSnapshot !== nextSnapshot
+  const versions = shouldVersionExistingDeck
+    ? [createVersionFromSavedDeck(existingDeck), ...(existingDeck.versions ?? [])].slice(0, DECK_VERSION_LIMIT)
+    : (existingDeck?.versions ?? [])
 
   return {
     id: existingDeck?.id ?? crypto.randomUUID(),
@@ -336,9 +410,11 @@ export function buildSavedDeckFromDraft(draft: DeckDraft, currentDecks: SavedDec
     format: draft.format,
     mainboard: draft.mainboard,
     sideboard: draft.sideboard,
+    commanderCardId: draft.commanderCardId ?? null,
     notes: draft.notes.trim(),
     matchupNotes: draft.matchupNotes.trim(),
     budgetTargetUsd: draft.budgetTargetUsd,
+    versions,
     createdAt: existingDeck?.createdAt ?? draft.createdAt ?? now,
     updatedAt: now,
   } satisfies SavedDeck

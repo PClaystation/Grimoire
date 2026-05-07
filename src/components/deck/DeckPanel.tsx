@@ -31,6 +31,7 @@ interface DeckPanelProps {
   className?: string
   deckName: string
   format: DeckFormat
+  commanderCardId: string | null
   notes: string
   matchupNotes: string
   budgetTargetUsd: number | null
@@ -38,6 +39,7 @@ interface DeckPanelProps {
   sideboard: DeckCardEntry[]
   stats: DeckStatsShape
   activeDeckId: string | null
+  activeSavedDeck: SavedDeck | null
   savedDecks: SavedDeck[]
   isSavedDecksLoading: boolean
   savedDecksLabel: string
@@ -48,6 +50,7 @@ interface DeckPanelProps {
   canRedo: boolean
   onDeckNameChange: (name: string) => void
   onFormatChange: (format: DeckFormat) => void
+  onCommanderChange: (cardId: string | null) => void
   onNotesChange: (notes: string) => void
   onMatchupNotesChange: (notes: string) => void
   onBudgetTargetChange: (budgetTargetUsd: number | null) => void
@@ -68,6 +71,7 @@ interface DeckPanelProps {
   onMove: (cardId: string, from: DeckSection, to: DeckSection) => void
   onLoadDeck: (deckId: string) => void
   onDeleteSavedDeck: (deckId: string) => void
+  onRestoreVersion: (versionId: string) => void
   publicDeckPageHref: string | null
   buildSavedDeckViewHref: (deck: SavedDeck) => string
   buildSavedDeckCompareHref: (deck: SavedDeck) => string | null
@@ -227,6 +231,7 @@ export function DeckPanel({
   className,
   deckName,
   format,
+  commanderCardId,
   notes,
   matchupNotes,
   budgetTargetUsd,
@@ -234,6 +239,7 @@ export function DeckPanel({
   sideboard,
   stats,
   activeDeckId,
+  activeSavedDeck,
   savedDecks,
   isSavedDecksLoading,
   savedDecksLabel,
@@ -244,6 +250,7 @@ export function DeckPanel({
   canRedo,
   onDeckNameChange,
   onFormatChange,
+  onCommanderChange,
   onNotesChange,
   onMatchupNotesChange,
   onBudgetTargetChange,
@@ -264,6 +271,7 @@ export function DeckPanel({
   onMove,
   onLoadDeck,
   onDeleteSavedDeck,
+  onRestoreVersion,
   publicDeckPageHref,
   buildSavedDeckViewHref,
   buildSavedDeckCompareHref,
@@ -356,6 +364,42 @@ export function DeckPanel({
                 />
               </label>
 
+              {format === 'commander' ? (
+                <div className="rounded-[1.35rem] border border-amber-300/20 bg-amber-500/10 p-4">
+                  <div className="flex flex-wrap items-start justify-between gap-3">
+                    <div>
+                      <p className="text-xs font-semibold uppercase tracking-[0.18em] text-amber-200">
+                        Commander-first mode
+                      </p>
+                      <p className="mt-1 text-sm text-amber-50/80">
+                        Pick a commander from the mainboard to unlock color-identity checks and 99-card guidance.
+                      </p>
+                    </div>
+                    <span className="rounded-full border border-amber-300/20 bg-amber-300/10 px-3 py-1 text-xs font-semibold text-amber-100">
+                      99 + commander
+                    </span>
+                  </div>
+
+                  <label className="mt-4 block space-y-2">
+                    <span className="text-sm font-medium text-amber-50">Commander</span>
+                    <select
+                      value={commanderCardId ?? ''}
+                      onChange={(event) => onCommanderChange(event.target.value || null)}
+                      className="w-full rounded-2xl border border-amber-200/20 bg-ink-900/80 px-4 py-3 text-sm text-ink-50 outline-none transition focus:border-amber-300 focus:ring-2 focus:ring-amber-300/30"
+                    >
+                      <option value="">Choose a commander</option>
+                      {mainboard
+                        .filter((entry) => entry.card.typeLine.includes('Legendary'))
+                        .map((entry) => (
+                          <option key={entry.card.id} value={entry.card.id}>
+                            {entry.card.name} — {entry.card.colorIdentity.length > 0 ? entry.card.colorIdentity.join('') : 'Colorless'}
+                          </option>
+                        ))}
+                    </select>
+                  </label>
+                </div>
+              ) : null}
+
               <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
                 <button
                   type="button"
@@ -428,6 +472,44 @@ export function DeckPanel({
                 >
                   {statusMessage}
                 </p>
+              ) : null}
+
+              {activeSavedDeck?.versions.length ? (
+                <div className="rounded-[1.35rem] border border-white/10 bg-white/[0.04] p-4">
+                  <div className="flex flex-wrap items-start justify-between gap-3">
+                    <div>
+                      <p className="text-xs font-semibold uppercase tracking-[0.18em] text-ink-400">
+                        Version history
+                      </p>
+                      <p className="mt-1 text-sm text-ink-300">
+                        Restore earlier saved states, then save again if you want that version to become current.
+                      </p>
+                    </div>
+                    <span className="rounded-full border border-white/10 bg-white/5 px-3 py-1 text-xs font-semibold text-ink-300">
+                      {activeSavedDeck.versions.length} snapshots
+                    </span>
+                  </div>
+                  <div className="mt-4 grid gap-2">
+                    {activeSavedDeck.versions.slice(0, 5).map((version) => (
+                      <div
+                        key={version.id}
+                        className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-white/10 bg-ink-900/35 px-3 py-2.5"
+                      >
+                        <div>
+                          <p className="text-sm font-semibold text-ink-100">{version.label}</p>
+                          <p className="text-xs text-ink-400">{new Date(version.createdAt).toLocaleString()}</p>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => onRestoreVersion(version.id)}
+                          className="rounded-xl border border-tide-300/20 bg-tide-500/10 px-3 py-2 text-xs font-semibold text-tide-100 transition hover:border-tide-200/40 hover:bg-tide-500/20"
+                        >
+                          Restore
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                </div>
               ) : null}
 
               <div className="grid gap-4 md:grid-cols-2">

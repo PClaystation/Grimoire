@@ -5,9 +5,18 @@ import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import { PlayFrame } from '@/play/components/PlayFrame'
 import { PublicRoomDirectory } from '@/play/components/PublicRoomDirectory'
 import { usePlay } from '@/play/usePlay'
+import { SITE_NAME, useSeoMetadata } from '@/seo/useSeoMetadata'
 import { PLAYER_NAME_MAX_LENGTH, ROOM_CODE_LENGTH, normalizeRoomCode } from '@/shared/play'
 
 export function PlayJoinPage() {
+  useSeoMetadata({
+    title: `Join MTG Play Room | ${SITE_NAME}`,
+    description:
+      'Join Grimoire multiplayer rooms by code, browse public Magic: The Gathering tables, or spectate live games from the shared lobby directory.',
+    canonicalPath: '/play/join',
+    robots: 'noindex,follow',
+  })
+
   const navigate = useNavigate()
   const [searchParams] = useSearchParams()
   const {

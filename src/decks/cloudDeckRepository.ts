@@ -118,8 +118,17 @@ function buildCloudSyncState(
   }
 }
 
+
+function normalizeDeckMetadata(deck: SavedDeck): SavedDeck {
+  return {
+    ...deck,
+    commanderCardId: typeof deck.commanderCardId === 'string' ? deck.commanderCardId : null,
+    versions: Array.isArray(deck.versions) ? deck.versions : [],
+  }
+}
+
 function resolveDeckList(payload: { decks?: SavedDeck[] }) {
-  return Array.isArray(payload.decks) ? sortSavedDecks(payload.decks) : []
+  return Array.isArray(payload.decks) ? sortSavedDecks(payload.decks.map((deck) => normalizeDeckMetadata(deck))) : []
 }
 
 function removeDeckIds(decks: SavedDeck[], deckIds: string[]) {
@@ -277,7 +286,7 @@ export function createCloudDeckRepository(options: {
         },
       )
 
-      const savedDeck = response.deck ?? nextSavedDeck
+      const savedDeck = normalizeDeckMetadata(response.deck ?? nextSavedDeck)
       const cloudDecks = upsertSavedDeck(savedDeck, readCloudCachedDecks(continentalId))
       const syncedAt = normalizeSyncedAt(response.syncedAt)
 

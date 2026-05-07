@@ -54,6 +54,20 @@ export function DeckRecommendationsList({
               <div>
                 <p className="text-sm font-semibold">{recommendation.title}</p>
                 <p className="mt-1 text-sm opacity-80">{recommendation.description}</p>
+                {recommendation.swaps && recommendation.swaps.length > 0 ? (
+                  <div className="mt-3 space-y-2">
+                    {recommendation.swaps.map((swap, index) => (
+                      <div
+                        key={`${recommendation.id}-swap-${index}`}
+                        className="rounded-2xl border border-white/10 bg-ink-950/20 p-3 text-xs leading-5 text-ink-100"
+                      >
+                        <p><span className="font-semibold text-rose-100">Cut:</span> {swap.cut}</p>
+                        <p><span className="font-semibold text-emerald-100">Add:</span> {swap.add}</p>
+                        <p className="mt-1 text-ink-300">{swap.reason}</p>
+                      </div>
+                    ))}
+                  </div>
+                ) : null}
               </div>
             </div>
           </div>

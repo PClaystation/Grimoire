@@ -13,6 +13,7 @@ export interface PortableDeckPayload {
   notes: string
   matchupNotes: string
   budgetTargetUsd: number | null
+  commanderCardId?: string | null
   mainboard: PortableDeckEntry[]
   sideboard: PortableDeckEntry[]
 }
@@ -120,6 +121,7 @@ export function buildPortableDeckPayload(deck: DeckDraft | SavedDeck): PortableD
     notes: deck.notes,
     matchupNotes: deck.matchupNotes,
     budgetTargetUsd: deck.budgetTargetUsd,
+    commanderCardId: deck.commanderCardId ?? null,
     mainboard: toPortableEntries(deck.mainboard),
     sideboard: toPortableEntries(deck.sideboard),
   }

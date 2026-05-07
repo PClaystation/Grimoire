@@ -10,9 +10,18 @@ import {
   draftToRoomSettingsInput,
 } from '@/play/roomSettings'
 import { usePlay } from '@/play/usePlay'
+import { SITE_NAME, useSeoMetadata } from '@/seo/useSeoMetadata'
 import { buildDefaultRoomName, PLAYER_NAME_MAX_LENGTH } from '@/shared/play'
 
 export function PlayCreatePage() {
+  useSeoMetadata({
+    title: `Create Play Room | ${SITE_NAME}`,
+    description:
+      'Create a Grimoire multiplayer room, choose table settings, and save reusable pod presets for future Magic: The Gathering sessions.',
+    canonicalPath: '/play/create',
+    robots: 'noindex,follow',
+  })
+
   const navigate = useNavigate()
   const {
     connectionStatus,

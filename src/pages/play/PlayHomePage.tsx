@@ -14,9 +14,17 @@ import { PlayFrame } from '@/play/components/PlayFrame'
 import { PublicRoomDirectory } from '@/play/components/PublicRoomDirectory'
 import { usePlayRecaps } from '@/play/usePlayRecaps'
 import { usePlay } from '@/play/usePlay'
+import { SITE_NAME, useSeoMetadata } from '@/seo/useSeoMetadata'
 import { formatDateTimeLabel } from '@/utils/format'
 
 export function PlayHomePage() {
+  useSeoMetadata({
+    title: `Online MTG Tabletop Rooms | ${SITE_NAME}`,
+    description:
+      'Create shared Magic: The Gathering tabletop rooms, browse public tables, spectate live games, and keep public zones synchronized in real time.',
+    canonicalPath: '/play',
+  })
+
   const navigate = useNavigate()
   const recaps = usePlayRecaps()
   const {

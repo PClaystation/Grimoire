@@ -4,7 +4,9 @@ import { useSearchParams } from 'react-router-dom'
 
 import { DeckReadOnlyList } from '@/components/deck/DeckReadOnlyList'
 import { DeckStats } from '@/components/deck/DeckStats'
+import { SiteFooter } from '@/components/layout/SiteFooter'
 import { SiteNav } from '@/components/layout/SiteNav'
+import { SITE_NAME, useSeoMetadata } from '@/seo/useSeoMetadata'
 import { buildAppRouteUrl } from '@/utils/appRouteUrl'
 import { copyTextToClipboard } from '@/utils/clipboard'
 import { getDeckStats } from '@/utils/deckStats'
@@ -12,6 +14,18 @@ import { resolveSharedDeckParam } from '@/utils/sharedDeckRoute'
 import { decodeDeckSharePayload } from '@/utils/share'
 
 type ResolvedSharedDeck = Awaited<ReturnType<typeof resolveSharedDeckParam>>
+
+function summarizeDeckText(value: string) {
+  const normalizedValue = value.replace(/\s+/g, ' ').trim()
+
+  if (!normalizedValue) {
+    return null
+  }
+
+  return normalizedValue.length > 160
+    ? `${normalizedValue.slice(0, 157).trimEnd()}...`
+    : normalizedValue
+}
 
 export function DeckPublicPage() {
   const [searchParams] = useSearchParams()
@@ -78,6 +92,43 @@ export function DeckPublicPage() {
         deckDraft.budgetTargetUsd,
       )
     : null
+  const pageTitle = deckDraft
+    ? `${deckDraft.name} ${deckDraft.format} Deck List | ${SITE_NAME}`
+    : `Shared MTG Deck List | ${SITE_NAME}`
+  const pageDescription = deckDraft
+    ? `${deckDraft.format} MTG deck with ${stats?.mainboard.totalCards ?? deckDraft.mainboard.length} mainboard cards and ${stats?.sideboard.totalCards ?? deckDraft.sideboard.length} sideboard cards.${summarizeDeckText(deckDraft.notes) ? ` ${summarizeDeckText(deckDraft.notes)}` : summarizeDeckText(deckDraft.matchupNotes) ? ` ${summarizeDeckText(deckDraft.matchupNotes)}` : ''}`
+    : 'Open shared Magic: The Gathering deck pages with full card counts, deck stats, notes, and one-click builder import links.'
+
+  useSeoMetadata({
+    title: pageTitle,
+    description: pageDescription,
+    robots: deckDraft ? 'index,follow,max-image-preview:large' : 'noindex,nofollow',
+    structuredData: deckDraft
+      ? {
+          '@context': 'https://schema.org',
+          '@type': 'CollectionPage',
+          name: `${deckDraft.name} deck list`,
+          description: pageDescription,
+          url: window.location.href,
+          inLanguage: 'en',
+          isPartOf: {
+            '@type': 'WebSite',
+            name: SITE_NAME,
+            url: buildAppRouteUrl('/'),
+          },
+          about: [
+            {
+              '@type': 'Thing',
+              name: 'Magic: The Gathering',
+            },
+            {
+              '@type': 'Thing',
+              name: `${deckDraft.format} format`,
+            },
+          ],
+        }
+      : undefined,
+  })
 
   async function copyCurrentPageLink() {
     try {
@@ -217,6 +268,8 @@ export function DeckPublicPage() {
             </div>
           </>
         ) : null}
+
+        <SiteFooter />
       </div>
     </div>
   )

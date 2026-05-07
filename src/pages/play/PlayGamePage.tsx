@@ -55,6 +55,7 @@ import {
 } from '@/pages/play/game/playGameShared'
 import { PlayFrame } from '@/play/components/PlayFrame'
 import { usePlay } from '@/play/usePlay'
+import { SITE_NAME, useSeoMetadata } from '@/seo/useSeoMetadata'
 import type {
   BattlefieldPermanentSnapshot,
   ClientGameAction,
@@ -81,6 +82,19 @@ export function PlayGamePage() {
     sendRoomChat,
     sendGameAction,
   } = usePlay()
+  const pageTitle = room
+    ? `${room.settings.name} Game | ${SITE_NAME}`
+    : `Live MTG Game | ${SITE_NAME}`
+  const pageDescription = room
+    ? `Live Grimoire game table for room ${room.code} with private hands and synchronized public zones.`
+    : 'Private live game table for synchronized Grimoire multiplayer sessions.'
+
+  useSeoMetadata({
+    title: pageTitle,
+    description: pageDescription,
+    robots: 'noindex,nofollow',
+  })
+
   const [selectedCard, setSelectedCard] = useState<TableSelection | null>(null)
   const [focusedPlayerId, setFocusedPlayerId] = useState<string | null>(null)
   const [activeZone, setActiveZone] = useState<BrowseableZone>('graveyard')

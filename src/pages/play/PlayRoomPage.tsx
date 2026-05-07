@@ -31,6 +31,7 @@ import {
   type RoomSettings,
   type RoomSnapshot,
 } from '@/shared/play'
+import { SITE_NAME, useSeoMetadata } from '@/seo/useSeoMetadata'
 import { useSavedDecks } from '@/state/useSavedDecks'
 import { copyTextToClipboard } from '@/utils/clipboard'
 
@@ -58,6 +59,16 @@ export function PlayRoomPage() {
   } = usePlay()
   const roomSettingsSignature = room ? JSON.stringify(room.settings) : ''
   const isDebugRoom = room?.debugMode ?? false
+  const pageTitle = room ? `${room.settings.name} Lobby | ${SITE_NAME}` : `Play Room Lobby | ${SITE_NAME}`
+  const pageDescription = room
+    ? `${room.settings.visibility === 'public' ? 'Public' : 'Private'} Grimoire room ${room.code} for ${room.settings.format} Magic: The Gathering play.`
+    : 'Private multiplayer room lobby for Grimoire online tabletop sessions.'
+
+  useSeoMetadata({
+    title: pageTitle,
+    description: pageDescription,
+    robots: 'noindex,nofollow',
+  })
 
   useEffect(() => {
     if (game && game.roomId === roomId) {

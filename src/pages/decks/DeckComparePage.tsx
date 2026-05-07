@@ -4,11 +4,14 @@ import { useSearchParams } from 'react-router-dom'
 
 import { DeckReadOnlyList } from '@/components/deck/DeckReadOnlyList'
 import { DeckStats } from '@/components/deck/DeckStats'
+import { SiteFooter } from '@/components/layout/SiteFooter'
 import { SiteNav } from '@/components/layout/SiteNav'
+import { SITE_NAME, useSeoMetadata } from '@/seo/useSeoMetadata'
 import { copyTextToClipboard } from '@/utils/clipboard'
 import { buildDeckComparisonSummary } from '@/utils/deckCompare'
 import { getDeckStats } from '@/utils/deckStats'
 import { resolveSharedDeckParam } from '@/utils/sharedDeckRoute'
+import { buildAppRouteUrl } from '@/utils/appRouteUrl'
 
 type ResolvedSharedDeck = Awaited<ReturnType<typeof resolveSharedDeckParam>>
 
@@ -124,6 +127,51 @@ export function DeckComparePage() {
     () => (leftDraft && rightDraft ? buildDeckComparisonSummary(leftDraft, rightDraft) : null),
     [leftDraft, rightDraft],
   )
+  const pageTitle =
+    leftDraft && rightDraft
+      ? `${leftDraft.name} vs ${rightDraft.name} Deck Comparison | ${SITE_NAME}`
+      : `MTG Deck Comparison | ${SITE_NAME}`
+  const pageDescription =
+    leftDraft && rightDraft
+      ? `Compare ${leftDraft.name} and ${rightDraft.name} with mainboard quantity changes, exclusive cards, and live deck stats for both Magic: The Gathering lists.`
+      : 'Compare two shared Magic: The Gathering decklists side by side with card diffs and deck stats.'
+
+  useSeoMetadata({
+    title: pageTitle,
+    description: pageDescription,
+    robots:
+      leftDraft && rightDraft ? 'index,follow,max-image-preview:large' : 'noindex,nofollow',
+    structuredData:
+      leftDraft && rightDraft
+        ? {
+            '@context': 'https://schema.org',
+            '@type': 'CollectionPage',
+            name: `${leftDraft.name} vs ${rightDraft.name} deck comparison`,
+            description: pageDescription,
+            url: window.location.href,
+            inLanguage: 'en',
+            isPartOf: {
+              '@type': 'WebSite',
+              name: SITE_NAME,
+              url: buildAppRouteUrl('/'),
+            },
+            about: [
+              {
+                '@type': 'Thing',
+                name: 'Magic: The Gathering',
+              },
+              {
+                '@type': 'Thing',
+                name: leftDraft.format,
+              },
+              {
+                '@type': 'Thing',
+                name: rightDraft.format,
+              },
+            ],
+          }
+        : undefined,
+  })
 
   async function copyCompareLink() {
     try {
@@ -224,6 +272,8 @@ export function DeckComparePage() {
             </div>
           </>
         ) : null}
+
+        <SiteFooter />
       </div>
     </div>
   )
