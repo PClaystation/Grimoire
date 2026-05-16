@@ -187,7 +187,7 @@
         return 'http://localhost:5000';
       }
 
-      return window.location.origin;
+      return 'https://auth.continental-hub.com';
     };
 
     const API_BASE_URL = trimTrailingSlash(
@@ -283,6 +283,10 @@
         window.opener.postMessage(
           {
             type: 'LOGIN_SUCCESS',
+            accessToken: String(payload?.accessToken || payload?.token || '').trim(),
+            token: String(payload?.accessToken || payload?.token || '').trim(),
+            user: payload?.user || null,
+            apiBaseUrl: API_BASE_URL,
           },
           targetOrigin
         );

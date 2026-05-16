@@ -20,7 +20,11 @@ export function getDefaultApiBaseUrl() {
     return ''
   }
 
-  return runtimeWindow.location.origin
+  if (LOCAL_HOSTS.has(runtimeWindow.location.hostname)) {
+    return runtimeWindow.location.origin
+  }
+
+  return 'https://auth.continental-hub.com'
 }
 
 export function getDefaultLoginPopupUrl() {
